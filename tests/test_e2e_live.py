@@ -259,6 +259,39 @@ class TestClassificacaoLLM(unittest.TestCase):
         self.assertFalse(e2e.Harness._culpa_do_llm(""))
         self.assertFalse(e2e.Harness._culpa_do_llm("O cargo 'x' está acima do meu cargo mais alto."))
 
+    def test_llm_nao_chamou_distingue_modelo_de_bot(self) -> None:
+        registro = [
+            {"ferramentas_chamadas": ["list_roles"], "chars": 40, "vencedor": "ovh"},
+            {"ferramentas_chamadas": [], "chars": 12, "vencedor": "pollinations"},
+        ]
+        self.assertTrue(e2e.Harness.llm_nao_chamou(registro, "delete_channels"))
+        self.assertFalse(e2e.Harness.llm_nao_chamou(registro, "list_roles"))
+        self.assertTrue(e2e.Harness.llm_nao_chamou([], "delete_channels"))
+
+    def test_registro_do_llm_anota_as_chamadas(self) -> None:
+        import asyncio
+
+        from llm.base import LLMResponse, ToolCall
+
+        class Fake:
+            last_winner = "llm7"
+
+            async def chat(self, messages, tools=None, timeout=60.0, max_tokens=1024):
+                return LLMResponse(content="ok", tool_calls=[ToolCall(id="1", name="create_channels", args={})])
+
+            def describe(self):
+                return "fake"
+
+            async def close(self):
+                return None
+
+        registro: list[dict] = []
+        espiao = e2e.LLMRegistro(Fake(), registro)
+        asyncio.run(espiao.chat([{"role": "user", "content": "oi"}]))
+        self.assertEqual(registro[0]["ferramentas_chamadas"], ["create_channels"])
+        self.assertEqual(registro[0]["vencedor"], "llm7")
+        self.assertEqual(espiao.describe(), "fake")
+
     def test_degradar_llm_vira_warn_no_relatorio(self) -> None:
         rep = e2e.Reporter(["mutate"])
         h = object.__new__(e2e.Harness)

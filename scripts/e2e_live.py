@@ -443,6 +443,34 @@ class LiveEnv:
     actor: Any = None
 
 
+class LLMRegistro:
+    """
+    Envolve o provedor de LLM para o relatório saber se o modelo chegou a PEDIR a ferramenta.
+
+    Sem isso o harness confunde "modelo gratuito respondeu um resumo vago" com "o bot não obedeceu".
+    """
+
+    def __init__(self, wrapped: Any, registro: list[dict[str, Any]]) -> None:
+        self.wrapped = wrapped
+        self.registro = registro
+
+    async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
+                   timeout: float = 60.0, max_tokens: int = 1024) -> Any:
+        resp = await self.wrapped.chat(messages=messages, tools=tools, timeout=timeout, max_tokens=max_tokens)
+        self.registro.append({
+            "ferramentas_chamadas": [c.name for c in getattr(resp, "tool_calls", [])],
+            "chars": len(resp.content or ""),
+            "vencedor": getattr(self.wrapped, "last_winner", ""),
+        })
+        return resp
+
+    def describe(self) -> str:
+        return self.wrapped.describe()
+
+    async def close(self) -> None:
+        await self.wrapped.close()
+
+
 # ----------------------------------------------------------------------- harness
 
 
@@ -502,6 +530,12 @@ class Harness:
         if "nenhum dos" in baixo and "provedores" in baixo:
             return True
         return "rate limit" in baixo or "429" in baixo
+
+    @staticmethod
+    def llm_nao_chamou(registro: list[dict[str, Any]], ferramenta: str) -> bool:
+        """True quando o modelo NUNCA pediu aquela ferramenta (culpa do modelo, não do bot)."""
+        chamadas = [n for r in registro for n in r.get("ferramentas_chamadas", [])]
+        return ferramenta not in chamadas
 
     def degradar_llm(self, phase: str, nome: str, esperado: str, resposta: str) -> str:
         """Registra WARN (não FAIL) quando o motivo é o LLM gratuito, mantendo a resposta crua."""
@@ -1551,7 +1585,11 @@ class Harness:
             resposta = await perguntar("Liste os nomes dos cargos que existem neste servidor.", canal_novo())
             self.assert_true(bool(resposta.strip()), "agente devolveu resposta vazia")
             chamadas_feitas = [n for c in chamadas for n in c["ferramentas_chamadas"]]
-            self.assert_true(bool(chamadas_feitas), f"o LLM não chamou nenhuma ferramenta (rodadas: {chamadas})")
+            if not chamadas_feitas:
+                # as 27 ferramentas foram oferecidas e o bot repassou tudo; quem não chamou foi o modelo
+                return (self.degradar_llm(phase, "prompt → ferramenta → resposta coerente",
+                                          f"o LLM não chamou nenhuma ferramenta (rodadas: {chamadas})", resposta),
+                        {"ferramentas": []})
             reais = [r.name for r in guild.roles if r.name in resposta or f"<@&{r.id}>" in resposta]
             if not reais:
                 # as ferramentas rodaram (o pipeline do bot está ok); o texto veio vago do provedor
@@ -1693,6 +1731,8 @@ class Harness:
             return
 
         guild = live.primary
+        registro_llm: list[dict[str, Any]] = []
+        live.agent.llm = LLMRegistro(live.agent.llm, registro_llm)
         cat_nome, txt_nome, voz_nome = f"{TEMP_MARK} teste-farol", f"{TEMP_MARK}-texto", f"{TEMP_MARK}-voz"
         holder: dict[str, Any] = {}
 
@@ -1915,12 +1955,14 @@ class Harness:
             novos = await self._capture_new(guild, antes_efemero)
             alvo = next((c for c in novos if c.type.name == "text"), None)
             self.assert_true(alvo is not None, "não consegui criar o canal efêmero do teste do agente")
+            registro_llm.clear()
             resposta = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
                                                      prompt=f"Apague o canal {TEMP_MARK}-efemero agora.")
             existe = any(c.id == alvo.id for c in await guild.fetch_channels())
-            if existe and self._culpa_do_llm(resposta):
+            if existe and (self._culpa_do_llm(resposta)
+                           or self.llm_nao_chamou(registro_llm, "delete_channels")):
                 return self.degradar_llm(phase, "agente apaga canal nominal sem travar",
-                                         "o agente não apagou o canal efêmero", resposta)
+                                         "o agente não pediu a exclusão do canal efêmero", resposta)
             self.assert_true(not existe, f"o agente não apagou um canal nominal único: {resposta[:150]!r}")
             self.owned_channels.discard(alvo.id)
             return f"agente apagou o canal nominal direto: {resposta[:80]!r}"
@@ -1935,18 +1977,24 @@ class Harness:
             novos = await self._capture_new(guild, antes_lote)
             ids = {c.id for c in novos}
             self.assert_true(len(ids) == 2, "não consegui criar os 2 canais do lote")
+            registro_llm.clear()
             resposta = await live.agent.process_turn(
                 guild=guild, channel=ctx.channel, actor=live.actor,
                 prompt=f"Apague os canais {TEMP_MARK}-lote-1 e {TEMP_MARK}-lote-2 de uma vez.")
             vivos = [c for c in await guild.fetch_channels() if c.id in ids]
             self.assert_true(len(vivos) == 2,
                              f"o agente apagou 2 canais SEM pedir confirmação: {resposta[:150]!r}")
+            if self.llm_nao_chamou(registro_llm, "delete_channels"):
+                return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
+                                         "o modelo nem tentou excluir os 2 canais", resposta)
             self.assert_true(any(t in resposta.lower() for t in ("confirm", "posso", "certeza", "apagar")),
                              f"o agente não pediu confirmação no texto: {resposta[:150]!r}")
+            registro_llm.clear()
             resposta2 = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
                                                       prompt="sim, pode apagar")
             restantes = [c for c in await guild.fetch_channels() if c.id in ids]
-            if restantes and (self._culpa_do_llm(resposta2) or self._culpa_do_llm(resposta)):
+            if restantes and (self._culpa_do_llm(resposta2) or self._culpa_do_llm(resposta)
+                              or self.llm_nao_chamou(registro_llm, "delete_channels")):
                 return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
                                          "não apagou depois do 'sim'", resposta2)
             self.assert_true(not restantes, f"não apagou depois do 'sim': {resposta2[:150]!r}")
@@ -2009,6 +2057,8 @@ class Harness:
             return
 
         guild = live.primary
+        registro_llm: list[dict[str, Any]] = []
+        live.agent.llm = LLMRegistro(live.agent.llm, registro_llm)
         bot = FarolBot(config=live.config, agent=live.agent)
         connect_task = None
         canal = None
@@ -2152,6 +2202,7 @@ class Harness:
                 msg = FakeMessage(canal, live.actor,
                                   f"<@{bot.user.id}> diga em uma linha o nome deste servidor", mentions=[bot.user])
                 chamadas.clear()
+                registro_llm.clear()
                 done.clear()
                 await bot.on_message(msg)
                 await asyncio.wait_for(done.wait(), timeout=self.args.llm_timeout * 3)
@@ -2184,7 +2235,8 @@ class Harness:
                 await bot.on_message(msg)
                 await asyncio.wait_for(done.wait(), timeout=self.args.llm_timeout * 3)
                 novos = await self._capture_new(guild, antes_msg)
-                if not novos and self._culpa_do_llm(" ".join(msg.replies)):
+                if not novos and (self._culpa_do_llm(" ".join(msg.replies))
+                                  or self.llm_nao_chamou(registro_llm, "create_channels")):
                     return self.degradar_llm(phase, "ferramenta real acionada por mensagem",
                                              "o bot não criou o canal", " ".join(msg.replies))
                 self.assert_true(bool(novos), f"o bot não criou o canal (resposta: {msg.replies[-1:]})")
