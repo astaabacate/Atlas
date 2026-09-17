@@ -1,0 +1,163 @@
+name: E2E ao vivo do Farol
+
+# Testa o bot de verdade: conecta com o DISCORD_TOKEN, audita o servidor, roda as
+# ferramentas, aciona o Agente com a corrida de LLMs real e (quando autorizado) cria e
+# apaga objetos de teste com limpeza garantida.
+#
+# O relatório completo é publicado no próprio branch da sessão
+# (reports/e2e-latest.json e reports/e2e-latest.md) e resumido em anotações de check-run.
+#
+# Mutações reais só rodam com a variável de repositório E2E_MUTATIONS=true
+# (Settings → Secrets and variables → Actions → Variables) ou pelo disparo manual.
+
+on:
+  push:
+    branches: ["arena/01a0b13c-atlas"]
+    paths:
+      - "scripts/e2e_live.py"
+      - ".github/workflows/e2e.yml"
+      - "brain/**"
+      - "core/**"
+      - "llm/**"
+      - "apis/**"
+      - "config.py"
+      - "main.py"
+      - "requirements.txt"
+  workflow_dispatch:
+    inputs:
+      mutate:
+        description: "Autorizar mutações reais (cria e apaga objetos de teste)?"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write        # publicar o relatório no branch
+  pull-requests: write   # comentar o relatório na PR aberta
+  actions: read
+
+concurrency:
+  group: e2e-live
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONUNBUFFERED: "1"
+      DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+      # mesma configuração do bot 24/7 (para o teste refletir a produção)
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'auto' }}
+      LLM_MODEL: ${{ vars.LLM_MODEL || '' }}
+      LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
+      LLM_MODELS: ${{ vars.LLM_MODELS || '' }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY || '' }}
+      DISABLE_FREE_LLMS: ${{ vars.DISABLE_FREE_LLMS || 'false' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || '' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || '' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || '' }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || '' }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || '' }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY || '' }}
+      CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY || '' }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY || '' }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY || '' }}
+      LLM7_API_KEY: ${{ secrets.LLM7_API_KEY || '' }}
+      POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN || '' }}
+      LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '60' }}
+      MAX_TOOL_ROUNDS: ${{ vars.MAX_TOOL_ROUNDS || '3' }}
+      HISTORY_LEN: ${{ vars.HISTORY_LEN || '10' }}
+      API_TIMEOUT: ${{ vars.API_TIMEOUT || '10' }}
+      LOG_LEVEL: "WARNING"
+      ALLOWED_CHANNEL_IDS: ${{ vars.ALLOWED_CHANNEL_IDS || '' }}
+      MEMBERS_INTENT: ${{ vars.MEMBERS_INTENT || 'false' }}
+      MESSAGE_CONTENT_INTENT: ${{ vars.MESSAGE_CONTENT_INTENT || 'false' }}
+      E2E_GUILD_ID: ${{ vars.E2E_GUILD_ID || '' }}
+      E2E_MUTATIONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.mutate) && 'true' || vars.E2E_MUTATIONS || 'false' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: "Fase 1 — offline: schemas, duplos de teste e política"
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases static,spy,policy --outdir reports/parts --tag 1-offline
+
+      - name: "Fase 2 — conexão real e diagnóstico do servidor"
+        if: always()
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases connect,audit --outdir reports/parts --tag 2-conexao
+
+      - name: "Fase 3 — ferramentas somente-leitura no servidor real"
+        if: always()
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases tools --outdir reports/parts --tag 3-ferramentas
+
+      - name: "Fase 4 — Agente + corrida de LLMs ao vivo"
+        if: always()
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases agent --outdir reports/parts --tag 4-agente
+
+      - name: "Fase 5 — mutações reais em objetos de teste (criar/editar/apagar)"
+        if: always() && env.E2E_MUTATIONS == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases mutate --mutate --outdir reports/parts --tag 5-mutacoes
+
+      - name: "Fase 6 — loop real do core.bot (on_message → resposta)"
+        if: always() && env.E2E_MUTATIONS == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases botloop --mutate --outdir reports/parts --tag 6-loop
+
+      - name: "Fase 7 — varredura de sobras de teste"
+        if: always() && env.E2E_MUTATIONS == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases sweep --mutate --outdir reports/parts --tag 7-varredura
+
+      - name: Consolidar relatório e publicar no branch
+        if: always()
+        run: |
+          set -uo pipefail
+          mkdir -p reports
+          python scripts/e2e_live.py --merge reports/parts --outdir reports \
+            --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          MERGE_STATUS=$?
+
+          echo "=== resumo ==="
+          head -12 reports/e2e-latest.md || true
+
+          publicar() {
+            local caminho="$1" mensagem="$2"
+            local conteudo sha
+            conteudo=$(base64 -w0 "$caminho")
+            sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+            if [ -n "$sha" ]; then
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+                || echo "aviso: não consegui atualizar ${caminho}"
+            else
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+                || echo "aviso: não consegui criar ${caminho}"
+            fi
+          }
+
+          publicar "reports/e2e-latest.json" "chore(e2e): relatório JSON da execução ${GITHUB_RUN_ID} [skip ci]"
+          publicar "reports/e2e-latest.md" "chore(e2e): relatório da execução ${GITHUB_RUN_ID} [skip ci]"
+
+          PR=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$PR" ]; then
+            { echo "## E2E ao vivo — execução ${GITHUB_RUN_ID}"; echo; cat reports/e2e-latest.md; } > /tmp/comentario.md
+            gh pr comment "$PR" --body-file /tmp/comentario.md >/dev/null || echo "aviso: não consegui comentar na PR"
+          fi
+
+          exit $MERGE_STATUS
