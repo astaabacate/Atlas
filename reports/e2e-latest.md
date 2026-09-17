@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 72 · ❌ 5 · ⚠️ 1 · ⏭️ 1
+- **Resumo:** ✅ 73 · ❌ 5 · ⚠️ 2 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 4230914
-- **execução:** 35279295683
+- **commit:** b1e7ad5
+- **execução:** 35280087191
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -22,10 +22,10 @@
 | PASS | `toda ferramenta tem política` | as 27 ferramentas têm política declarada |
 | PASS | `qualidade dos schemas enviados ao LLM` | descrições e schemas bem formados para function calling |
 | PASS | `prompt de sistema completo` | prompt com os 5 blocos obrigatórios |
-| PASS | `tamanho do payload enviado ao LLM` | schema com 11386 chars + prompt de 1585 chars |
+| PASS | `tamanho do payload enviado ao LLM` | schema com 11386 chars + prompt de 1738 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
-`spy` — ✅ 17 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`spy` — ✅ 18 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
@@ -46,6 +46,7 @@
 | PASS | `permissões: set/clear/sync tocam a API` | set/clear/sync chamaram a API e show leu as permissões |
 | PASS | `somente-leitura não muta nada` | 8 ferramentas de leitura rodaram sem mutar nada |
 | PASS | `conversation_clear limpa a memória` | histórico do canal apagado de verdade |
+| PASS | `agente não se auto-confirma (offline)` | sem confirmação do usuário nada é apagado; com o 'sim', apaga |
 
 ## Política de permissões e confirmação destrutiva
 `policy` — ✅ 11 · ❌ 0 · ⚠️ 0 · ⏭️ 0
@@ -73,7 +74,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor pollinations (tools nativas: False) → 'pong' |
 | PASS | `servidores do bot` | 1: asta (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 72ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 62ms |
 | PASS | `servidor e autor do teste` | servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -101,17 +102,17 @@
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 3 · ❌ 1 · ⚠️ 0 · ⏭️ 0
+`agent` — ✅ 2 · ❌ 2 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['tool_list_roles', 'tool_list_roles'] · vencedor pollinations · citou ['Atlas', 'iTinder', 'Cupido'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é exc' |
+| FAIL | `prompt → ferramenta → resposta coerente` | a resposta não citou nenhum cargo real: '**Resumo das ações realizadas:**\n\n1. O usuário solicitou a lista de cargos do servidor.  \n2. Eu tentei chamar a ferramenta `tool_list_roles` para obter os cargo' |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é ape' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
-| FAIL | `memória do canal entre turnos` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (openai) — {"error":"400 Bad Request","status":400,"deprecation_notice":"NOTE: The Pollinations legacy text API is being deprecated for authenticated users.… \| ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"f6c7a230a66f0d6efc33c… |
+| FAIL | `memória do canal entre turnos` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"f3c58d04a0faa20891565a3727817d5e" } \| llm7: HTTP 400 (qwen2.5-coder-32b) — {"error":{"message":"Model 'qwen2.5-coder-32b' is currently unavailable.","type":"invalid_request_error","param":null,"code":"mod… |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 11 · ❌ 3 · ⚠️ 0 · ⏭️ 1
+`mutate` — ✅ 12 · ❌ 2 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
@@ -121,12 +122,13 @@
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
-| FAIL | `cargos: criar/editar/atribuir de verdade` | ToolError: O cargo '🧪 teste-papel' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor. |
-| FAIL | `permissões de canal confirmadas pela API` | ToolError: Não encontrei nenhum cargo ou membro chamado '1521612392105250836' no servidor. (Cargo '1521612392105250836' não foi encontrado no servidor.) |
+| WARN | `cargo do farol no chão do servidor` | O cargo '🧪 teste-papel' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor. Ação do dono (README Passo 3): arraste o cargo do farol para cima dos outros — sem isso ele não edita nem os cargos que ele mesmo cria. |
+| PASS | `cargos: criar/editar/atribuir de verdade` | cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor |
+| PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal #🧪-efemero excluído com sucesso.' |
-| FAIL | `agente pede confirmação em lote e apaga após 'sim'` | o agente apagou 2 canais SEM pedir confirmação: 'Canais #🧪-lote-1 e #🧪-lote-2 excluídos com sucesso.' |
+| FAIL | `agente apaga canal nominal sem travar` | o agente não apagou um canal nominal único: 'Operações concluídas.' |
+| FAIL | `agente pede confirmação em lote e apaga após 'sim'` | não apagou depois do 'sim': 'Operações concluídas.' |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -136,17 +138,17 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550264673503412274) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550268497114964010) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: '❌ Ocorreu um erro ao processar seu pedido:\n`Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ov' |
-| FAIL | `reações de feedback 👀→✅` | o bot não marcou ✅ (reações: ['❌']) |
-| PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'asta' |
+| PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
+| FAIL | `ferramenta real acionada por mensagem` | o bot não criou o canal (resposta: ["Nenhuma ação foi realizada com sucesso. O servidor 'asta' permanece com a mesma estrutura."]) |
 
 ## Varredura de sobras de teste
 `sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `varredura de sobras` | 3 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot) |
+| PASS | `varredura de sobras` | 2 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop) |
