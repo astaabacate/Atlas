@@ -3,8 +3,8 @@
 - **Resumo:** ✅ 75 · ❌ 0 · ⚠️ 6 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 315c98b
-- **execução:** 35286288799
+- **commit:** 188050b
+- **execução:** 35287716766
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -75,7 +75,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor pollinations (tools nativas: False) → 'pong' |
 | PASS | `servidores do bot` | 1: asta (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 67ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 68ms |
 | PASS | `servidor e autor do teste` | servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -86,40 +86,40 @@
 | PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
 | WARN | `cargos que o bot não consegue gerenciar` | 3 cargo(s) no nível ou acima do bot (Atlas, iTinder, Cupido): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
 | PASS | `hierarquia de cargos` | cargo do bot na posição 1 |
-| PASS | `estrutura do servidor` | 3 categorias · 2 texto · 1 voz · 4 cargos · 4 membros |
-| PASS | `snapshot do servidor` | snapshot com 15 linhas alimenta o prompt |
-| PASS | `estado local bate com a API` | cache local bate com a API REST (6 canais, 4 cargos) |
+| PASS | `estrutura do servidor` | 3 categorias · 3 texto · 1 voz · 4 cargos · 4 membros |
+| PASS | `snapshot do servidor` | snapshot com 17 linhas alimenta o prompt |
+| PASS | `estado local bate com a API` | cache local bate com a API REST (7 canais, 4 cargos) |
 
 ## Ferramentas somente-leitura em servidor real
 `tools` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `server_info` | 📊 **Informações de asta:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 6 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00 |
+| PASS | `server_info` | 📊 **Informações de asta:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 7 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00 |
 | PASS | `list_roles` | listou os 4 cargos reais com menção e posição |
-| PASS | `export_structure (JSON válido e completo)` | 3 categorias, 3 canais e 3 cargos exportados em JSON válido |
+| PASS | `export_structure (JSON válido e completo)` | 3 categorias, 4 canais e 3 cargos exportados em JSON válido |
 | PASS | `show_permissions` | O canal <#1546763083727249481> não possui permissões personalizadas configuradas. |
 | PASS | `resolve por ID e por menção` | 6 canais e 4 cargos resolvidos por ID e por menção |
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 2 · ❌ 0 · ⚠️ 2 · ⏭️ 0
+`agent` — ✅ 3 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| WARN | `prompt → ferramenta → resposta coerente` | o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 27, 'ferramentas_chamadas': [], 'chars': 92, 'vencedor': 'pollinations'}]) — o provedor gratuito não cooperou nesta rodada ('Os cargos disponíveis no servidor são:\n\n- Cupido  \n- Atlas  \n- iTinder  \n- @everyone (todos)'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está… |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco exclu' |
+| WARN | `prompt → ferramenta → resposta coerente` | o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 27, 'ferramentas_chamadas': [], 'chars': 101, 'vencedor': 'pollinations'}]) — o provedor gratuito não cooperou nesta rodada ('**Cargos disponíveis no servidor:**\n\n- Cupido  \n- Atlas  \n- iTinder  \n- everyone (código: @@everyone)'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento d… |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é ape' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
-| WARN | `memória do canal entre turnos` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (opena'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 13 · ❌ 0 · ⚠️ 2 · ⏭️ 1
+`mutate` — ✅ 12 · ❌ 0 · ⚠️ 3 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-categoria', '🧪-raiz-voz', '🧪-raiz-texto']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -128,8 +128,8 @@
 | PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal #🧪-efemero excluído com sucesso! 🚮' |
-| WARN | `agente pede confirmação em lote e apaga após 'sim'` | o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('Você deseja excluir os canais **🧪-lote-1** e **🧪-lote-2**.  \nConfirma que posso prosseguir com a exclusão dess'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| WARN | `agente apaga canal nominal sem travar` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations) depois de 2 tentativa(s). Erros: llm7'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| WARN | `agente pede confirmação em lote e apaga após 'sim'` | o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('Confirma que posso apagar os canais <#1550291079390171146> e <#1550291079482449993>?'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -139,13 +139,13 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550286627325083648) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550291304666366032) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'asta' |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'Pinguim' |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
-| WARN | `ferramenta real acionada por mensagem` | o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('**Resumo**  \n- Nome do servidor: **asta**  \n- Foi tentada a criação do canal de texto **🧪-via-bot** na categor'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| WARN | `ferramenta real acionada por mensagem` | o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('🤖 Os modelos gratuitos estão com a fila cheia agora (limite de uso). Tente de novo em alguns segundos — já ten'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 
 ## Varredura de sobras de teste
 `sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
