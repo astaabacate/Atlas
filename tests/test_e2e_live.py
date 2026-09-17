@@ -281,6 +281,13 @@ class TestClassificacaoLLM(unittest.TestCase):
             "RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations)"))
         self.assertTrue(e2e.Harness._culpa_do_llm("ovh: HTTP 429 (Meta-Llama) — rate limit exceeded"))
         self.assertTrue(e2e.Harness._culpa_do_llm("Operações concluídas."))
+        self.assertTrue(e2e.Harness._culpa_do_llm(
+            "🤖 Os modelos gratuitos estão com a fila cheia agora (limite de uso). Tente de novo."))
+        self.assertTrue(e2e.Harness._culpa_do_llm(
+            "🤖 Não consegui falar com nenhum modelo de linguagem agora. Tente de novo em instantes."))
+        self.assertTrue(e2e.Harness._culpa_do_llm(
+            "✅ Fiz o que você pediu (create_channels), mas os modelos gratuitos ficaram instáveis "
+            "agora e eu não consegui escrever o resumo."))
         self.assertTrue(e2e.Harness._culpa_do_llm("Operação concluída com sucesso."))
 
     def test_nao_confunde_bug_do_bot_com_llm(self) -> None:

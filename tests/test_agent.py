@@ -352,6 +352,38 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
         self.assertEqual(self.apagados, [])
         self.assertIn("sim, pode apagar", resposta.lower())
 
+    def test_resumo_final_falha_mas_trabalho_feito_nao_vira_erro(self) -> None:
+        """Corrida de LLM morre no resumo final: o cliente vê o que foi feito, não um erro."""
+        from llm.auto import LLMUnavailableError
+
+        canal = SimpleNamespace(id=999, name="resumo")
+
+        async def fake_create_text_channel(name, **kwargs):
+            return canal
+
+        self.guild.create_text_channel = fake_create_text_channel
+
+        class LLMQueMorreNoResumo(FakeLLM):
+            async def chat(self, messages, tools=None, timeout=60.0, max_tokens=1024):
+                if self.call_history and len(self.call_history) >= 1:
+                    self.call_history.append({"messages": messages, "tools": tools})
+                    raise LLMUnavailableError("Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, "
+                                              "pollinations)", transient=True)
+                return await super().chat(messages, tools, timeout, max_tokens)
+
+        llm = LLMQueMorreNoResumo([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="create_channels",
+                                                         args={"channels": [{"name": "resumo"}]})]),
+        ])
+        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+        agent.max_tool_rounds = 1
+
+        resposta = self._turno(agent, "cria o canal resumo")
+
+        self.assertIn("create_channels", resposta)
+        self.assertNotIn("Nenhum dos", resposta)
+        self.assertIn("instáveis", resposta)
+
     def test_helpers_de_confirmacao(self) -> None:
         self.assertTrue(user_confirmed("sim, pode apagar"))
         self.assertTrue(user_confirmed("Confirmo!"))

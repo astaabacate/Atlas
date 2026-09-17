@@ -537,6 +537,12 @@ class Harness:
             return True
         if "nenhum dos" in baixo and "provedores" in baixo:
             return True
+        # Mensagem amigável que o bot manda ao cliente quando a corrida de LLMs falha.
+        if "fila cheia" in baixo or "não consegui falar com nenhum modelo" in baixo:
+            return True
+        # Trabalho feito, mas o resumo final caiu junto com a corrida de LLMs.
+        if "não consegui escrever o resumo" in baixo or "modelos gratuitos ficaram instáveis" in baixo:
+            return True
         return "rate limit" in baixo or "429" in baixo
 
     @staticmethod

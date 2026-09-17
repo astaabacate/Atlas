@@ -105,6 +105,24 @@ class FarolBot(discord.Client):
         # Disparar tarefa independente para não bloquear o loop de eventos
         asyncio.create_task(self._process_message_safe(message))
 
+    @staticmethod
+    def _mensagem_de_erro(exc: BaseException) -> str:
+        """
+        Traduz a falha para o que o CLIENTE deve ler no Discord.
+
+        Erro de LLM não é culpa de quem escreveu, e despejar a resposta crua dos provedores
+        (HTTP 429 de três serviços) só assusta. O detalhe técnico fica no log.
+        """
+        from llm.auto import LLMUnavailableError
+
+        if isinstance(exc, LLMUnavailableError):
+            return exc.resumo_para_usuario()
+
+        detail = " ".join(str(exc).split())
+        if len(detail) > 300:
+            detail = detail[:299].rstrip() + "…"
+        return f"❌ Não consegui concluir seu pedido agora:\n`{detail}`"
+
     async def _process_message_safe(self, message: discord.Message) -> None:
         # Reação imediata com 👀 para sinalizar que a mensagem foi recebida e começou a ser processada
         try:
@@ -143,14 +161,7 @@ class FarolBot(discord.Client):
             except Exception as exc:
                 logger.exception("Erro ao processar mensagem do usuário %s: %s", message.author, exc)
                 try:
-                    detail = " ".join(str(exc).split())
-                    if len(detail) > 500:
-                        detail = detail[:499].rstrip() + "…"
-                    await message.reply(
-                        f"❌ Ocorreu um erro ao processar seu pedido:\n`{detail}`\n"
-                        "Se o erro persistir, verifique as permissões do meu cargo.",
-                        mention_author=False,
-                    )
+                    await message.reply(self._mensagem_de_erro(exc), mention_author=False)
                 except Exception:
                     pass
 

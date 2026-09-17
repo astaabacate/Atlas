@@ -120,21 +120,35 @@ O Farol utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
 1. Cada mensagem do usuário dispara chamadas simultâneas para todos os corredores configurados, com o mesmo timeout.
 2. A primeira resposta válida vence a rodada e as requisições restantes são **canceladas imediatamente**.
 3. Se um provedor cair, limitar (`429`) ou recusar o modelo (`400/404`), ele perde a corrida — e cada corredor ainda tenta o próximo modelo da sua lista antes de desistir.
-4. Se **todos** falharem, o erro enviado ao Discord traz uma linha por corredor (sem HTML) e diz exatamente qual segredo configurar.
+4. No fim, se ninguém respondeu, o bot tenta **uma segunda onda** de corrida (os gratuitos oscilam muito) antes de desistir.
+5. Se **todos** falharem de verdade, o cliente recebe uma frase curta e útil ("os modelos gratuitos estão com a fila cheia, tente de novo") — o relatório técnico completo (uma linha por corredor, sem HTML) fica no log da run.
 
 ### Corredores anônimos (sem chave, ligados por padrão)
 
 | Corredor | Endpoint | Cadeia de modelos | Function calling |
 | --- | --- | --- | --- |
-| `llm7` | `api.llm7.io/v1` | `gpt-4o-mini` → `deepseek-v3-0324` → `mistral-small-3.1-24b` → `qwen2.5-coder-32b` | nativo (degrada sozinho se o modelo recusar o schema) |
+| `llm7` | `api.llm7.io/v1` | `gpt-4o-mini` → `gpt-oss-120b` → `deepseek-v3-0324` → `mistral-small-3.1-24b` (catálogo redescoberto no `/v1/models`) | nativo (degrada sozinho se o modelo recusar o schema) |
 | `ovh` | `oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `Meta-Llama-3_3-70B-Instruct` → `Qwen3-Coder-30B-A3B-Instruct` → `Llama-3.1-8B-Instruct` | protocolo de texto |
 | `pollinations` | `text.pollinations.ai/openai` | `openai` → `openai-fast` | protocolo de texto |
 
 Desligue todos com `DISABLE_FREE_LLMS=true`.
 
-> ⚠️ **Serviços gratuitos mudam modelos e limites sem aviso.** As cadeias acima são
-> melhor-esforço: quando um corredor recebe "model unavailable", ele tenta o próximo modelo
-> da lista. Para o bot ficar estável 24/7, configure um provedor com chave (a seguir).
+> ⚠️ **Serviços gratuitos mudam modelos e limites sem aviso.** Por isso o Farol se defende
+> sozinho, sem chave nenhuma:
+>
+> - **Catálogo redescoberto:** ao receber "model unavailable" (o `qwen2.5-coder-32b` do llm7
+>   foi aposentado assim), o corredor consulta o `/v1/models` do provedor, atualiza a lista e
+>   recomeça a varredura — em vez de queimar as tentativas num slug morto. A descoberta é
+>   refeita no máximo a cada 30 min.
+> - **`429` tem segunda chance:** fila cheia ("Queue full for IP") ou limite estourado ganham
+>   uma repetição rápida (respeitando o header `Retry-After`).
+> - **Castigo temporário:** quem estourou o limite sai da frente por ~30 s, então o mesmo
+>   provedor não é martelado a cada mensagem enquanto outro responde.
+> - **Segunda onda:** se a corrida inteira falhar, o bot tenta tudo de novo antes de devolver
+>   erro ao cliente (ajustável com `LLM_RACE_WAVES` e `LLM_RACE_DELAY`).
+>
+> Para o bot ficar estável 24/7, ainda assim o recomendado é configurar um provedor com chave
+> (a seguir) — os gratuitos compartilham o IP do runner e estouram limite em dia de pico.
 
 ### Corredores com chave (recomendado para uso contínuo)
 
@@ -162,6 +176,8 @@ Variáveis de ajuste:
 | `LLM_BASE_URL` | Base de **qualquer** gateway OpenAI-compatível (use com `LLM_PROVIDER=meu-nome`) |
 | `LLM_API_KEY` | Chave genérica — tem prioridade sobre o segredo específico do provedor |
 | `DISABLE_FREE_LLMS` | `true` para correr apenas com o provedor pago |
+| `LLM_RACE_WAVES` | Quantas ondas de corrida tentar antes de desistir (padrão `2`, máximo `5`) |
+| `LLM_RACE_DELAY` | Pausa em segundos entre as ondas (padrão `0,8`) |
 
 O provedor com chave **não desliga** os gratuitos: ele entra na corrida como mais um
 corredor e, por responder com function calling nativo, costuma vencer.
@@ -189,7 +205,8 @@ detecta o erro, degrada para o protocolo de texto e repete a chamada sozinho.
 1. Confira o log da run: a linha `Corredores de LLM na corrida: ...` mostra quem entrou na disputa.
 2. Se só houver corredores gratuitos, eles provavelmente caíram ou mudaram de modelo — cadastre uma chave (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`…) e defina `LLM_PROVIDER`.
 3. Se a mensagem trouxer `HTTP 401`, a chave está errada; `HTTP 404` em HTML indica `LLM_BASE_URL` errado.
-4. Depois de mudar segredos/variáveis, rode **Actions → Farol Bot 24/7 → Run workflow** para reiniciar o processo.
+4. Provedor gratuito de castigo (`HTTP 429`, "queue full") é passageiro: o bot já repete a onda sozinho e o cliente vê apenas um pedido para tentar de novo em segundos.
+5. Depois de mudar segredos/variáveis, rode **Actions → Farol Bot 24/7 → Run workflow** para reiniciar o processo.
 
 ---
 

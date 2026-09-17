@@ -24,13 +24,40 @@ class ProviderError(RuntimeError):
         status: int | None = None,
         model: str = "",
         html_body: bool = False,
+        retry_after: float | None = None,
     ) -> None:
         self.provider = provider
         self.status = status
         self.model = model
         self.html_body = html_body
         self.raw_message = message
+        # Segundos pedidos pelo provedor no header Retry-After (quando veio).
+        self.retry_after = retry_after
         super().__init__(message)
+
+    @property
+    def is_rate_limited(self) -> bool:
+        """True quando o provedor recusou por fila/limite (HTTP 429 e afins)."""
+        if self.status == 429:
+            return True
+        blob = self.raw_message.lower()
+        return any(
+            marker in blob
+            for marker in ("rate limit", "rate-limit", "too many requests", "queue full", "quota")
+        )
+
+    @property
+    def is_transient(self) -> bool:
+        """Falha passageira: vale repetir a corrida depois de uma pausa curta."""
+        if self.is_rate_limited:
+            return True
+        if self.status is not None and self.status >= 500:
+            return True
+        blob = self.raw_message.lower()
+        return any(
+            marker in blob
+            for marker in ("timeout", "timed out", "falha de rede", "connection", "temporarily")
+        )
 
     @property
     def is_model_problem(self) -> bool:

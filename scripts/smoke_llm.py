@@ -86,6 +86,7 @@ class ProbeResult:
     latency_ms: int
     native_tool_call: bool
     error: str
+    catalogo: str = "-"
 
 
 def truthy(value: str | None) -> bool:
@@ -251,6 +252,20 @@ def install_openai_compatible_tracker(provider: Any) -> None:
     provider._post = tracked_post  # type: ignore[method-assign]
 
 
+def descrever_catalogo(provider: Any) -> str:
+    """Mostra, na sonda, o efeito da auto-descoberta de modelos e do castigo por 429."""
+    modelos = getattr(provider, "models", None)
+    configurados = getattr(provider, "configured_models", None)
+    partes: list[str] = []
+    if isinstance(modelos, list) and modelos:
+        partes.append(f"{len(modelos)} modelo(s)")
+        if isinstance(configurados, list) and configurados and list(modelos) != list(configurados):
+            partes.append("catálogo atualizado")
+    if getattr(provider, "cooling_down", False):
+        partes.append("de castigo (429)")
+    return " · ".join(partes) if partes else "-"
+
+
 def extract_status_from_error(text: str) -> str:
     match = re.search(r"(?:HTTP|error)\s+(\d{3})", text, flags=re.IGNORECASE)
     return match.group(1) if match else "-"
@@ -301,6 +316,7 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
         latency_ms=latency_ms,
         native_tool_call=native,
         error=error,
+        catalogo=descrever_catalogo(provider),
     )
 
 
@@ -331,8 +347,8 @@ async def run(timeout: float, concurrency: int) -> int:
 
     results = await asyncio.gather(*(guarded(entry) for entry in entries))
 
-    print("| corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | erro compactado |")
-    print("|---|---:|---|---:|:---:|---|")
+    print("| corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | catálogo grátis | erro compactado |")
+    print("|---|---:|---|---:|:---:|---|---|")
     for result in results:
         print(
             "| "
@@ -343,6 +359,7 @@ async def run(timeout: float, concurrency: int) -> int:
                     short_cell(result.model, 80),
                     f"{result.latency_ms} ms",
                     "sim" if result.native_tool_call else "não",
+                    short_cell(result.catalogo, 80),
                     short_cell(result.error or "-", 220),
                 ]
             )

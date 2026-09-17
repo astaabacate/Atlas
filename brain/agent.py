@@ -200,6 +200,7 @@ class Agent:
 
         rounds = 0
         final_text = ""
+        execucoes: list[str] = []
 
         while rounds < self.max_tool_rounds:
             rounds += 1
@@ -256,6 +257,8 @@ class Agent:
                 except Exception as exc:
                     result_str = f"Erro inesperado: {exc}"
 
+                execucoes.append(call.name)
+
                 if call.name in CONFIRMATION_TOOLS and "confirmed=true" in result_str:
                     pedindo_confirmacao.add(call.name)
 
@@ -280,7 +283,16 @@ class Agent:
             "content": "Por favor, faça um resumo final breve e direto em português de tudo o que foi realizado.",
         }
         messages.append(summary_prompt)
-        final_resp = await self.llm.chat(messages=messages, tools=None, timeout=self.llm_timeout)
+        try:
+            final_resp = await self.llm.chat(messages=messages, tools=None, timeout=self.llm_timeout)
+        except Exception as exc:  # noqa: BLE001 - o trabalho já foi feito; não devolver erro ao cliente
+            if not execucoes:
+                raise
+            logger.warning("Resumo final falhou (%s); respondendo com o que já foi executado", exc)
+            acoes = ", ".join(dict.fromkeys(execucoes))
+            return (f"✅ Fiz o que você pediu ({acoes}), mas os modelos gratuitos ficaram instáveis "
+                    "agora e eu não consegui escrever o resumo. Confira no servidor e me diga se "
+                    "falta algo.")
         final_text = self._com_pergunta_de_confirmacao(channel_id, final_resp.content.strip())
         if final_text:
             self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})

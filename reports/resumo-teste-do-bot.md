@@ -56,9 +56,13 @@ tocados.
 - ⚠️ **Ação do dono do servidor:** os cargos `Atlas`, `iTinder` e `Cupido` estão no nível ou acima do
   cargo do `farol`. Enquanto isso, o bot não edita nem os cargos que ele mesmo cria — arraste o cargo
   do `farol` para cima (README, Passo 3).
-- ⚠️ **LLM gratuito é intermitente:** llm7, ovh e pollinations devolvem 429/modelo indisponível e às
-  vezes respondem vago. O relatório separa isso (WARN, com a resposta crua) de comportamento do bot
-  (FAIL). Sem chave paga, "rode de novo" é o caminho.
+- ⚠️ **LLM gratuito é intermitente — e agora o bot se defende:** quando os três corredores gratuitos
+  falharam juntos (ovh 429, llm7 com modelo aposentado, pollinations "Queue full for IP"), o cliente
+  recebia a parede de erro. Correção aplicada: `429` tem nova tentativa + castigo temporário do
+  corredor, modelo indisponível dispara redescoberta do catálogo (`/v1/models`), a corrida tenta
+  **duas ondas** e, se ainda assim nada responder, o cliente lê uma frase curta ("tente de novo em
+  segundos") — o relatório técnico completo só aparece no log. O relatório do E2E continua separando
+  isso (WARN) de bug do bot (FAIL). Sem chave paga, "rode de novo" segue sendo o caminho nos picos.
 - ⏭️ `edit_server` e `set_icon` **não** são executados no servidor real (mudariam nome/ícone da
   comunidade); a fase `spy` prova que os bytes chegam em `guild.edit(icon=...)`.
 
@@ -102,7 +106,9 @@ ele não responde mais as mensagens reais dos clientes (só as mensagens falsas 
 ## Onde ver
 
 - Relatório completo: `reports/e2e-latest.md` (legível) e `reports/e2e-latest.json` (dados).
-- Suíte offline: `python -W error::ResourceWarning -m unittest discover -s tests` → **138 testes OK**.
+- Suíte offline: `python -W error::ResourceWarning -m unittest discover -s tests` → **149 testes OK**
+  (11 novos cobrem a corrida de LLM: 429/Retry-After, castigo, redescoberta de catálogo, segunda onda
+  e mensagem amigável ao cliente).
 - Bot 24/7: workflow *Farol Bot 24/7* (execução em andamento no ramo da sessão).
 - Harness: `scripts/e2e_live.py` · testes dele: `tests/test_e2e_live.py` · workflow: `.github/workflows/e2e.yml`.
 - PR: https://github.com/astaabacate/Atlas/pull/4 (aberto de propósito; **sem merge**).

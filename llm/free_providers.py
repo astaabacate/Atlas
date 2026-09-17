@@ -17,9 +17,11 @@ Histórico importante (o motivo de vários corredores antigos terem sumido):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
+import time
 from typing import Any, Callable
 
 import aiohttp
@@ -36,6 +38,62 @@ from llm.base import (
 )
 
 logger = logging.getLogger("farol.llm.free")
+
+# Auto-descoberta de modelos: com que frequência consultar e quantos candidatos manter.
+MODEL_REFRESH_INTERVAL = 1800.0   # 30 min
+MAX_DISCOVERED_MODELS = 6
+
+# Cooldown padrão depois de um 429 (o header Retry-After manda quando existir).
+DEFAULT_COOLDOWN = 45.0
+MAX_INLINE_RETRY_WAIT = 2.5
+
+
+def _parse_retry_after(headers: Any) -> float | None:
+    """Lê o header Retry-After (segundos). Ignora formatos de data e valores absurdos."""
+    try:
+        valor = (headers or {}).get("Retry-After")
+    except Exception:  # noqa: BLE001 - headers duck-typed
+        return None
+    if not valor:
+        return None
+    try:
+        segundos = float(str(valor).strip())
+    except (TypeError, ValueError):
+        return None
+    if segundos <= 0:
+        return None
+    return min(segundos, 300.0)
+
+
+def _extract_model_ids(data: Any) -> list[str]:
+    """Aceita os formatos comuns de /models: {"data": [{"id": ...}]} ou [{"name": ...}]."""
+    itens: list[Any] = []
+    if isinstance(data, dict):
+        for chave in ("data", "models", "result"):
+            if isinstance(data.get(chave), list):
+                itens = data[chave]
+                break
+    elif isinstance(data, list):
+        itens = data
+
+    ids: list[str] = []
+    for item in itens:
+        if isinstance(item, str):
+            ids.append(item)
+        elif isinstance(item, dict):
+            for chave in ("id", "name", "model"):
+                valor = item.get(chave)
+                if isinstance(valor, str) and valor:
+                    ids.append(valor)
+                    break
+    return ids
+
+
+def _looks_like_chat_model(model_id: str) -> bool:
+    """Descarta embeddings/áudio/imagem: não servem para conversar com ferramentas."""
+    baixo = model_id.lower()
+    bloqueados = ("embed", "whisper", "tts", "audio", "speech", "dall", "image", "flux", "sdxl", "stable-")
+    return not any(bloco in baixo for bloco in bloqueados)
 
 SessionFactory = Callable[[], aiohttp.ClientSession]
 
@@ -70,6 +128,9 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         headers: dict[str, str] | None = None,
         supports_tools: bool = False,
         session_factory: SessionFactory | None = None,
+        models_url: str = "",
+        auto_discover: bool = True,
+        discovery_can_replace: bool = True,
     ) -> None:
         candidate_models = [m for m in (models or []) if m]
         if default_model and default_model not in candidate_models:
@@ -80,12 +141,79 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         self.name = name
         self.endpoint_url = endpoint_url
         self.models = candidate_models
+        # Lista original, para nunca ficar sem candidato depois de uma descoberta estranha.
+        self.configured_models = list(candidate_models)
         self.headers = dict(headers or {})
         self.supports_tools = supports_tools
         self._session_factory = session_factory or default_session_factory
         self._session: aiohttp.ClientSession | None = None
         # Marcado em runtime quando o provedor recusou `tools` — evita repetir o erro.
         self.native_tools_rejected = False
+
+        # Auto-descoberta de modelos: provedores gratuitos trocam de catálogo sem avisar
+        # (foi assim que o llm7 passou a devolver 400 "Model ... is currently unavailable").
+        self.models_url = models_url or (
+            endpoint_url[: -len("/chat/completions")] + "/models"
+            if endpoint_url.endswith("/chat/completions")
+            else ""
+        )
+        self.auto_discover = auto_discover
+        self.discovery_can_replace = discovery_can_replace
+        self._models_refreshed_at = 0.0
+
+        # Depois de um 429, o provedor fica "de castigo" por um tempo para não queimar a
+        # corrida inteira (os gratuitos compartilham o IP do runner).
+        self.cooldown_until = 0.0
+
+    @property
+    def cooling_down(self) -> bool:
+        return self.cooldown_until > time.monotonic()
+
+    def _start_cooldown(self, seconds: float) -> None:
+        self.cooldown_until = max(self.cooldown_until, time.monotonic() + max(1.0, seconds))
+
+    async def refresh_models(self, force: bool = False) -> list[str]:
+        """
+        Busca a lista de modelos do provedor e reordena os candidatos.
+
+        Mantém os configurados que ainda existem (na ordem original, para preservar
+        preferências) e completa com os descobertos que parecem servir para chat.
+        """
+        if not self.models_url or (self.auto_discover is False and not force):
+            return self.models
+        agora = time.monotonic()
+        if not force and (agora - self._models_refreshed_at) < MODEL_REFRESH_INTERVAL:
+            return self.models
+
+        try:
+            session = await self._get_session()
+            timeout = aiohttp.ClientTimeout(total=15.0)
+            async with session.get(self.models_url, headers=self.headers, timeout=timeout) as resp:
+                if resp.status != 200:
+                    return self.models
+                data = await resp.json(content_type=None)
+        except Exception as exc:  # noqa: BLE001 - descoberta é otimização, nunca obrigação
+            logger.debug("[%s] não consegui listar modelos (%s); sigo com a lista configurada", self.name, exc)
+            return self.models
+
+        ids = _extract_model_ids(data)
+        if not ids:
+            return self.models
+
+        disponiveis = set(ids)
+        mantidos = [m for m in self.configured_models if m in disponiveis]
+        novos = [m for m in ids if m not in mantidos and _looks_like_chat_model(m)]
+        if not mantidos and not self.discovery_can_replace:
+            # Catálogo num namespace diferente do esperado (ex.: aliases do pollinations):
+            # melhor manter a lista que funciona do que apostar em ids desconhecidos.
+            self._models_refreshed_at = agora
+            return self.models
+        candidatos = (mantidos + novos)[:MAX_DISCOVERED_MODELS] or self.configured_models
+        if candidatos != self.models:
+            logger.info("[%s] catálogo atualizado: %s", self.name, ", ".join(candidatos))
+        self.models = candidatos
+        self._models_refreshed_at = agora
+        return self.models
 
     # ------------------------------------------------------------------ infra
     @property
@@ -149,26 +277,74 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         }
         client_timeout = aiohttp.ClientTimeout(total=timeout)
 
+        # Catálogo pode ter mudado (provedor gratuito troca modelo sem avisar).
+        if self.auto_discover and not self.models:
+            await self.refresh_models()
+        elif self.auto_discover and self._models_refreshed_at == 0.0:
+            await self.refresh_models()
+
         last_error: ProviderError | None = None
-        for model in self.models:
+        retry_429_usado = False
+        # Percorre por índice: quando o catálogo é redescoberto no meio do caminho, a
+        # varredura recomeça já sem o modelo morto.
+        modelos = list(self.models)
+        indice = 0
+        while indice < len(modelos):
+            model = modelos[indice]
+            indice += 1
             payload, _ = self.build_payload(messages, tools, model, max_tokens)
             try:
-                return await self._post(session, payload, headers, client_timeout, model)
+                resposta = await self._post(session, payload, headers, client_timeout, model)
+                self.cooldown_until = 0.0
+                return resposta
             except ProviderError as exc:
                 last_error = exc
+
+                if exc.is_rate_limited:
+                    espera = exc.retry_after if exc.retry_after is not None else DEFAULT_COOLDOWN
+                    self._start_cooldown(espera)
+                    # Uma segunda tentativa rápida resolve fila momentânea ("Queue full for IP").
+                    if not retry_429_usado:
+                        retry_429_usado = True
+                        pausa = min(espera, MAX_INLINE_RETRY_WAIT)
+                        logger.debug("[%s] %s; tentando de novo em %.1fs", self.name, exc.raw_message[:80], pausa)
+                        await asyncio.sleep(pausa)
+                        try:
+                            resposta = await self._post(session, payload, headers, client_timeout, model)
+                            self.cooldown_until = 0.0
+                            return resposta
+                        except ProviderError as retry_exc:
+                            last_error = retry_exc
+                            if retry_exc.is_rate_limited:
+                                self._start_cooldown(retry_exc.retry_after or DEFAULT_COOLDOWN)
+                                raise
+                            exc = retry_exc
+
                 if exc.is_tools_rejection and not self.native_tools_rejected:
                     # O provedor não engole o schema: tenta de novo via protocolo de texto.
                     logger.debug("[%s] tools recusados, degradando para protocolo de texto", self.name)
                     self.native_tools_rejected = True
                     fallback_payload, _ = self.build_payload(messages, tools, model, max_tokens)
                     try:
-                        return await self._post(session, fallback_payload, headers, client_timeout, model)
+                        resposta = await self._post(session, fallback_payload, headers, client_timeout, model)
+                        self.cooldown_until = 0.0
+                        return resposta
                     except ProviderError as retry_exc:
                         last_error = retry_exc
                         continue
-                if exc.is_model_problem and model != self.models[-1]:
-                    logger.debug("[%s] modelo %s indisponível, tentando o próximo", self.name, model)
-                    continue
+
+                if exc.is_model_problem:
+                    # O catálogo mudou: descobre os modelos válidos e recomeça a varredura.
+                    novos = await self.refresh_models(force=True)
+                    limpos = [m for m in (novos or self.models) if m != model]
+                    if limpos:
+                        logger.debug("[%s] modelo %s indisponível; catálogo agora é %s",
+                                     self.name, model, ", ".join(limpos[:3]))
+                        self.models = limpos
+                        modelos = list(limpos)
+                        indice = 0
+                        continue
+
                 raise
         raise last_error or ProviderError(self.name, "falha sem detalhe", model=self.default_model)
 
@@ -195,6 +371,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
                         status=resp.status,
                         model=model,
                         html_body=looks_like_html(body),
+                        retry_after=_parse_retry_after(getattr(resp, "headers", None)),
                     )
                 try:
                     data = await resp.json(content_type=None)
@@ -241,7 +418,13 @@ class OpenAICompatibleHttpProvider(ChatProvider):
 # modelos/limites com frequência, por isso cada um carrega uma lista de fallback.
 # ---------------------------------------------------------------------------
 class LLM7Provider(OpenAICompatibleHttpProvider):
-    """llm7.io — OpenAI-compatível, sem chave (~30 req/min anônimo)."""
+    """
+    llm7.io — OpenAI-compatível, sem chave (limite por hora no anônimo).
+
+    O catálogo desse provedor muda sem aviso (o slug `qwen2.5-coder-32b`, por exemplo, foi
+    aposentado e derrubava a corrida inteira com HTTP 400). Por isso a lista configurada é só
+    um ponto de partida: `refresh_models()` descobre os modelos atuais no /v1/models.
+    """
 
     def __init__(
         self,
@@ -254,9 +437,9 @@ class LLM7Provider(OpenAICompatibleHttpProvider):
             endpoint_url="https://api.llm7.io/v1/chat/completions",
             models=models or [
                 "gpt-4o-mini",
+                "gpt-oss-120b",
                 "deepseek-v3-0324",
                 "mistral-small-3.1-24b",
-                "qwen2.5-coder-32b",
             ],
             headers={"Authorization": f"Bearer {api_key or 'unused'}"},
             supports_tools=True,
@@ -309,6 +492,8 @@ class PollinationsProvider(OpenAICompatibleHttpProvider):
             headers=headers,
             supports_tools=False,
             session_factory=session_factory,
+            models_url="https://text.pollinations.ai/models",
+            discovery_can_replace=False,
         )
 
 

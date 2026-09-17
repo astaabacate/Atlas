@@ -12,13 +12,14 @@ import json
 import unittest
 from typing import Any
 
-from llm.auto import AutoProvider
+from llm.auto import LLMUnavailableError, AutoProvider
 from llm.base import ChatProvider, LLMResponse, ProviderError, sanitize_messages_for_plain_text
 from llm.free_providers import (
     LLM7Provider,
     OVHProvider,
     OpenAICompatibleHttpProvider,
     PollinationsProvider,
+    _parse_retry_after,
     build_anonymous_runners,
     build_gateway_provider,
 )
@@ -40,8 +41,10 @@ FAKE_TOOL_SCHEMA = [
 
 
 class FakeResponse:
-    def __init__(self, status: int = 200, payload: dict[str, Any] | None = None, text: str = "") -> None:
+    def __init__(self, status: int = 200, payload: dict[str, Any] | None = None, text: str = "",
+                 headers: dict[str, str] | None = None) -> None:
         self.status = status
+        self.headers = dict(headers or {"Content-Type": "application/json"})
         self._payload = payload
         self._text = text if text else json.dumps(payload or {})
 
@@ -67,13 +70,23 @@ class FakeSession:
 
     def __init__(self, responses: list[FakeResponse]) -> None:
         self.responses = list(responses)
+        # GETs (descoberta de modelos) têm fila própria: por padrão devolvem 404 e não
+        # interferem nos testes que só se importam com o POST do chat.
+        self.get_responses: list[FakeResponse] = []
         self.calls: list[dict[str, Any]] = []
+        self.gets: list[dict[str, Any]] = []
 
     def post(self, url: str, json: Any = None, headers: Any = None, timeout: Any = None) -> FakeResponse:
         self.calls.append({"url": url, "payload": json, "headers": headers})
         if not self.responses:
             raise AssertionError("FakeSession sem respostas programadas")
         return self.responses.pop(0)
+
+    def get(self, url: str, headers: Any = None, timeout: Any = None) -> FakeResponse:
+        self.gets.append({"url": url, "headers": headers})
+        if not self.get_responses:
+            return FakeResponse(404, {"error": "sem catálogo neste teste"})
+        return self.get_responses.pop(0)
 
     async def close(self) -> None:
         self.closed = True
@@ -169,6 +182,73 @@ class TestHttpProvider(unittest.TestCase):
         self.assertIn("HTTP 404", message)
         self.assertLess(len(message), 220)
 
+    def test_429_uses_retry_after_and_gets_a_second_chance(self) -> None:
+        """'Queue full for IP' (429) não pode derrubar o turno: espera e tenta de novo."""
+        session = FakeSession([
+            FakeResponse(429, {"error": "Queue full for IP"}, headers={"Retry-After": "0.05"}),
+            FakeResponse(200, ok_payload("consegui depois da fila")),
+        ])
+        provider = OVHProvider(models=["Meta-Llama-3_3-70B-Instruct"], session_factory=lambda: session)
+
+        resp = asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}]))
+
+        self.assertEqual(resp.content, "consegui depois da fila")
+        self.assertEqual(len(session.calls), 2)
+        self.assertFalse(provider.cooling_down, "depois de vencer, o provedor sai do castigo")
+
+    def test_429_without_retry_after_benches_the_provider(self) -> None:
+        session = FakeSession([
+            FakeResponse(429, {"error": "rate limit exceeded"}),
+            FakeResponse(429, {"error": "rate limit exceeded"}),
+        ])
+        provider = OVHProvider(models=["Meta-Llama-3_3-70B-Instruct"], session_factory=lambda: session)
+
+        with self.assertRaises(ProviderError) as ctx:
+            asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}]))
+
+        self.assertTrue(ctx.exception.is_rate_limited)
+        self.assertTrue(provider.cooling_down, "quem estoura o limite fica de castigo")
+
+    def test_dead_model_triggers_catalog_discovery_and_fallback(self) -> None:
+        """O llm7 aposentou 'qwen2.5-coder-32b': em vez de insistir, descobre os atuais."""
+        session = FakeSession([
+            FakeResponse(400, {"error": "Model qwen2.5-coder-32b is currently unavailable"}),
+            FakeResponse(200, ok_payload("respondi com o modelo novo")),
+        ])
+        session.get_responses.append(
+            FakeResponse(200, {"data": [{"id": "qwen2.5-coder-32b"}, {"id": "gpt-oss-120b"}]}))
+        provider = OpenAICompatibleHttpProvider(
+            name="llm7",
+            endpoint_url="https://api.llm7.io/v1/chat/completions",
+            models=["qwen2.5-coder-32b", "deepseek-v3-0324"],
+            supports_tools=True,
+            session_factory=lambda: session,
+        )
+
+        resp = asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}]))
+
+        self.assertEqual(resp.content, "respondi com o modelo novo")
+        self.assertIn("gpt-oss-120b", provider.models, "o catálogo descoberto entra na lista")
+        self.assertEqual(provider.models[0], "gpt-oss-120b", "e o modelo morto sai da frente")
+        self.assertTrue(all(g["url"] == "https://api.llm7.io/v1/models" for g in session.gets))
+        self.assertGreaterEqual(len(session.gets), 1)
+        self.assertEqual([c["payload"]["model"] for c in session.calls],
+                         ["qwen2.5-coder-32b", "gpt-oss-120b"],
+                         "o slug morto é tentado uma vez e o catálogo descoberto assume")
+
+    def test_discovery_keeps_working_list_when_catalog_is_a_different_namespace(self) -> None:
+        """Pollinations responde por aliases ('openai'); o /models não pode sobrescrever isso."""
+        provider = PollinationsProvider()
+        self.assertFalse(provider.discovery_can_replace)
+        self.assertEqual(provider.models, ["openai", "openai-fast"])
+
+    def test_retry_after_parsing_is_sane(self) -> None:
+        self.assertEqual(_parse_retry_after({"Retry-After": "12"}), 12.0)
+        self.assertEqual(_parse_retry_after({"Retry-After": "9999"}), 300.0)
+        self.assertIsNone(_parse_retry_after({"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"}))
+        self.assertIsNone(_parse_retry_after({}))
+        self.assertIsNone(_parse_retry_after(None))
+
     def test_network_failure_is_wrapped(self) -> None:
         class BoomSession(FakeSession):
             def post(self, *args: Any, **kwargs: Any) -> FakeResponse:
@@ -218,6 +298,50 @@ class SlowProvider(ChatProvider):
         return LLMResponse(content=self.content)
 
 
+class AlwaysFailingProvider(ChatProvider):
+    """Sempre falha com o status/mensagem pedidos; conta quantas vezes foi chamado."""
+
+    def __init__(self, name: str, status: int = 429, message: str = "rate limit exceeded",
+                 retry_after: float | None = None) -> None:
+        self.name = name
+        self.status = status
+        self.message = message
+        self.retry_after = retry_after
+        self.chamadas = 0
+
+    async def chat(self, messages: Any, tools: Any = None, timeout: float = 60.0, max_tokens: int = 1024) -> LLMResponse:
+        self.chamadas += 1
+        raise ProviderError(self.name, f"{self.name}: HTTP {self.status} — {self.message}",
+                            status=self.status, model="m", retry_after=self.retry_after)
+
+
+class FlakyProvider(ChatProvider):
+    """Falha nas primeiras `falhas` chamadas (429 por padrão) e depois responde."""
+
+    def __init__(self, name: str, content: str = "voltei", falhas: int = 1,
+                 status: int = 429, retry_after: float | None = None) -> None:
+        self.name = name
+        self.content = content
+        self.falhas = falhas
+        self.status = status
+        self.retry_after = retry_after
+        self.chamadas = 0
+
+    async def chat(self, messages: Any, tools: Any = None, timeout: float = 60.0, max_tokens: int = 1024) -> LLMResponse:
+        self.chamadas += 1
+        if self.chamadas <= self.falhas:
+            raise ProviderError(self.name, f"{self.name}: HTTP {self.status} — fila cheia",
+                                status=self.status, model="m", retry_after=self.retry_after)
+        return LLMResponse(content=self.content)
+
+
+def corrida(*providers: ChatProvider, waves: int = 2) -> AutoProvider:
+    auto = AutoProvider(providers=list(providers))
+    auto.max_waves = waves
+    auto.wave_delay = 0.01
+    return auto
+
+
 class TestAutoProvider(unittest.TestCase):
     def test_winner_is_the_first_success(self) -> None:
         auto = AutoProvider(providers=[
@@ -242,6 +366,64 @@ class TestAutoProvider(unittest.TestCase):
             self.assertIn(token, message)
         self.assertNotIn("<html", message)
         self.assertLess(len(message), 800)
+
+    def test_benched_runner_is_not_called_again_while_another_answers(self) -> None:
+        """Quem estourou o limite (429) sai da frente: não pode ser martelado a cada mensagem."""
+        morto = AlwaysFailingProvider("llm7", 429, retry_after=30.0)
+        vivo = SlowProvider("ovh", 0.0, "respondi")
+        auto = corrida(morto, vivo)
+
+        asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
+        asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi de novo"}]))
+
+        self.assertEqual(vivo.delay, 0.0)
+        self.assertEqual(morto.chamadas, 1, "o corredor de castigo não é chamado de novo à toa")
+        self.assertIn("llm7", auto.castigados())
+
+    def test_second_wave_saves_the_turn_when_everyone_fails_at_first(self) -> None:
+        """OvH 429 + llm7 modelo morto + pollinations fila cheia: uma segunda onda resolve."""
+        teimoso = FlakyProvider("pollinations", "segunda tentativa", falhas=1, retry_after=5.0)
+        auto = corrida(teimoso, waves=2)
+
+        resp = asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
+
+        self.assertEqual(resp.content, "segunda tentativa")
+        self.assertGreaterEqual(teimoso.chamadas, 2)
+        self.assertEqual(auto.last_failure_transient, False)
+
+    def test_single_wave_still_works_when_configured(self) -> None:
+        teimoso = FlakyProvider("pollinations", "nunca chego", falhas=1)
+        auto = corrida(teimoso, waves=1)
+        with self.assertRaises(LLMUnavailableError):
+            asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
+        self.assertEqual(teimoso.chamadas, 1)
+
+    def test_total_failure_is_flagged_transient_with_a_friendly_message(self) -> None:
+        auto = corrida(
+            AlwaysFailingProvider("llm7", 400, "Model qwen2.5-coder-32b is currently unavailable"),
+            AlwaysFailingProvider("ovh", 429, "API rate limit exceeded"),
+            AlwaysFailingProvider("pollinations", 429, "Queue full for IP"),
+        )
+
+        with self.assertRaises(LLMUnavailableError) as ctx:
+            asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
+
+        erro = ctx.exception
+        self.assertTrue(erro.transient, "429/fila cheia é falha passageira")
+        self.assertIn("ovh", str(erro))
+        self.assertIn("LLM_API_KEY", str(erro))
+
+        from core.bot import FarolBot
+        mensagem = FarolBot._mensagem_de_erro(erro)
+        self.assertIn("fila cheia", mensagem)
+        self.assertNotIn("HTTP", mensagem, "o cliente não deve ver o dump técnico dos provedores")
+        self.assertNotIn("verifique as permissões", mensagem)
+
+    def test_hard_failure_is_not_flagged_transient(self) -> None:
+        auto = corrida(AlwaysFailingProvider("meu-gateway", 401, "Invalid API key"))
+        with self.assertRaises(LLMUnavailableError) as ctx:
+            asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
+        self.assertFalse(ctx.exception.transient)
 
     def test_describe_lists_runners(self) -> None:
         auto = AutoProvider.create_default(env={})
