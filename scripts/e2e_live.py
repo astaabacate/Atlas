@@ -488,6 +488,7 @@ class Harness:
         if skip_when:
             self.rep.record(phase, name, SKIP, skip_when)
             return None
+        antes = len(self.rep.phases.get(phase, []))
         start = time.perf_counter()
         try:
             result = await fn()
@@ -498,6 +499,13 @@ class Harness:
             status = WARN if warn_on_error else FAIL
             self.rep.record(phase, name, status, f"{type(exc).__name__}: {exc}", self._ms(start))
             return None
+
+        # Se a própria checagem já registrou WARN/SKIP para este nome (ex.: não conclusivo por
+        # causa do LLM gratuito), não duplica como PASS — o relatório ficaria com duas linhas.
+        proprios = self.rep.phases.get(phase, [])[antes:]
+        if any(c.name == name and c.status in (WARN, SKIP, FAIL) for c in proprios):
+            return result
+
         detail, data = self._unpack(result)
         self.rep.record(phase, name, PASS, detail, self._ms(start), **data)
         return result

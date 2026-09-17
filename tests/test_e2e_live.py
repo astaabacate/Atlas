@@ -292,6 +292,27 @@ class TestClassificacaoLLM(unittest.TestCase):
         self.assertEqual(registro[0]["vencedor"], "llm7")
         self.assertEqual(espiao.describe(), "fake")
 
+    def test_checagem_que_ja_registrou_warn_nao_vira_pass(self) -> None:
+        """Sem isso o relatório mostrava a mesma checagem duas vezes (WARN + PASS)."""
+        import asyncio
+
+        rep = e2e.Reporter(["mutate"])
+        h = object.__new__(e2e.Harness)
+        h.rep = rep
+
+        async def nao_conclusiva() -> str:
+            return h.degradar_llm("mutate", "agente apaga canal", "não apagou", "Operações concluídas.")
+
+        asyncio.run(h.check("mutate", "agente apaga canal", nao_conclusiva))
+        self.assertEqual(len(rep.phases["mutate"]), 1)
+        self.assertEqual(rep.phases["mutate"][0].status, e2e.WARN)
+
+        async def normal() -> str:
+            return "tudo certo"
+
+        asyncio.run(h.check("mutate", "outra checagem", normal))
+        self.assertEqual([c.status for c in rep.phases["mutate"]], [e2e.WARN, e2e.PASS])
+
     def test_degradar_llm_vira_warn_no_relatorio(self) -> None:
         rep = e2e.Reporter(["mutate"])
         h = object.__new__(e2e.Harness)
