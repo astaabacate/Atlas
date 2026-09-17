@@ -30,6 +30,7 @@ tocados.
 | 35281262866 | ✅ 77 · ❌ 1 · ⚠️ 5 | `apply_template` provado no servidor; bug 5 (pergunta de confirmação) |
 | 35282123546 | ✅ 75 · ❌ 3 · ⚠️ 4 | relatório passou a distinguir "LLM fraco" de "bug do bot" |
 | **35283256079** | **✅ 78 · ❌ 0 · ⚠️ 7 · ⏭️ 1** | execução verde (commit `b0e70a7`) |
+| **35286288799** | **✅ 75 · ❌ 0 · ⚠️ 6 · ⏭️ 1** | verde já com o isolamento entre servidores (commit `315c98b`) |
 
 ## Bugs encontrados e corrigidos
 
@@ -61,9 +62,47 @@ tocados.
 - ⏭️ `edit_server` e `set_icon` **não** são executados no servidor real (mudariam nome/ícone da
   comunidade); a fase `spy` prova que os bytes chegam em `guild.edit(icon=...)`.
 
+## Vários servidores ao mesmo tempo (isolamento) — pedido de produto
+
+Como o bot vai ser vendido e ficará em vários servidores com **um único processo**, tudo que é
+"por conversa" passou a usar a chave `servidor:canal`:
+
+- **histórico** — o que foi dito no servidor A nunca entra no prompt do servidor B;
+- **pendência de confirmação** — o "sim" de um servidor não autoriza exclusão em outro;
+- **lock de processamento** — só a mesma conversa entra em fila;
+- **memória limitada (LRU)** — as conversas mais antigas saem (400 por padrão) e o histórico por
+  canal tem teto: o bot pode ficar meses no ar sem crescer.
+
+Provas: `tests/test_isolation.py` (12 testes, incluindo **dois servidores com o mesmo id de canal**),
+a checagem *conversa isolada por servidor* da fase `spy` e o `show_permissions` agora lendo o estado
+atual do servidor (o cache local atrasado escondia permissões recém-criadas).
+
+## Ficar no ar infinito no GitHub Actions
+
+| Peça | Para que serve |
+| --- | --- |
+| `bot.yml` (fatias de ~5h35m + encadeamento) | mantém o bot online continuamente; o encadeamento continua **no mesmo ramo** |
+| Gatilho por push em `.github/bot-24x7-enabled` | ligar/reiniciar o bot tocando no arquivo (foi assim que ele voltou ao ar) |
+| `.github/bot-disabled` | parar de vez (o bot não sobe e o vigia respeita) |
+| Frescor que **reagenda** em vez de abortar | antes, um push no meio da run matava a corrente do bot; agora ele agenda uma run nova, já atualizada |
+| `.github/workflows/bot-watchdog.yml` | a cada 30 min reergue o bot se não houver execução ativa e grava um "batimento" quando o repositório fica 45+ dias parado (evita a suspensão de crons do GitHub no 60º dia) |
+
+O clone de teste do harness também foi silenciado: com o bot de produção online usando o mesmo token,
+ele não responde mais as mensagens reais dos clientes (só as mensagens falsas do teste).
+
+## Duas coisas que dependem de você
+
+1. **Suba o cargo do `farol`** acima de `Atlas`, `iTinder` e `Cupido` (README Passo 3). Enquanto ele
+   estiver no chão, o bot não edita nem os cargos que ele mesmo cria.
+2. **Faça o merge do PR #4** para o código corrigido virar `main`. Enquanto o bot rodar a partir do
+   ramo da sessão ele usa o código corrigido; o cron de 5 em 5 horas pode pegá-lo a partir da `main`
+   (ainda sem as correções) até o merge acontecer. O vigia (`bot-watchdog.yml`) também só passa a
+   rodar depois do merge, porque o GitHub só executa `schedule` de workflow que existe no ramo padrão.
+
 ## Onde ver
 
 - Relatório completo: `reports/e2e-latest.md` (legível) e `reports/e2e-latest.json` (dados).
-- Suíte offline: `python -W error::ResourceWarning -m unittest discover -s tests` → **123 testes OK**.
+- Suíte offline: `python -W error::ResourceWarning -m unittest discover -s tests` → **138 testes OK**.
+- Bot 24/7: workflow *Farol Bot 24/7* (execução em andamento no ramo da sessão).
 - Harness: `scripts/e2e_live.py` · testes dele: `tests/test_e2e_live.py` · workflow: `.github/workflows/e2e.yml`.
 - PR: https://github.com/astaabacate/Atlas/pull/4 (aberto de propósito; **sem merge**).
