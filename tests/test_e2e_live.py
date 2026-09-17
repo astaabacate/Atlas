@@ -244,5 +244,32 @@ class TestMetadados(unittest.TestCase):
         self.assertEqual(dado["phases"]["static"]["title"], e2e.PHASE_TITLES["static"])
 
 
+class TestClassificacaoLLM(unittest.TestCase):
+    """Sem chave paga o provedor gratuito falha; o relatório precisa dizer que a culpa é do LLM."""
+
+    def test_reconhece_falha_do_provedor(self) -> None:
+        self.assertTrue(e2e.Harness._culpa_do_llm(
+            "RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations)"))
+        self.assertTrue(e2e.Harness._culpa_do_llm("ovh: HTTP 429 (Meta-Llama) — rate limit exceeded"))
+        self.assertTrue(e2e.Harness._culpa_do_llm("Operações concluídas."))
+        self.assertTrue(e2e.Harness._culpa_do_llm("Operação concluída com sucesso."))
+
+    def test_nao_confunde_bug_do_bot_com_llm(self) -> None:
+        self.assertFalse(e2e.Harness._culpa_do_llm("Canal #🧪-efemero excluído com sucesso."))
+        self.assertFalse(e2e.Harness._culpa_do_llm(""))
+        self.assertFalse(e2e.Harness._culpa_do_llm("O cargo 'x' está acima do meu cargo mais alto."))
+
+    def test_degradar_llm_vira_warn_no_relatorio(self) -> None:
+        rep = e2e.Reporter(["mutate"])
+        h = object.__new__(e2e.Harness)
+        h.rep = rep
+        texto = h.degradar_llm("mutate", "agente apaga canal", "não apagou", "Operações concluídas.")
+        self.assertIn("não conclusivo", texto)
+        registro = rep.phases["mutate"][0]
+        self.assertEqual(registro.status, e2e.WARN)
+        self.assertIn("provedor gratuito", registro.detail)
+        self.assertEqual(rep.counts()[e2e.FAIL], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
