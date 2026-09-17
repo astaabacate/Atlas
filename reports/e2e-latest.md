@@ -5,8 +5,8 @@
 - **mutações reais:** não
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 62fcfed
-- **execução:** 35277780929
+- **commit:** cf528c6
+- **execução:** 35277915862
 - **discord.py:** 2.7.1
 
 ## Anotações
@@ -72,7 +72,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor pollinations (tools nativas: False) → 'pong' |
 | PASS | `servidores do bot` | 1: asta (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 85ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 59ms |
 | PASS | `servidor e autor do teste` | servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -81,7 +81,7 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
-| WARN | `hierarquia de cargos` | 3 cargo(s) no nível ou acima do bot (Atlas, iTinder, Cupido): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
+| WARN | `cargos que o bot não consegue gerenciar` | 3 cargo(s) no nível ou acima do bot (Atlas, iTinder, Cupido): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
 | PASS | `hierarquia de cargos` | cargo do bot na posição 1 |
 | PASS | `estrutura do servidor` | 3 categorias · 2 texto · 1 voz · 4 cargos · 4 membros |
 | PASS | `snapshot do servidor` | snapshot com 15 linhas alimenta o prompt |
@@ -105,6 +105,6 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['tool_list_roles', 'tool_list_roles'] · vencedor pollinations · citou ['Atlas', 'iTinder', 'Cupido'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é org' |
-| FAIL | `agente conhece a estrutura real` | não citou nada real do servidor (nem nome nem menção): '**Resumo do que foi feito até agora**\n\n1. **Cargos listados** – Apresentei os cargos existentes no servidor:\u202fCupido, Atlas, iTinder e everyone.  \n2. **Solicitaç' |
-| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é exc' |
+| PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
+| FAIL | `memória do canal entre turnos` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"f233797c9daa803051299e05e5ddfc39" } \| llm7: HTTP 400 (qwen2.5-coder-32b) — {"error":{"message":"Model 'qwen2.5-coder-32b' is currently unavailable.","type":"invalid_request_error","param":null,"code":"mod… |
