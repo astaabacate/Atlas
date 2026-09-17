@@ -1,0 +1,28 @@
+LIGAR / REINICIAR O BOT 24/7
+============================
+
+Tocar neste arquivo (qualquer alteração, mesmo um espaço) dispara o workflow
+"Farol Bot 24/7" no ramo em que o arquivo foi alterado. A partir daí o bot:
+
+  1. fica online por ~5h35m em um runner do GitHub Actions;
+  2. ao terminar a fatia, agenda a próxima execução sozinho (encadeamento);
+  3. tem um cron de 5 em 5 horas como rede de segurança;
+  4. tem o workflow "Farol Vigia 24/7" conferindo a cada 30 minutos se algo caiu —
+     se a corrente se romper, o vigia sobe o bot de novo.
+
+ONDE ELE ATENDE
+---------------
+O mesmo processo atende VÁRIOS servidores ao mesmo tempo. O histórico de conversa, o
+contexto do prompt e a pendência de confirmação são sempre por (servidor, canal), então
+um servidor nunca vê a conversa do outro. A memória é limitada (LRU) para o bot poder
+ficar meses no ar sem crescer.
+
+PARAR DE VEZ
+------------
+Crie o arquivo .github/bot-disabled (o bot e o vigia param) ou desative o workflow na
+aba Actions ("Farol Bot 24/7" -> Disable workflow).
+
+PARAR SÓ AGORA
+--------------
+Cancele a execução em andamento. Atenção: o vigia reergue o bot em até 30 minutos —
+para uma parada longa, use o .github/bot-disabled.

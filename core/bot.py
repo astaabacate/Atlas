@@ -8,11 +8,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import discord
 
+from brain.memory import memory_key
 from core.helpers import split_message
 
 if TYPE_CHECKING:
@@ -44,7 +44,24 @@ class FarolBot(discord.Client):
         super().__init__(intents=intents, **kwargs)
         self.config = config
         self.agent = agent
-        self._channel_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # Um lock por CONVERSA (servidor+canal) para não responder duas mensagens do mesmo
+        # canal ao mesmo tempo. Limitado de propósito: o bot roda meses em centenas de
+        # servidores e não pode acumular um lock por canal para sempre.
+        self._channel_locks: dict[Any, asyncio.Lock] = {}
+        self.max_channel_locks: int = 1000
+
+    def _lock_for(self, key: Any) -> asyncio.Lock:
+        lock = self._channel_locks.get(key)
+        if lock is None:
+            if len(self._channel_locks) >= self.max_channel_locks:
+                # descarta um lock que não está sendo usado agora
+                for antigo, candidato in list(self._channel_locks.items()):
+                    if not candidato.locked():
+                        self._channel_locks.pop(antigo, None)
+                        break
+            lock = asyncio.Lock()
+            self._channel_locks[key] = lock
+        return lock
 
     async def on_ready(self) -> None:
         logger.info(
@@ -95,8 +112,9 @@ class FarolBot(discord.Client):
         except Exception as exc:
             logger.debug("Não foi possível adicionar reação inicial: %s", exc)
 
-        channel_id = message.channel.id
-        async with self._channel_locks[channel_id]:
+        # mesma chave do agente: servidor + canal (isolamento entre servidores)
+        channel_id = memory_key(getattr(message.guild, "id", None), message.channel.id)
+        async with self._lock_for(channel_id):
             success = False
             try:
                 # Manter indicador de digitação enquanto a LLM e ferramentas rodam

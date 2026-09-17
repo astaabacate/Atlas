@@ -204,6 +204,44 @@ O Farol mantém-se online gratuitamente no GitHub Actions através de um loop au
 ### 🛡️ Guarda de Obsolescência (`freshness.py`)
 No primeiro passo da esteira (antes mesmo do checkout), o Farol verifica a ponta do repositório remoto (`git ls-remote --heads origin`). Se um novo commit tiver sido enviado enquanto uma run estava na fila, o commit desatualizado **aborta imediatamente com `sys.exit(1)`**, impedindo que código antigo desfaça correções recentes.
 
+### 🔌 Ligar / reiniciar / parar o bot
+
+| Quero | Como fazer |
+| --- | --- |
+| **Ligar ou reiniciar** | Toque no arquivo `.github/bot-24x7-enabled` (qualquer alteração) ou faça um merge na `main`. O workflow *Farol Bot 24/7* dispara na hora. |
+| **Conferir se está no ar** | Aba **Actions** → *Farol Bot 24/7*: deve existir uma execução *In progress*. O workflow *Farol Vigia 24/7* também avisa nas anotações a cada 30 min. |
+| **Parar só agora** | Cancele a execução em andamento. O vigia reergue em até 30 minutos. |
+| **Parar de vez** | Crie o arquivo `.github/bot-disabled` (o bot não sobe e o vigia não o reergue) ou desative o workflow na aba Actions. |
+
+### 🐕 O vigia (`bot-watchdog.yml`)
+
+A corrente sozinha já mantém o bot no ar, mas ela pode romper (erro, runner perdido, cancelamento
+acidental, push no meio da run). O *Farol Vigia 24/7* fecha essas brechas:
+
+1. confere a cada **30 minutos** se existe execução do bot ativa/na fila — se não existir, sobe uma;
+2. se a ponta do ramo estiver parada há **mais de 45 dias**, grava um batimento (commit trivial) para
+   o GitHub não suspender os agendamentos por inatividade — é o que evita o bot morrer no 60º dia;
+3. respeita o `.github/bot-disabled` para não lutar contra uma parada proposital.
+
+O passo de frescor do bot também mudou: em vez de abortar quando o checkout está obsoleto (o que
+matava a corrente), ele **agenda uma run nova** — que já roda o código atualizado. Na prática, um
+push na `main` faz o bot se atualizar sozinho no fim da fatia de 5h35m.
+
+### 🧩 Vários servidores ao mesmo tempo (isolamento)
+
+O Farol é feito para ser vendido e usado em muitos servidores por UM processo só. Tudo que é
+por conversa usa a chave `servidor:canal` (`brain/memory.py`):
+
+- **histórico da conversa** — o que foi dito no servidor A nunca entra no prompt do servidor B;
+- **pendência de confirmação** — o "sim" de um servidor não autoriza exclusão em outro;
+- **lock de processamento** — duas mensagens do mesmo canal entram em fila, canais de outros
+  servidores nem se enxergam;
+- **memória limitada** — as conversas mais antigas saem por LRU (`max_conversations`, 400 por
+  padrão) e o histórico por canal tem teto, então o bot pode ficar meses no ar sem crescer.
+
+Cobertura: `tests/test_isolation.py` (12 testes, incluindo dois servidores com o MESMO id de canal)
+e a checagem *conversa isolada por servidor* na fase `spy` do E2E.
+
 ### ⏰ Como Reativar o Schedule Após 60 Dias
 O GitHub suspende cron schedules automaticamente em repositórios sem atividade após 60 dias. Para manter ou reativar:
 1. Acesse a aba **Actions** no seu repositório GitHub.

@@ -855,6 +855,8 @@ class Harness:
         await self.check(phase, "permissões: set/clear/sync tocam a API", self._spy_permissions, skip_when=None)
         await self.check(phase, "somente-leitura não muta nada", self._spy_readonly, skip_when=None)
         await self.check(phase, "conversation_clear limpa a memória", self._spy_clear_memory, skip_when=None)
+        await self.check(phase, "conversa isolada por servidor (multi-servidor)", self._spy_isolamento_servidores,
+                         skip_when=None)
         await self.check(phase, "agente não se auto-confirma (offline)", self._spy_agente_confirmacao, skip_when=None)
 
     async def _spy_bulk_confirm(self) -> str:
@@ -1150,15 +1152,72 @@ class Harness:
 
     async def _spy_clear_memory(self) -> str:
         from brain.executors import execute_tool
-        from brain.memory import ChannelMemory
+        from brain.memory import ChannelMemory, memory_key
 
-        ctx, _, _, canal = await self._spy_ctx()
+        ctx, guild, _, canal = await self._spy_ctx()
         memory = ChannelMemory()
-        memory.add_message(canal.id, {"role": "user", "content": "oi"})
+        chave = memory_key(guild.id, canal.id)
+        memory.add_message(chave, {"role": "user", "content": "oi"})
         ctx.memory = memory
         await execute_tool("conversation_clear", {}, ctx)
-        self.assert_true(not memory.get_history(canal.id), "memória do canal não foi limpa")
+        self.assert_true(not memory.get_history(chave), "memória do canal não foi limpa")
         return "histórico do canal apagado de verdade"
+
+    async def _spy_isolamento_servidores(self) -> str:
+        """
+        Bot vendido para vários servidores: o mesmo processo atende todos, então a conversa de
+        um NÃO pode aparecer no outro — nem no histórico, nem na pendência de confirmação.
+        """
+        from brain.agent import Agent
+        from brain.memory import ChannelMemory, memory_key
+        from llm.base import ChatProvider, LLMResponse, ToolCall
+
+        class LLMRoteiro(ChatProvider):
+            def __init__(self, respostas: list[LLMResponse]) -> None:
+                self.respostas = list(respostas)
+
+            async def chat(self, messages: list[dict[str, Any]], tools: Any = None,
+                           timeout: float = 60.0, max_tokens: int = 1024) -> LLMResponse:
+                return self.respostas.pop(0) if self.respostas else LLMResponse(content="sem roteiro")
+
+        def servidor(nome: str, cid: int) -> tuple[SpyGuild, SpyChannel]:
+            guild = SpyGuild(f"Servidor {nome}")
+            guild.members[0].guild_permissions = FakePerms(administrator=True)
+            canal = SpyChannel("geral", guild=guild)
+            canal.id = cid
+            guild.channels.append(canal)
+            return guild, canal
+
+        # MESMO id de canal nos dois servidores: se a chave fosse só o canal, vazaria
+        guild_a, canal_a = servidor("A", 950_001)
+        guild_b, canal_b = servidor("B", 950_001)
+
+        memoria = ChannelMemory()
+        agente = Agent(llm_provider=LLMRoteiro([
+            LLMResponse(content="Anotado no servidor A: Pinguim.", tool_calls=[]),
+            LLMResponse(content="Aqui no B eu não sei de nada.", tool_calls=[]),
+        ]), memory=memoria)
+        ator = guild_a.members[0]
+
+        await agente.process_turn(guild=guild_a, channel=canal_a, actor=ator, prompt="Guarde: Pinguim")
+        hist_b = memoria.get_history(memory_key(guild_b.id, canal_b.id))
+        self.assert_true(not hist_b, f"o histórico do servidor B recebeu conversa do A: {hist_b}")
+        await agente.process_turn(guild=guild_b, channel=canal_b, actor=ator, prompt="Qual o apelido?")
+        hist_b = memoria.get_history(memory_key(guild_b.id, canal_b.id))
+        texto_b = " ".join(m.get("content", "") for m in hist_b)
+        self.assert_true("Pinguim" not in texto_b, f"o apelido do servidor A vazou para o B: {texto_b!r}")
+
+        # pendência de confirmação também é por conversa
+        canal_a.overwrites = {}
+        agente.llm = LLMRoteiro([
+            LLMResponse(content="", tool_calls=[ToolCall(id="iso_1", name="delete_channels",
+                                                         args={"channels": [str(canal_a.id)], "confirmed": True})]),
+            LLMResponse(content="Confirma que posso apagar?", tool_calls=[]),
+        ])
+        await agente.process_turn(guild=guild_a, channel=canal_a, actor=ator, prompt="apague um canal do A")
+        self.assert_true(not agente.pending_confirmation(memory_key(guild_b.id, canal_b.id)),
+                         "a pendência do servidor A apareceu no servidor B")
+        return "conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal)"
 
     # =====================================================================
     # policy

@@ -12,7 +12,7 @@ import re
 from typing import Any
 
 from brain.executors import execute_tool
-from brain.memory import ChannelMemory
+from brain.memory import ChannelMemory, memory_key
 from brain.snapshot import build_server_snapshot
 from brain.tools import ToolContext, ToolDef, ToolError, get_tool_definitions
 from llm.base import ChatProvider, LLMResponse, ToolCall
@@ -111,12 +111,21 @@ class Agent:
         self.llm_timeout = llm_timeout
         self.api_registry = api_registry
         self.tools_schema = [t.to_openai() for t in get_tool_definitions()]
-        # canal → ferramentas destrutivas que pediram confirmação no último turno
-        self._aguardando_confirmacao: dict[int, set[str]] = {}
+        # conversa → ferramentas destrutivas que pediram confirmação no último turno
+        self._aguardando_confirmacao: dict[Any, set[str]] = {}
+        self.max_pending_confirmations: int = 200
 
-    def pending_confirmation(self, channel_id: int) -> set[str]:
-        """Ferramentas que estão esperando um 'sim' do usuário naquele canal."""
+    def pending_confirmation(self, channel_id: Any) -> set[str]:
+        """Ferramentas que estão esperando um 'sim' do usuário naquela conversa."""
         return set(self._aguardando_confirmacao.get(channel_id, set()))
+
+    def _marcar_pendencia(self, channel_id: Any, ferramentas: set[str]) -> None:
+        """Guarda a pendência de confirmação sem deixar o dicionário crescer sem fim."""
+        if len(self._aguardando_confirmacao) >= self.max_pending_confirmations:
+            # descarta a pendência mais antiga (em Python 3.7+ dict mantém ordem de inserção)
+            mais_antiga = next(iter(self._aguardando_confirmacao))
+            self._aguardando_confirmacao.pop(mais_antiga, None)
+        self._aguardando_confirmacao[channel_id] = set(ferramentas)
 
     def _com_pergunta_de_confirmacao(self, channel_id: int, texto: str) -> str:
         """
@@ -162,7 +171,8 @@ class Agent:
         prompt: str,
         attachments: list[Any] | None = None,
     ) -> str:
-        channel_id = getattr(channel, "id", 0)
+        # Isolamento por servidor: a conversa é sempre (servidor, canal).
+        channel_id = memory_key(getattr(guild, "id", None), getattr(channel, "id", 0))
         ctx = ToolContext(
             guild=guild,
             channel=channel,
@@ -212,7 +222,7 @@ class Agent:
                     if asks_for_confirmation(final_text):
                         # perguntou no TEXTO (sem chamar a ferramenta): o "sim" da próxima
                         # mensagem precisa valer para a ferramenta destrutiva que vier
-                        self._aguardando_confirmacao[channel_id] = {"*"}
+                        self._marcar_pendencia(channel_id, {"*"})
                 return final_text or "Operação concluída com sucesso."
 
             # O modelo chamou ferramentas
@@ -259,7 +269,7 @@ class Agent:
                 self.memory.add_message(channel_id, tool_result_msg)
 
             if pedindo_confirmacao:
-                self._aguardando_confirmacao[channel_id] = set(pedindo_confirmacao)
+                self._marcar_pendencia(channel_id, pedindo_confirmacao)
             elif any(c.name in CONFIRMATION_TOOLS for c in tool_calls):
                 # a ferramenta destrutiva rodou de verdade (o usuário já havia confirmado)
                 self._aguardando_confirmacao.pop(channel_id, None)

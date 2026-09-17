@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from brain.agent import Agent, asks_for_confirmation, user_confirmed
-from brain.memory import ChannelMemory
+from brain.memory import ChannelMemory, memory_key
 from brain.tools import ToolError
 from llm.base import ChatProvider, LLMResponse, ToolCall
 
@@ -246,6 +246,8 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
             get_channel=lambda cid: next((c for c in self.canais if c.id == cid), None),
         )
         self.channel = SimpleNamespace(id=555, name="geral")
+        # mesma chave do agente: (servidor, canal)
+        self.chave_conversa = memory_key(self.guild.id, self.channel.id)
 
     def _agent_com(self, respostas: list[LLMResponse]) -> tuple[Agent, FakeLLM]:
         llm = FakeLLM(respostas)
@@ -266,7 +268,7 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
 
         self.assertEqual(self.apagados, [], "o agente apagou sem a confirmação do usuário")
         self.assertIn("confirm", resposta.lower())
-        pendentes = agent.pending_confirmation(555)
+        pendentes = agent.pending_confirmation(self.chave_conversa)
         self.assertTrue("delete_channels" in pendentes or "*" in pendentes,
                         f"o pedido de confirmação não ficou registrado: {pendentes}")
 
@@ -275,7 +277,7 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
                                                          args={"channels": ["11", "12"], "confirmed": True})]),
             LLMResponse(content="Feito, canais apagados.", tool_calls=[]),
         ])
-        agent2._aguardando_confirmacao[555] = {"delete_channels"}
+        agent2._aguardando_confirmacao[self.chave_conversa] = {"delete_channels"}
         agent2.memory = agent.memory  # mantém o histórico da conversa
         self._turno(agent2, "sim, pode apagar")
 
@@ -297,14 +299,14 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
             LLMResponse(content="Tem certeza que quer apagar os 2 canais?", tool_calls=[]),
         ])
         self._turno(agent, "Apague os canais canal-a e canal-b")
-        self.assertIn("*", agent.pending_confirmation(555))
+        self.assertIn("*", agent.pending_confirmation(self.chave_conversa))
 
         agent2, _ = self._agent_com([
             LLMResponse(content="", tool_calls=[ToolCall(id="c2", name="delete_channels",
                                                          args={"channels": ["11", "12"], "confirmed": True})]),
             LLMResponse(content="Pronto!", tool_calls=[]),
         ])
-        agent2._aguardando_confirmacao[555] = agent.pending_confirmation(555)
+        agent2._aguardando_confirmacao[self.chave_conversa] = agent.pending_confirmation(self.chave_conversa)
         self._turno(agent2, "isso, manda ver")
 
         self.assertEqual(sorted(self.apagados), ["canal-a", "canal-b"])

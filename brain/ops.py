@@ -1010,7 +1010,10 @@ async def op_translate_text(ctx: ToolContext, text: str, target_lang: str = "pt"
 
 async def op_conversation_clear(ctx: ToolContext) -> str:
     if ctx.memory is not None:
+        from brain.memory import memory_key
+
         cid = getattr(ctx.channel, "id", None)
         if cid is not None:
-            ctx.memory.clear(cid)
+            # mesma chave usada pelo agente: servidor + canal (isolamento entre servidores)
+            ctx.memory.clear(memory_key(getattr(ctx.guild, "id", None), cid))
     return "🧹 Histórico de conversa deste canal foi limpo com sucesso."
