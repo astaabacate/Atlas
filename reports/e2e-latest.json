@@ -1,0 +1,543 @@
+{
+  "schema": 1,
+  "started_at": "2026-09-17T21:38:54+00:00",
+  "finished_at": "2026-09-17T21:38:54.211559+00:00",
+  "meta": {
+    "fases": "agent",
+    "mutações reais": "não",
+    "python": "3.11.16",
+    "runner": "Linux",
+    "commit": "62fcfed",
+    "execução": "35277780929",
+    "discord.py": "2.7.1"
+  },
+  "summary": {
+    "PASS": 49,
+    "FAIL": 4,
+    "WARN": 2,
+    "SKIP": 0
+  },
+  "notes": [
+    "conectado como Atlas#1985 em 1 servidor(es)"
+  ],
+  "phases": {
+    "static": {
+      "title": "Checagens estáticas (schemas ↔ executores)",
+      "checks": [
+        {
+          "phase": "static",
+          "name": "27 ferramentas ↔ 27 executores",
+          "status": "PASS",
+          "detail": "27 ferramentas e 27 executores casados",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "static",
+          "name": "parâmetros declarados e nunca usados",
+          "status": "WARN",
+          "detail": "o LLM pode preencher e o executor ignorar: show_permissions.target, set_icon.style",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "static",
+          "name": "assinaturas ↔ schemas",
+          "status": "PASS",
+          "detail": "27 assinaturas conferem com os schemas",
+          "ms": 11,
+          "data": {}
+        },
+        {
+          "phase": "static",
+          "name": "toda ferramenta tem política",
+          "status": "PASS",
+          "detail": "as 27 ferramentas têm política declarada",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "static",
+          "name": "qualidade dos schemas enviados ao LLM",
+          "status": "PASS",
+          "detail": "descrições e schemas bem formados para function calling",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "static",
+          "name": "prompt de sistema completo",
+          "status": "PASS",
+          "detail": "prompt com os 5 blocos obrigatórios",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "static",
+          "name": "tamanho do payload enviado ao LLM",
+          "status": "PASS",
+          "detail": "schema com 11386 chars + prompt de 1585 chars",
+          "ms": 0,
+          "data": {}
+        }
+      ]
+    },
+    "spy": {
+      "title": "Duplos de teste: a ferramenta promete, a ferramenta faz?",
+      "checks": [
+        {
+          "phase": "spy",
+          "name": "create_channels cria na raiz de verdade",
+          "status": "PASS",
+          "detail": "chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#1009> <#1010> <#1011> 🎉 (✅ 3/3 '",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "create_channels cria DENTRO de categoria",
+          "status": "FAIL",
+          "detail": "ToolError: Falha ao criar canais: __main__.SpyGuild.create_text_channel() got multiple values for keyword argument 'category'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "edit_channel edita de verdade",
+          "status": "PASS",
+          "detail": "chamou edit() e respondeu 'Canal <#1008> atualizado com sucesso!'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "move_channel move de verdade",
+          "status": "PASS",
+          "detail": "chamou edit() e respondeu 'Canal <#1008> movido com sucesso!'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "clone_channel clona de verdade",
+          "status": "PASS",
+          "detail": "chamou clone() e respondeu 'Canal clonado com sucesso: <#1012> 🎉'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "delete_channels apaga de verdade (1 canal)",
+          "status": "PASS",
+          "detail": "chamou delete() e respondeu '🗑️ Exclusão concluída: #canal-renomeado (✅ 1/1 concluídos co'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "delete_channels em lote pede confirmação",
+          "status": "PASS",
+          "detail": "2 canais: exige confirmação e só apaga com confirmed=true",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "edit_server altera de verdade",
+          "status": "PASS",
+          "detail": "chamou edit() e respondeu 'Informações do servidor atualizadas com sucesso!'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "set_icon altera de verdade",
+          "status": "FAIL",
+          "detail": "respondeu 'Ícone do servidor atualizado com sucesso a partir de https://example.c' mas NÃO chamou edit() — chamadas vistas: nenhuma",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "apply_template cria de verdade",
+          "status": "FAIL",
+          "detail": "ToolError: Erro ao executar 'apply_template': __main__.SpyGuild.create_text_channel() got multiple values for keyword argument 'category'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "import_structure cria de verdade",
+          "status": "PASS",
+          "detail": "chamou create_() e respondeu '✅ Estrutura importada com sucesso: 1 cargos e 1 canais recri'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "cargos: criar/editar/dar/tirar/apagar de verdade",
+          "status": "PASS",
+          "detail": "criou/editou/deu/tirou/apagou: todas as chamadas de API aconteceram",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "permissões: set/clear/sync tocam a API",
+          "status": "PASS",
+          "detail": "set/clear/sync chamaram a API e show leu as permissões",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "somente-leitura não muta nada",
+          "status": "PASS",
+          "detail": "8 ferramentas de leitura rodaram sem mutar nada",
+          "ms": 3,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "conversation_clear limpa a memória",
+          "status": "PASS",
+          "detail": "histórico do canal apagado de verdade",
+          "ms": 0,
+          "data": {}
+        }
+      ]
+    },
+    "policy": {
+      "title": "Política de permissões e confirmação destrutiva",
+      "checks": [
+        {
+          "phase": "policy",
+          "name": "membro comum é bloqueado",
+          "status": "PASS",
+          "detail": "membro comum bloqueado: Você precisa da permissão 'Gerenciar canais' para usar a ferramenta 'create_channels'.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "bot sem permissão é bloqueado",
+          "status": "PASS",
+          "detail": "bot sem permissão bloqueado: Eu preciso da permissão 'Gerenciar canais' no meu cargo para executar 'create_channels'. Ajuste meu cargo e tente de novo.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "@everyone é intocável",
+          "status": "PASS",
+          "detail": "@everyone protegido: Não é possível alterar ou excluir o cargo @everyone.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "cargo de integração é intocável",
+          "status": "PASS",
+          "detail": "cargo de integração protegido: O cargo 'CargoDeBot' é gerenciado por uma integração ou aplicativo e não pode ser modificado.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "cargo acima do bot é protegido",
+          "status": "PASS",
+          "detail": "cargo acima do bot protegido: O cargo 'CargoDoDono' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "autor não edita cargo no próprio nível",
+          "status": "PASS",
+          "detail": "cargo no nível do autor protegido: O cargo 'CargoDoAutor' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "exclusão em lote exige confirmação",
+          "status": "PASS",
+          "detail": "2 canais: pede confirmação e não apaga nada antes",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "canal único apaga sem confirmação",
+          "status": "PASS",
+          "detail": "canal único nominal executa sem travar o fluxo",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "exclusão de cargo exige confirmação",
+          "status": "PASS",
+          "detail": "cargo: exige confirmação e apaga com confirmed=true",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "ferramenta inexistente é rejeitada",
+          "status": "PASS",
+          "detail": "ferramenta desconhecida rejeitada: A ferramenta 'ferramenta_inexistente' não foi encontrada.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "policy",
+          "name": "argumentos inválidos são rejeitados",
+          "status": "PASS",
+          "detail": "lista vazia rejeitada com ToolError: Nenhum canal foi informado para exclusão.",
+          "ms": 0,
+          "data": {}
+        }
+      ]
+    },
+    "connect": {
+      "title": "Conexão ao gateway do Discord",
+      "checks": [
+        {
+          "phase": "connect",
+          "name": "corredores de LLM na corrida",
+          "status": "PASS",
+          "detail": "llm7/tools, ovh, pollinations",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "connect",
+          "name": "configuração carregada",
+          "status": "PASS",
+          "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
+          "ms": 7,
+          "data": {}
+        },
+        {
+          "phase": "connect",
+          "name": "corrida de LLMs responde",
+          "status": "PASS",
+          "detail": "vencedor pollinations (tools nativas: False) → 'pong'",
+          "ms": 783,
+          "data": {
+            "vencedor": "pollinations"
+          }
+        },
+        {
+          "phase": "connect",
+          "name": "servidores do bot",
+          "status": "PASS",
+          "detail": "1: asta (1546763083005825084)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "connect",
+          "name": "login e gateway",
+          "status": "PASS",
+          "detail": "conectado como Atlas#1985 · gateway em 85ms",
+          "ms": 3009,
+          "data": {
+            "usuario": "Atlas#1985",
+            "latencia_ms": 85,
+            "servidores": [
+              {
+                "nome": "asta",
+                "id": 1546763083005825084,
+                "membros": 4
+              }
+            ]
+          }
+        },
+        {
+          "phase": "connect",
+          "name": "servidor e autor do teste",
+          "status": "PASS",
+          "detail": "servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador)",
+          "ms": 199,
+          "data": {}
+        }
+      ]
+    },
+    "audit": {
+      "title": "Diagnóstico de permissões e hierarquia no servidor",
+      "checks": [
+        {
+          "phase": "audit",
+          "name": "permissões do bot no servidor",
+          "status": "PASS",
+          "detail": "OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages']",
+          "ms": 0,
+          "data": {
+            "manage_channels": true,
+            "manage_roles": true,
+            "manage_guild": true,
+            "administrator": true,
+            "send_messages": true
+          }
+        },
+        {
+          "phase": "audit",
+          "name": "hierarquia de cargos",
+          "status": "WARN",
+          "detail": "3 cargo(s) no nível ou acima do bot (Atlas, iTinder, Cupido): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3).",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "audit",
+          "name": "hierarquia de cargos",
+          "status": "PASS",
+          "detail": "cargo do bot na posição 1",
+          "ms": 0,
+          "data": {
+            "posicao_cargo_bot": 1,
+            "cargos_acima_ou_igual": [
+              "Atlas",
+              "iTinder",
+              "Cupido"
+            ]
+          }
+        },
+        {
+          "phase": "audit",
+          "name": "estrutura do servidor",
+          "status": "PASS",
+          "detail": "3 categorias · 2 texto · 1 voz · 4 cargos · 4 membros",
+          "ms": 0,
+          "data": {
+            "categorias": 3,
+            "texto": 2,
+            "voz": 1,
+            "cargos": 4,
+            "membros": 4
+          }
+        },
+        {
+          "phase": "audit",
+          "name": "snapshot do servidor",
+          "status": "PASS",
+          "detail": "snapshot com 15 linhas alimenta o prompt",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "audit",
+          "name": "estado local bate com a API",
+          "status": "PASS",
+          "detail": "cache local bate com a API REST (6 canais, 4 cargos)",
+          "ms": 323,
+          "data": {}
+        }
+      ]
+    },
+    "tools": {
+      "title": "Ferramentas somente-leitura em servidor real",
+      "checks": [
+        {
+          "phase": "tools",
+          "name": "server_info",
+          "status": "PASS",
+          "detail": "📊 **Informações de asta:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 6 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "list_roles",
+          "status": "PASS",
+          "detail": "listou os 4 cargos reais com menção e posição",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "export_structure (JSON válido e completo)",
+          "status": "PASS",
+          "detail": "3 categorias, 3 canais e 3 cargos exportados em JSON válido",
+          "ms": 0,
+          "data": {
+            "categorias": 3
+          }
+        },
+        {
+          "phase": "tools",
+          "name": "show_permissions",
+          "status": "PASS",
+          "detail": "O canal <#1546763083727249481> não possui permissões personalizadas configuradas.",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "resolve por ID e por menção",
+          "status": "PASS",
+          "detail": "6 canais e 4 cargos resolvidos por ID e por menção",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "APIs externas (cores/emojis/tópicos/tradução)",
+          "status": "PASS",
+          "detail": "5 APIs externas responderam",
+          "ms": 1487,
+          "data": {
+            "falhas": []
+          }
+        }
+      ]
+    },
+    "agent": {
+      "title": "Agente + LLM ao vivo (prompt → ferramenta → resposta)",
+      "checks": [
+        {
+          "phase": "agent",
+          "name": "prompt → ferramenta → resposta coerente",
+          "status": "PASS",
+          "detail": "ferramentas ['tool_list_roles', 'tool_list_roles'] · vencedor pollinations · citou ['Atlas', 'iTinder', 'Cupido']",
+          "ms": 2622,
+          "data": {
+            "ferramentas": [
+              "tool_list_roles",
+              "tool_list_roles"
+            ],
+            "vencedor": "pollinations"
+          }
+        },
+        {
+          "phase": "agent",
+          "name": "fora de escopo é recusado sem executar",
+          "status": "PASS",
+          "detail": "recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é org'",
+          "ms": 796,
+          "data": {
+            "tool_calls": []
+          }
+        },
+        {
+          "phase": "agent",
+          "name": "agente conhece a estrutura real",
+          "status": "FAIL",
+          "detail": "não citou nada real do servidor (nem nome nem menção): '**Resumo do que foi feito até agora**\\n\\n1. **Cargos listados** – Apresentei os cargos existentes no servidor:\\u202fCupido, Atlas, iTinder e everyone.  \\n2. **Solicitaç'",
+          "ms": 4289,
+          "data": {}
+        },
+        {
+          "phase": "agent",
+          "name": "memória do canal entre turnos",
+          "status": "PASS",
+          "detail": "histórico do canal lembrado entre turnos",
+          "ms": 6417,
+          "data": {}
+        }
+      ]
+    }
+  }
+}
