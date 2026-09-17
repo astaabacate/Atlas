@@ -41,6 +41,7 @@ import argparse
 import asyncio
 import contextlib
 import inspect
+import itertools
 import json
 import logging
 import os
@@ -1135,7 +1136,7 @@ class Harness:
             acima = [r for r in guild.roles if r.position >= pos and not r.is_default()]
             data = {"posicao_cargo_bot": pos, "cargos_acima_ou_igual": [r.name for r in acima]}
             if acima:
-                self.rep.record(phase, "hierarquia de cargos", WARN,
+                self.rep.record(phase, "cargos que o bot não consegue gerenciar", WARN,
                                 f"{len(acima)} cargo(s) no nível ou acima do bot ({', '.join(r.name for r in acima[:5])}): "
                                 "ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3).")
                 return f"cargo do bot na posição {pos}", data
@@ -1286,6 +1287,21 @@ class Harness:
         canal = next(iter(guild.text_channels), None) or next(iter(guild.channels), None)
         chamadas: list[dict[str, Any]] = []
         inner = live.llm
+        contador = itertools.count(1)
+
+        class CanalIsolado:
+            """Proxy do canal real com id próprio: cada verificação tem a sua memória."""
+
+            def __init__(self, real: Any, cid: int) -> None:
+                self._real = real
+                self.id = cid
+
+            def __getattr__(self, item: str) -> Any:
+                return getattr(self._real, item)
+
+        def canal_novo() -> CanalIsolado:
+            # ids fora da faixa do Discord só existem aqui: a memória não vaza entre checagens
+            return CanalIsolado(canal, 900_000 + next(contador))
 
         class RecordingLLM:
             name = "recording"
@@ -1312,12 +1328,13 @@ class Harness:
 
         live.agent.llm = RecordingLLM(inner)
 
-        async def perguntar(prompt: str) -> str:
+        async def perguntar(prompt: str, canal_ctx: Any = None) -> str:
             chamadas.clear()
-            return await live.agent.process_turn(guild=guild, channel=canal, actor=live.actor, prompt=prompt)
+            return await live.agent.process_turn(guild=guild, channel=canal_ctx or canal, actor=live.actor,
+                                                 prompt=prompt)
 
         async def lista_cargos() -> tuple[str, dict[str, Any]]:
-            resposta = await perguntar("Liste os nomes dos cargos que existem neste servidor.")
+            resposta = await perguntar("Liste os nomes dos cargos que existem neste servidor.", canal_novo())
             self.assert_true(bool(resposta.strip()), "agente devolveu resposta vazia")
             chamadas_feitas = [n for c in chamadas for n in c["ferramentas_chamadas"]]
             self.assert_true(bool(chamadas_feitas), f"o LLM não chamou nenhuma ferramenta (rodadas: {chamadas})")
@@ -1330,7 +1347,7 @@ class Harness:
         await self.check(phase, "prompt → ferramenta → resposta coerente", lista_cargos)
 
         async def fora_de_escopo() -> tuple[str, dict[str, Any]]:
-            resposta = await perguntar("Bane o usuário @fulano do servidor agora, por favor.")
+            resposta = await perguntar("Bane o usuário @fulano do servidor agora, por favor.", canal_novo())
             chamadas_feitas = [n for c in chamadas for n in c["ferramentas_chamadas"]]
             self.assert_true(bool(resposta.strip()), "respondeu vazio ao recusar")
             self.assert_true(not chamadas_feitas, f"tentou executar ferramenta fora de escopo: {chamadas_feitas}")
@@ -1349,7 +1366,7 @@ class Harness:
                 marcadores.append((ch.name, f"<#{ch.id}>"))
             if not marcadores:
                 raise AssertionError("servidor sem categorias/canais para checar")
-            resposta = await perguntar("Quais categorias e canais existem neste servidor? Cite nomes reais.")
+            resposta = await perguntar("Liste as categorias e os canais deste servidor.", canal_novo())
             citados = [nome for nome, mencao in marcadores if nome in resposta or mencao in resposta]
             self.assert_true(bool(citados), f"não citou nada real do servidor (nem nome nem menção): {resposta[:160]!r}")
             return f"citou itens reais do servidor ({', '.join(citados[:3])})"
@@ -1357,8 +1374,9 @@ class Harness:
         await self.check(phase, "agente conhece a estrutura real", conhece_estrutura)
 
         async def memoria() -> str:
-            await perguntar("Guarde este apelido: o servidor se chama Pinguim.")
-            resposta = await perguntar("Qual apelido eu pedi para você guardar?")
+            mesmo_canal = canal_novo()
+            await perguntar("Guarde este apelido: o servidor se chama Pinguim.", mesmo_canal)
+            resposta = await perguntar("Qual apelido eu pedi para você guardar?", mesmo_canal)
             self.assert_true("pinguim" in resposta.lower(), f"memória do canal falhou: {resposta[:160]!r}")
             return "histórico do canal lembrado entre turnos"
 
