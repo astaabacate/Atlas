@@ -1163,6 +1163,27 @@ class Harness:
         self.assert_true(not memory.get_history(chave), "memória do canal não foi limpa")
         return "histórico do canal apagado de verdade"
 
+    @staticmethod
+    def silenciar_mensagens_reais(bot: Any) -> Any:
+        """
+        Impede o FarolBot DESTE teste de responder mensagens que chegarem pelo gateway.
+
+        O bot de produção (workflow 24/7) usa o MESMO token e está online enquanto o teste
+        roda: sem isso, dois processos responderiam a mesma mensagem de um cliente real.
+        O teste chama `bot.on_message(...)` na mão com mensagens falsas, que continuam valendo.
+
+        Devolve o dispatch original (para restaurar depois).
+        """
+        original = bot.dispatch
+
+        def dispatch_filtrado(event: str, *args: Any, **kwargs: Any) -> Any:
+            if event == "message":
+                return None  # só as FakeMessage do teste são processadas
+            return original(event, *args, **kwargs)
+
+        bot.dispatch = dispatch_filtrado
+        return original
+
     async def _spy_isolamento_servidores(self) -> str:
         """
         Bot vendido para vários servidores: o mesmo processo atende todos, então a conversa de
@@ -2139,6 +2160,10 @@ class Harness:
             await bot.login(live.config.discord_token)
             connect_task = asyncio.create_task(bot.connect(reconnect=False))
             await asyncio.wait_for(ready.wait(), timeout=self.args.connect_timeout)
+
+            # o bot 24/7 de produção está online com o mesmo token: este clone não pode
+            # responder as mensagens reais dos clientes (o teste usa mensagens falsas)
+            self.silenciar_mensagens_reais(bot)
 
             async def criar_canal() -> str:
                 nonlocal canal

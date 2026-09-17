@@ -15,6 +15,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -242,6 +243,34 @@ class TestMetadados(unittest.TestCase):
         self.assertTrue(dado["started_at"].startswith("2026-01-01"))
         self.assertIn("finished_at", dado)
         self.assertEqual(dado["phases"]["static"]["title"], e2e.PHASE_TITLES["static"])
+
+
+class TestSilenciarMensagensReais(unittest.TestCase):
+    """O clone de teste não pode responder cliente real: o bot 24/7 usa o mesmo token."""
+
+    def _bot_falso(self) -> Any:
+        class BotFalso:
+            def __init__(self) -> None:
+                self.eventos: list[str] = []
+
+            def dispatch(self, event: str, *args: Any, **kwargs: Any) -> None:
+                self.eventos.append(event)
+
+        return BotFalso()
+
+    def test_ignora_message_mas_mantem_os_outros_eventos(self) -> None:
+        bot = self._bot_falso()
+        original = e2e.Harness.silenciar_mensagens_reais(bot)
+
+        bot.dispatch("message", "mensagem de um cliente real")
+        bot.dispatch("ready")
+        bot.dispatch("message_delete", 123)
+
+        self.assertEqual(bot.eventos, ["ready", "message_delete"])
+
+        bot.dispatch = original
+        bot.dispatch("message", "de novo")
+        self.assertEqual(bot.eventos[-1], "message")
 
 
 class TestClassificacaoLLM(unittest.TestCase):
