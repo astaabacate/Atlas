@@ -320,6 +320,36 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
 
         self.assertEqual(self.apagados, ["canal-a"], "canal único nominal deveria apagar sem travar")
 
+    def test_pergunta_aparece_mesmo_com_resumo_pessimo_do_modelo(self) -> None:
+        """
+        Modelo fraco (provedor gratuito) insiste no confirmed=true e depois resume "falhou":
+        a pergunta de confirmação precisa chegar ao usuário de qualquer jeito.
+        """
+        teimoso = LLMResponse(content="", tool_calls=[ToolCall(
+            id="c1", name="delete_channels", args={"channels": ["11", "12"], "confirmed": True})])
+        agent, _ = self._agent_com([
+            teimoso, teimoso,
+            LLMResponse(content="**Resumo:** 1. Tentei excluir os canais. 2. A tentativa falhou.", tool_calls=[]),
+        ])
+        agent.max_tool_rounds = 2
+
+        resposta = self._turno(agent, "Apague os canais canal-a e canal-b de uma vez.")
+
+        self.assertEqual(self.apagados, [], "apagou sem confirmação do usuário")
+        self.assertIn("confirma", resposta.lower(),
+                      f"o usuário ficou sem a pergunta de confirmação: {resposta!r}")
+
+    def test_pergunta_aparece_no_caminho_de_resumo(self) -> None:
+        teimoso = LLMResponse(content="", tool_calls=[ToolCall(
+            id="c1", name="delete_channels", args={"channels": ["11", "12"], "confirmed": True})])
+        agent, _ = self._agent_com([teimoso, teimoso, LLMResponse(content="", tool_calls=[])])
+        agent.max_tool_rounds = 2
+
+        resposta = self._turno(agent, "Apague os canais canal-a e canal-b")
+
+        self.assertEqual(self.apagados, [])
+        self.assertIn("sim, pode apagar", resposta.lower())
+
     def test_helpers_de_confirmacao(self) -> None:
         self.assertTrue(user_confirmed("sim, pode apagar"))
         self.assertTrue(user_confirmed("Confirmo!"))

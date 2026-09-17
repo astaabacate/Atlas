@@ -993,11 +993,22 @@ class Harness:
         self.assert_true("confirm" in resposta.lower() or "posso" in resposta.lower(),
                          f"o agente não pediu confirmação: {resposta[:80]!r}")
 
+        # Modelo teimoso + resumo ruim: mesmo assim o usuário precisa VER a pergunta.
+        teimoso = Agent(llm_provider=LLMRoteirizado([
+            chamada_deletar(), chamada_deletar(),
+            LLMResponse(content="**Resumo:** tentei excluir os canais e a tentativa falhou.", tool_calls=[]),
+        ]), memory=ChannelMemory(), max_tool_rounds=2)
+        resposta_ruim = await teimoso.process_turn(guild=guild, channel=canal, actor=guild.members[0],
+                                                   prompt="Apague os canais lote-1 e lote-2 de uma vez.")
+        self.assert_true(not any("delete" in ch.actions() for ch in lote), "apagou sem confirmação do usuário")
+        self.assert_true("confirm" in resposta_ruim.lower() or "posso" in resposta_ruim.lower(),
+                         f"o usuário ficou sem a pergunta de confirmação: {resposta_ruim[:90]!r}")
+
         llm.roteiro = [chamada_deletar(), LLMResponse(content="Pronto, canais apagados.", tool_calls=[])]
         await agent.process_turn(guild=guild, channel=canal, actor=guild.members[0], prompt="sim, pode apagar")
         self.assert_true(all("delete" in ch.actions() for ch in lote),
                          "depois do 'sim' o agente não apagou os canais")
-        return "sem confirmação do usuário nada é apagado; com o 'sim', apaga"
+        return "sem confirmação do usuário nada é apagado; a pergunta sempre aparece; com o 'sim', apaga"
 
     async def _spy_roles(self) -> str:
         from brain.executors import execute_tool

@@ -33,8 +33,9 @@ REGRAS ABSOLUTAS:
    - Excluir UM canal indicado nominalmente NÃO pede confirmação: execute imediatamente!
    - Peça confirmação SOMENTE quando o estrago for grande: excluir 2 ou mais canais, esvaziar/excluir uma categoria inteira, ou excluir um cargo.
    - NUNCA invente confirmação: só use `confirmed=true` DEPOIS que o usuário confirmar explicitamente
-     ("sim", "pode apagar", "confirmo"). Se ele ainda não confirmou, chame a ferramenta SEM `confirmed`
-     (a própria ferramenta vai pedir a confirmação) e pergunte no texto.
+     ("sim", "pode apagar", "confirmo"). Se ele ainda não confirmou, chame a ferramenta SEM `confirmed`.
+   - Se a ferramenta responder "confirme com o usuário e chame de novo com confirmed=true", PARE de tentar:
+     pergunte no texto ("Confirma que posso apagar X e Y?") e encerre a resposta sem chamar mais nada.
 8. FORA DE ESCOPO: moderação, punições, bans, expulsões, matchmaking, sorteios, jogos, enquetes. Quando pedirem isso, responda educadamente que seu foco exclusivo é montar e organizar a estrutura do servidor.
 
 {snapshot}
@@ -117,6 +118,21 @@ class Agent:
         """Ferramentas que estão esperando um 'sim' do usuário naquele canal."""
         return set(self._aguardando_confirmacao.get(channel_id, set()))
 
+    def _com_pergunta_de_confirmacao(self, channel_id: int, texto: str) -> str:
+        """
+        Garante que o usuário VEJA a pergunta quando algo ficou pendente de confirmação.
+
+        Sem isso, um modelo fraco (dos provedores gratuitos) pode responder "tentativa falhou"
+        e deixar a pessoa sem entender que a ação só espera um "sim" — foi o que o teste ao vivo
+        pegou depois do guarda de confirmação entrar.
+        """
+        if not self._aguardando_confirmacao.get(channel_id):
+            return texto
+        if asks_for_confirmation(texto):
+            return texto
+        pergunta = 'Confirma que posso apagar? Responda "sim, pode apagar" que eu executo na hora.'
+        return f"{texto}\n\n{pergunta}".strip() if texto else pergunta
+
     def _authorize_confirmed(self, channel_id: int, tool_name: str, args: dict[str, Any],
                              prompt: str) -> dict[str, Any]:
         """
@@ -190,7 +206,7 @@ class Agent:
                 tool_calls = _extract_fallback_tool_calls(response.content)
 
             if not tool_calls:
-                final_text = response.content.strip()
+                final_text = self._com_pergunta_de_confirmacao(channel_id, response.content.strip())
                 if final_text:
                     self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})
                     if asks_for_confirmation(final_text):
@@ -255,7 +271,7 @@ class Agent:
         }
         messages.append(summary_prompt)
         final_resp = await self.llm.chat(messages=messages, tools=None, timeout=self.llm_timeout)
-        final_text = final_resp.content.strip()
+        final_text = self._com_pergunta_de_confirmacao(channel_id, final_resp.content.strip())
         if final_text:
             self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})
         return final_text or "Operações concluídas."
