@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "started_at": "2026-09-17T21:38:54+00:00",
-  "finished_at": "2026-09-17T21:38:54.211559+00:00",
+  "started_at": "2026-09-17T21:41:15+00:00",
+  "finished_at": "2026-09-17T21:41:15.538976+00:00",
   "meta": {
     "fases": "agent",
     "mutações reais": "não",
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "62fcfed",
-    "execução": "35277780929",
+    "commit": "cf528c6",
+    "execução": "35277915862",
     "discord.py": "2.7.1"
   },
   "summary": {
@@ -45,7 +45,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "27 assinaturas conferem com os schemas",
-          "ms": 11,
+          "ms": 16,
           "data": {}
         },
         {
@@ -162,7 +162,7 @@
           "name": "apply_template cria de verdade",
           "status": "FAIL",
           "detail": "ToolError: Erro ao executar 'apply_template': __main__.SpyGuild.create_text_channel() got multiple values for keyword argument 'category'",
-          "ms": 0,
+          "ms": 1,
           "data": {}
         },
         {
@@ -194,7 +194,7 @@
           "name": "somente-leitura não muta nada",
           "status": "PASS",
           "detail": "8 ferramentas de leitura rodaram sem mutar nada",
-          "ms": 3,
+          "ms": 4,
           "data": {}
         },
         {
@@ -316,7 +316,7 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 7,
+          "ms": 10,
           "data": {}
         },
         {
@@ -324,7 +324,7 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor pollinations (tools nativas: False) → 'pong'",
-          "ms": 783,
+          "ms": 555,
           "data": {
             "vencedor": "pollinations"
           }
@@ -341,11 +341,11 @@
           "phase": "connect",
           "name": "login e gateway",
           "status": "PASS",
-          "detail": "conectado como Atlas#1985 · gateway em 85ms",
-          "ms": 3009,
+          "detail": "conectado como Atlas#1985 · gateway em 59ms",
+          "ms": 3146,
           "data": {
             "usuario": "Atlas#1985",
-            "latencia_ms": 85,
+            "latencia_ms": 59,
             "servidores": [
               {
                 "nome": "asta",
@@ -360,7 +360,7 @@
           "name": "servidor e autor do teste",
           "status": "PASS",
           "detail": "servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador)",
-          "ms": 199,
+          "ms": 204,
           "data": {}
         }
       ]
@@ -384,7 +384,7 @@
         },
         {
           "phase": "audit",
-          "name": "hierarquia de cargos",
+          "name": "cargos que o bot não consegue gerenciar",
           "status": "WARN",
           "detail": "3 cargo(s) no nível ou acima do bot (Atlas, iTinder, Cupido): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3).",
           "ms": 0,
@@ -487,7 +487,7 @@
           "name": "APIs externas (cores/emojis/tópicos/tradução)",
           "status": "PASS",
           "detail": "5 APIs externas responderam",
-          "ms": 1487,
+          "ms": 1283,
           "data": {
             "falhas": []
           }
@@ -502,7 +502,7 @@
           "name": "prompt → ferramenta → resposta coerente",
           "status": "PASS",
           "detail": "ferramentas ['tool_list_roles', 'tool_list_roles'] · vencedor pollinations · citou ['Atlas', 'iTinder', 'Cupido']",
-          "ms": 2622,
+          "ms": 1227,
           "data": {
             "ferramentas": [
               "tool_list_roles",
@@ -515,8 +515,8 @@
           "phase": "agent",
           "name": "fora de escopo é recusado sem executar",
           "status": "PASS",
-          "detail": "recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é org'",
-          "ms": 796,
+          "detail": "recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é exc'",
+          "ms": 21910,
           "data": {
             "tool_calls": []
           }
@@ -524,17 +524,17 @@
         {
           "phase": "agent",
           "name": "agente conhece a estrutura real",
-          "status": "FAIL",
-          "detail": "não citou nada real do servidor (nem nome nem menção): '**Resumo do que foi feito até agora**\\n\\n1. **Cargos listados** – Apresentei os cargos existentes no servidor:\\u202fCupido, Atlas, iTinder e everyone.  \\n2. **Solicitaç'",
-          "ms": 4289,
+          "status": "PASS",
+          "detail": "citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto)",
+          "ms": 13425,
           "data": {}
         },
         {
           "phase": "agent",
           "name": "memória do canal entre turnos",
-          "status": "PASS",
-          "detail": "histórico do canal lembrado entre turnos",
-          "ms": 6417,
+          "status": "FAIL",
+          "detail": "RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { \"message\":\"API rate limit exceeded\", \"request_id\":\"f233797c9daa803051299e05e5ddfc39\" } | llm7: HTTP 400 (qwen2.5-coder-32b) — {\"error\":{\"message\":\"Model 'qwen2.5-coder-32b' is currently unavailable.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"model_unavailabl… | pollinations: HTTP 400 (openai) — {\"error\":\"400 Bad Request\",\"status\":400,\"deprecation_notice\":\"NOTE: The Pollinations legacy text API is being deprecated for authenticated users.… Como resolver: cadastre uma chave em LLM_API_KEY e o provedor em LLM_PROVIDER (cerebras, deepseek, gemini, groq, mistral, openai, opencode-zen, openrouter) nos segredos/variáveis do GitHub Actions.",
+          "ms": 29376,
           "data": {}
         }
       ]
