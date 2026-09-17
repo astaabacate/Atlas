@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 73 · ❌ 2 · ⚠️ 6 · ⏭️ 1
+- **Resumo:** ✅ 74 · ❌ 2 · ⚠️ 5 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 7584347
-- **execução:** 35285580877
+- **commit:** 43ca221
+- **execução:** 35285658467
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -75,7 +75,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor pollinations (tools nativas: False) → 'pong' |
 | PASS | `servidores do bot` | 1: asta (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 59ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 72ms |
 | PASS | `servidor e autor do teste` | servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -110,26 +110,26 @@
 | WARN | `prompt → ferramenta → resposta coerente` | o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 27, 'ferramentas_chamadas': [], 'chars': 92, 'vencedor': 'pollinations'}]) — o provedor gratuito não cooperou nesta rodada ('Os cargos disponíveis no servidor são:\n\n- Cupido  \n- Atlas  \n- iTinder  \n- @everyone (todos)'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está… |
 | PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco exclu' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
-| WARN | `memória do canal entre turnos` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (opena'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| WARN | `memória do canal entre turnos` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 11 · ❌ 2 · ⚠️ 2 · ⏭️ 1
+`mutate` — ✅ 12 · ❌ 2 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
 | WARN | `cargo do farol no chão do servidor` | O cargo '🧪 teste-papel' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor. Ação do dono (README Passo 3): arraste o cargo do farol para cima dos outros — sem isso ele não edita nem os cargos que ele mesmo cria. |
 | PASS | `cargos: criar/editar/atribuir de verdade` | cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor |
-| FAIL | `permissões de canal confirmadas pela API` | show_permissions não listou a @everyone: O canal <#1550282888694595625> não possui permissões personalizadas configuradas. |
+| PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
-| FAIL | `agente apaga canal nominal sem travar` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"9a4ec41001acda617bb42747d5504443" } \| llm7: HTTP 400 (qwen2.5-coder-32b) — {"error":{"message":"Model 'qwen2.5-coder-32b' is currently unavailable.","type":"invalid_request_error","param":null,"code":"mod… |
-| WARN | `agente pede confirmação em lote e apaga após 'sim'` | o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('Para prosseguir com a exclusão dos canais **🧪-lote-1** e **🧪-lote-2**, preciso da sua confirmação.  \n\n**Confir'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| FAIL | `agente apaga canal nominal sem travar` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"d4f63465f3c74675c9d7cd3764a60832" } \| llm7: HTTP 400 (qwen2.5-coder-32b) — {"error":{"message":"Model 'qwen2.5-coder-32b' is currently unavailable.","type":"invalid_request_error","param":null,"code":"mod… |
+| FAIL | `agente pede confirmação em lote e apaga após 'sim'` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"c518826d617951179bdca379dd79eb14" } \| llm7: HTTP 400 (qwen2.5-coder-32b) — {"error":{"message":"Model 'qwen2.5-coder-32b' is currently unavailable.","type":"invalid_request_error","param":null,"code":"mod… |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -139,13 +139,13 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550283578988961802) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550284915944460361) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'asta' |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'O nome do servidor é **asta**.' |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
-| WARN | `ferramenta real acionada por mensagem` | o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('**Resumo:**\n\n- Identificamos o nome do servidor como **“asta”**.  \n- Você pediu a criação do canal de texto **'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| WARN | `ferramenta real acionada por mensagem` | o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('**Resumo das ações realizadas:**\n\n1. Obtivemos as informações do servidor **asta** (ID: 1546763083005825084). '). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 
 ## Varredura de sobras de teste
 `sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
