@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 74 · ❌ 0 · ⚠️ 6 · ⏭️ 1
+- **Resumo:** ✅ 73 · ❌ 2 · ⚠️ 6 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** f439465
-- **execução:** 35283805588
+- **commit:** 7584347
+- **execução:** 35285580877
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -25,7 +25,7 @@
 | PASS | `tamanho do payload enviado ao LLM` | schema com 11386 chars + prompt de 1877 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
-`spy` — ✅ 18 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`spy` — ✅ 19 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
@@ -46,6 +46,7 @@
 | PASS | `permissões: set/clear/sync tocam a API` | set/clear/sync chamaram a API e show leu as permissões |
 | PASS | `somente-leitura não muta nada` | 8 ferramentas de leitura rodaram sem mutar nada |
 | PASS | `conversation_clear limpa a memória` | histórico do canal apagado de verdade |
+| PASS | `conversa isolada por servidor (multi-servidor)` | conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal) |
 | PASS | `agente não se auto-confirma (offline)` | sem confirmação do usuário nada é apagado; a pergunta sempre aparece; com o 'sim', apaga |
 
 ## Política de permissões e confirmação destrutiva
@@ -74,7 +75,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor pollinations (tools nativas: False) → 'pong' |
 | PASS | `servidores do bot` | 1: asta (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 47ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 59ms |
 | PASS | `servidor e autor do teste` | servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -112,23 +113,23 @@
 | WARN | `memória do canal entre turnos` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (opena'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 13 · ❌ 0 · ⚠️ 2 · ⏭️ 1
+`mutate` — ✅ 11 · ❌ 2 · ⚠️ 2 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
-| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-categoria', '🧪-raiz-texto']) |
+| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
 | WARN | `cargo do farol no chão do servidor` | O cargo '🧪 teste-papel' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor. Ação do dono (README Passo 3): arraste o cargo do farol para cima dos outros — sem isso ele não edita nem os cargos que ele mesmo cria. |
 | PASS | `cargos: criar/editar/atribuir de verdade` | cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor |
-| PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
+| FAIL | `permissões de canal confirmadas pela API` | show_permissions não listou a @everyone: O canal <#1550282888694595625> não possui permissões personalizadas configuradas. |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal #🧪‑efemero (ID: 1550277484199551019) excluído com sucesso.' |
-| WARN | `agente pede confirmação em lote e apaga após 'sim'` | o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('**Resumo das ações realizadas:**\n\n- Canal **#🧪‑efemero** (ID: 1550277484199551019) excluído com sucesso.  \n- T'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| FAIL | `agente apaga canal nominal sem travar` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"9a4ec41001acda617bb42747d5504443" } \| llm7: HTTP 400 (qwen2.5-coder-32b) — {"error":{"message":"Model 'qwen2.5-coder-32b' is currently unavailable.","type":"invalid_request_error","param":null,"code":"mod… |
+| WARN | `agente pede confirmação em lote e apaga após 'sim'` | o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('Para prosseguir com a exclusão dos canais **🧪-lote-1** e **🧪-lote-2**, preciso da sua confirmação.  \n\n**Confir'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -138,13 +139,13 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550278439976837292) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550283578988961802) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
 | PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'asta' |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
-| WARN | `ferramenta real acionada por mensagem` | o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('❌ Ocorreu um erro ao processar seu pedido:\n`Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollina'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| WARN | `ferramenta real acionada por mensagem` | o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('**Resumo:**\n\n- Identificamos o nome do servidor como **“asta”**.  \n- Você pediu a criação do canal de texto **'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 
 ## Varredura de sobras de teste
 `sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
