@@ -1,1 +1,201 @@
-# Atlas
+# 🏮 Farol — Chatbot Discord de Estruturação e Organização
+
+> **O bot de Discord que conversa e EXECUTA.**
+> 100% gratuito, sem chave de IA obrigatória, sem comandos slash para decorar e online 24/7 hospedado no GitHub Actions.
+
+---
+
+## 📖 1. Visão Geral
+
+O **Farol** é um bot de Discord em Python (`discord.py` 2.x) projetado para **ouvir em linguagem natural e alterar o servidor na prática**. Em vez de obrigar o usuário a decorar dezenas de comandos de barra (`/`), você simplesmente marca `@farol` e pede o que precisa. O Farol interpreta via Inteligência Artificial, aciona ferramentas reais no servidor e responde com os links dos recursos criados (`<#canal>`, `<@&cargo>`).
+
+```
+você:  @farol cria 3 canais de voz: Lobby 1, 2 e 3
+farol: Pronto! Criei #🔊-lobby-1 #🔊-lobby-2 #🔊-lobby-3 🎉
+
+você:  @farol monta um servidor gamer completo
+farol: ✅ Modelo gamer aplicado: 5 cargos, 3 categorias, 11 canais.
+
+você:  @farol apaga tudo da categoria antiga
+farol: Isso apaga 8 canais de **antiga** — posso confirmar? 👀
+```
+
+### 🎯 Três Princípios Inegociáveis
+1. **Sem comandos para decorar:** Apenas menção `@farol` e texto livre.
+2. **Sem chave de IA obrigatória:** O cérebro padrão corre sobre provedores gratuitos e anônimos. Chaves (OpenAI, Anthropic, Gemini) são opcionais.
+3. **Online 24/7 sem servidor pago:** Hospedado continuamente no GitHub Actions com auto-encadeamento infinito.
+
+### 🚫 Fora de Escopo por Design
+O Farol não faz moderação (kick/ban/mute), punições, sorteios, enquetes, matchmaking ou jogos. Quando solicitado, o bot esclarece gentilmente que sua especialidade exclusiva é **estruturar e organizar servidores**.
+
+---
+
+## 🛠️ 2. Guia Definitivo: Como Configurar as Permissões do Bot para Fazer Tudo
+
+Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos e sincronizar categorias sem esbarrar em erros de permissão (`403 Forbidden` / `Missing Permissions`), siga rigorosamente estes 4 passos:
+
+### Passo 1: Configurar as Intents no Discord Developer Portal
+1. Acesse o [Discord Developer Portal](https://discord.com/developers/applications).
+2. Selecione a sua aplicação e vá na aba **Bot** no menu lateral esquerdo.
+3. Role até a seção **Privileged Gateway Intents**:
+   - O Farol foi desenvolvido para funcionar com menção direta **sem necessidade de intents privilegiadas**.
+   - Contudo, se desejar que o bot leia mensagens sem ser explicitamente mencionado ou responda a mensagens em reply com contexto estendido, ative **MESSAGE CONTENT INTENT** e defina a variável `MESSAGE_CONTENT_INTENT=true`.
+   - Se desejar que o bot liste membros offline com alta precisão, ative **SERVER MEMBERS INTENT** e defina `MEMBERS_INTENT=true`.
+4. Em **Token**, clique em **Reset Token**, copie o token e guarde-o (será o seu `DISCORD_TOKEN`).
+
+### Passo 2: Gerar o Link de Convite com as Permissões Corretas
+1. No menu lateral, acesse **OAuth2** → **URL Generator**.
+2. Na caixa **SCOPES**, marque:
+   - `bot`
+3. Na caixa **BOT PERMISSIONS**, escolha uma das duas abordagens:
+   - **Opção A (Recomendada / Mais simples):** Marque **Administrator** (Permissão inteira `8`). Isso concede acesso geral para executar qualquer operação administrativa no servidor.
+   - **Opção B (Granular / Estrita):** Se preferir permissões pontuais, marque obrigatoriamente:
+     * `Manage Channels` (Gerenciar Canais)
+     * `Manage Roles` (Gerenciar Cargos)
+     * `Manage Server` (Gerenciar Servidor)
+     * `View Channels` (Ver Canais)
+     * `Send Messages` (Enviar Mensagens)
+     * `Read Message History` (Ver Histórico de Mensagens)
+     * `Add Reactions` (Adicionar Reações)
+     * `Attach Files` (Anexar Arquivos — para exportar e importar backups)
+     * `Embed Links` (Inserir Links)
+     * `Use External Emojis` (Usar Emojis Externos)
+4. Copie a URL gerada no rodapé da página, abra no navegador e adicione o bot ao seu servidor Discord.
+
+---
+
+### Passo 3: ⚠️ A REGRA DE OURO — A Hierarquia de Cargos no Servidor Discord
+
+> **A armadilha mais comum:** Mesmo que o bot tenha a permissão de "Administrador" ou "Gerenciar Cargos", a API do Discord **impede** qualquer usuário ou bot de modificar, atribuir ou excluir um cargo que esteja **acima ou na mesma posição** do cargo mais alto do bot.
+
+**Como arrumar:**
+1. No seu servidor Discord, clique com o botão direito no ícone do servidor → **Configurações do Servidor** → **Cargos**.
+2. Encontre o cargo do **farol** (geralmente criado com o mesmo nome do bot).
+3. **Clique e arraste o cargo do farol para o topo da lista de cargos**, deixando-o abaixo apenas do cargo pessoal do Dono do Servidor.
+4. Salve as alterações.
+5. Agora o Farol conseguirá criar, colorir, dar, tirar e organizar todos os cargos abaixo dele sem nenhuma restrição!
+
+---
+
+### Passo 4: Permissões do Usuário (Quem pode dar comandos)
+O Farol possui uma **política de segurança de mão dupla** (`brain/policy.py`). Antes de executar qualquer ação, ele valida:
+1. Se o **bot** tem permissão técnica no servidor.
+2. Se o **usuário que chamou o bot** tem legitimidade para pedir aquilo.
+
+| Tipo de Ferramenta | Permissão Exigida do Usuário e do Bot |
+|---|---|
+| Canais (criar, editar, excluir, mover, clonar) | `Gerenciar canais` (`manage_channels`) |
+| Cargos (criar, editar, excluir, dar, tirar, permissões) | `Gerenciar cargos` (`manage_roles`) |
+| Servidor (editar nome, alterar ícone, exportar estrutura) | `Gerenciar servidor` (`manage_guild`) |
+| Modelos (`apply_template`) e Backups (`import_structure`) | `Gerenciar canais` + `Gerenciar cargos` |
+| Consultas públicas (listar cargos, ver permissões, info, cores, emojis, tradução) | *Nenhuma (Livre para todos os membros)* |
+
+*Nota:* Administradores do servidor possuem bypass natural em suas próprias checagens, mas o Farol **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
+
+---
+
+## ⚡ 3. As 27 Ferramentas do Farol
+
+O Farol inclui 27 ferramentas com validação estrita de schemas e executores:
+
+- **Canais (5):** `create_channels`, `edit_channel`, `delete_channels`, `move_channel`, `clone_channel`
+- **Cargos (6):** `create_roles`, `edit_role`, `delete_role`, `give_role`, `take_role`, `list_roles`
+- **Permissões (4):** `set_permissions`, `clear_permissions`, `sync_permissions`, `show_permissions`
+- **Servidor (3):** `edit_server`, `server_info`, `set_icon`
+- **Modelos Prontos (1):** `apply_template` (opções: `gamer`, `estudos`, `comunidade`)
+- **Backups (2):** `export_structure` (exporta JSON estruturado), `import_structure` (lê de texto ou anexo de arquivo)
+- **Utilidades Externas (5):** `color_palette`, `color_name`, `emoji_search`, `topic_suggest`, `translate_text`
+- **Sessão (1):** `conversation_clear` (limpa o histórico da memória deste canal)
+
+### Confirmação Inteligente de Ações Destrutivas
+- **Exclusão de 1 canal nominal:** O usuário disse explicitamente `@farol apaga o canal #teste` → **Executa imediatamente** sem travar o fluxo.
+- **Exclusão em massa (2+ canais ou categoria inteira):** O bot calcula o dano, interrompe e avisa: *"Isso apaga 8 canais de **antiga** — posso confirmar?"*. Ao receber "sim" ou "confirmo", executa na mesma rodada.
+- **Exclusão de cargo:** Sempre solicita confirmação prévia para evitar perda acidental de permissões.
+
+---
+
+## 🧠 4. O Cérebro: Corrida de LLMs Gratuitas
+
+O Farol utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
+1. Cada mensagem do usuário dispara chamadas simultâneas para múltiplos provedores gratuitos com o mesmo timeout.
+2. A primeira resposta válida que chegar vence a rodada e as requisições restantes são **canceladas imediatamente**.
+3. Se um provedor cair ou retornar `429 Too Many Requests`, ele simplesmente perde a corrida e o bot responde com o próximo mais rápido.
+
+### Corredores Integrados
+- `github_models`: Usa o `GITHUB_TOKEN` padrão do GitHub Actions, acessando o modelo `gpt-4o-mini` com suporte nativo a function calling.
+- `llm7`: Acesso gratuito e anônimo sem cadastro via `api.llm7.io`.
+- `zen`: OpenCode Zen rodando `nemotron-3-ultra-free`.
+- `kilo`: Gateway Kilo Code (`kilo-auto/free`).
+- `ovh`: Endpoints de IA OVHcloud (`Llama 3.3 70B`).
+- `pollinations`: API de texto Pollinations AI.
+- `blackbox`: API Blackbox AI.
+- *Opcionais com chave:* OpenAI (`gpt-4o-mini`), Anthropic (`claude-3-5-haiku`), Gemini (`gemini-2.0-flash`).
+
+### Fallback Inteligente de Ferramentas
+Provedores anônimos que não suportam a especificação de function calling da OpenAI são interpretados via fallback de extração de blocos ` ```tool ` no texto, permitindo execução contínua em qualquer modelo.
+
+---
+
+## ♾️ 5. Hospedagem 24/7 no GitHub Actions
+
+O Farol mantém-se online gratuitamente no GitHub Actions através de um loop auto-sustentável:
+1. Cada execução roda por até **~5 horas e 35 minutos** (`timeout 20100s bash run.sh`).
+2. O script `run.sh` mantém o processo vivo e aplica backoff exponencial se houver quedas transitórias de conexão.
+3. Ao término do tempo limite, o job finaliza com sucesso (`exit 124` mapeado para sucesso) e aciona a etapa **Encadear**, que agenda a próxima execução via `gh workflow run`.
+4. Um gatilho de cron agendado (`cron: '25 */5 * * *'`) serve como redundância de segurança.
+
+### 🛡️ Guarda de Obsolescência (`freshness.py`)
+No primeiro passo da esteira (antes mesmo do checkout), o Farol verifica a ponta do repositório remoto (`git ls-remote --heads origin`). Se um novo commit tiver sido enviado enquanto uma run estava na fila, o commit desatualizado **aborta imediatamente com `sys.exit(1)`**, impedindo que código antigo desfaça correções recentes.
+
+### ⏰ Como Reativar o Schedule Após 60 Dias
+O GitHub suspende cron schedules automaticamente em repositórios sem atividade após 60 dias. Para manter ou reativar:
+1. Acesse a aba **Actions** no seu repositório GitHub.
+2. No menu esquerdo, clique no workflow **Farol Bot 24/7**.
+3. Se houver um banner amarelo avisando da suspensão, clique em **Enable workflow** ou dispare manualmente via **Run workflow**.
+4. Qualquer push para o repositório reinicia o contador de 60 dias do GitHub.
+
+---
+
+## ⚙️ 6. Variáveis de Ambiente
+
+O único segredo obrigatório é o `DISCORD_TOKEN`.
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `DISCORD_TOKEN` | *Obrigatório* | Token de autenticação do Bot do Discord. |
+| `LLM_PROVIDER` | `auto` | Provedor de LLM (`auto`, `openai`, `anthropic`, `gemini`). |
+| `LLM_MODEL` | `""` | Modelo específico (opcional). |
+| `LLM_API_KEY` | `""` | Chave de API caso utilize um provedor proprietário. |
+| `LLM_TIMEOUT` | `60` | Timeout em segundos para cada chamada LLM. |
+| `LLM_MAX_TOKENS` | `1024` | Máximo de tokens na resposta gerada. |
+| `MAX_TOOL_ROUNDS`| `3` | Rodadas máximas de ferramentas por turno de mensagem. |
+| `HISTORY_LEN` | `10` | Quantidade de turnos mantidos na memória por canal. |
+| `BULK_CONCURRENCY`| `3` | Semáforo de concorrência em operações em lote. |
+| `API_TIMEOUT` | `10` | Timeout em segundos para utilitários externos. |
+| `LOG_LEVEL` | `INFO` | Nível de log (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
+| `HEALTH_PORT` | `""` | Porta para subir servidor HTTP `/health` (opcional). |
+| `DISABLED_APIS` | `""` | Nomes de APIs externas para desativar (separadas por vírgula). |
+| `ALLOWED_CHANNEL_IDS` | `""` | IDs de canais permitidos (vazio = atende em todos os canais). |
+| `MEMBERS_INTENT` | `false` | Ativa a intent privilegiada de membros. |
+| `MESSAGE_CONTENT_INTENT` | `false` | Ativa a intent privilegiada de conteúdo de mensagem. |
+| `GITHUB_TOKEN` | *(Automático)* | Token do GitHub Actions para o GitHub Models. |
+
+---
+
+## 🧪 7. Testes e Validação Local
+
+A suíte de testes do Farol foi desenvolvida sem dependência de tokens de rede ou instâncias reais do Discord:
+- Toda a lógica de `brain/` é duck-typed.
+- Cobertura completa de intents, policy, hierarquia de cargos, confirmação destrutiva, loop do agente com mock LLM, isolamento do bulk, resolução de queries e guarda de frescor.
+- Verificação estrita contra `ResourceWarning` ou skips.
+
+Para executar os testes localmente:
+```bash
+pip install -r requirements.txt
+python -W error::ResourceWarning -m unittest discover -s tests -v
+```
+
+---
+
+## 📄 Licença
+Distribuído sob licença MIT. Sinta-se livre para usar, estudar e adaptar para o seu servidor!
