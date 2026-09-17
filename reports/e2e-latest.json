@@ -1,20 +1,20 @@
 {
   "schema": 1,
-  "started_at": "2026-09-17T23:21:38+00:00",
-  "finished_at": "2026-09-17T23:21:38.804011+00:00",
+  "started_at": "2026-09-17T23:28:05+00:00",
+  "finished_at": "2026-09-17T23:28:05.364111+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "43ca221",
-    "execução": "35285658467",
+    "commit": "315c98b",
+    "execução": "35286288799",
     "discord.py": "2.7.1",
     "fases": "static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep",
     "mutações reais": "sim"
   },
   "summary": {
-    "PASS": 74,
-    "FAIL": 2,
-    "WARN": 5,
+    "PASS": 75,
+    "FAIL": 0,
+    "WARN": 6,
     "SKIP": 1
   },
   "notes": [
@@ -37,7 +37,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "27 assinaturas conferem com os schemas",
-          "ms": 17,
+          "ms": 24,
           "data": {}
         },
         {
@@ -146,7 +146,7 @@
           "name": "set_icon altera de verdade (baixa a URL e envia os bytes)",
           "status": "PASS",
           "detail": "baixou a URL, mandou os bytes em guild.edit(icon=...) e aceitou data URI",
-          "ms": 0,
+          "ms": 1,
           "data": {}
         },
         {
@@ -154,7 +154,7 @@
           "name": "set_icon com estilo gera imagem sem rede",
           "status": "PASS",
           "detail": "gerou um PNG 256x256 sem tocar a rede",
-          "ms": 2,
+          "ms": 4,
           "data": {}
         },
         {
@@ -170,7 +170,7 @@
           "name": "apply_template cria de verdade",
           "status": "PASS",
           "detail": "5 cargos, 3 categorias e 11 canais dentro delas",
-          "ms": 0,
+          "ms": 1,
           "data": {}
         },
         {
@@ -202,7 +202,7 @@
           "name": "somente-leitura não muta nada",
           "status": "PASS",
           "detail": "8 ferramentas de leitura rodaram sem mutar nada",
-          "ms": 3,
+          "ms": 4,
           "data": {}
         },
         {
@@ -218,7 +218,7 @@
           "name": "conversa isolada por servidor (multi-servidor)",
           "status": "PASS",
           "detail": "conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal)",
-          "ms": 0,
+          "ms": 1,
           "data": {}
         },
         {
@@ -340,7 +340,7 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 11,
+          "ms": 14,
           "data": {}
         },
         {
@@ -348,7 +348,7 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor pollinations (tools nativas: False) → 'pong'",
-          "ms": 342,
+          "ms": 493,
           "data": {
             "vencedor": "pollinations"
           }
@@ -365,11 +365,11 @@
           "phase": "connect",
           "name": "login e gateway",
           "status": "PASS",
-          "detail": "conectado como Atlas#1985 · gateway em 72ms",
-          "ms": 3031,
+          "detail": "conectado como Atlas#1985 · gateway em 67ms",
+          "ms": 2850,
           "data": {
             "usuario": "Atlas#1985",
-            "latencia_ms": 72,
+            "latencia_ms": 67,
             "servidores": [
               {
                 "nome": "asta",
@@ -384,7 +384,7 @@
           "name": "servidor e autor do teste",
           "status": "PASS",
           "detail": "servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador)",
-          "ms": 165,
+          "ms": 214,
           "data": {}
         }
       ]
@@ -456,7 +456,7 @@
           "name": "estado local bate com a API",
           "status": "PASS",
           "detail": "cache local bate com a API REST (6 canais, 4 cargos)",
-          "ms": 297,
+          "ms": 414,
           "data": {}
         }
       ]
@@ -495,7 +495,7 @@
           "name": "show_permissions",
           "status": "PASS",
           "detail": "O canal <#1546763083727249481> não possui permissões personalizadas configuradas.",
-          "ms": 0,
+          "ms": 152,
           "data": {}
         },
         {
@@ -511,7 +511,7 @@
           "name": "APIs externas (cores/emojis/tópicos/tradução)",
           "status": "PASS",
           "detail": "5 APIs externas responderam",
-          "ms": 1199,
+          "ms": 1229,
           "data": {
             "falhas": []
           }
@@ -534,7 +534,7 @@
           "name": "fora de escopo é recusado sem executar",
           "status": "PASS",
           "detail": "recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco exclu'",
-          "ms": 420,
+          "ms": 264,
           "data": {
             "tool_calls": []
           }
@@ -544,14 +544,14 @@
           "name": "agente conhece a estrutura real",
           "status": "PASS",
           "detail": "citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto)",
-          "ms": 1201,
+          "ms": 287,
           "data": {}
         },
         {
           "phase": "agent",
           "name": "memória do canal entre turnos",
           "status": "WARN",
-          "detail": "não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "detail": "não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (opena'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
           "ms": 0,
           "data": {}
         }
@@ -565,7 +565,7 @@
           "name": "infra: categoria e canais de teste",
           "status": "PASS",
           "detail": "categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
-          "ms": 1870,
+          "ms": 2386,
           "data": {}
         },
         {
@@ -573,15 +573,15 @@
           "name": "create_channels DENTRO de categoria (via ferramenta)",
           "status": "PASS",
           "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz'])",
-          "ms": 904,
+          "ms": 1210,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "create_channels na RAIZ (via ferramenta)",
           "status": "PASS",
-          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz'])",
-          "ms": 831,
+          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria'])",
+          "ms": 898,
           "data": {}
         },
         {
@@ -589,7 +589,7 @@
           "name": "edit_channel alterou de verdade",
           "status": "PASS",
           "detail": "nome, tópico e slowmode confirmados na API (🧪-renomeado)",
-          "ms": 594,
+          "ms": 841,
           "data": {}
         },
         {
@@ -597,9 +597,9 @@
           "name": "clone_channel clonou de verdade",
           "status": "PASS",
           "detail": "clone 🧪-clone criado com a mesma categoria",
-          "ms": 19368,
+          "ms": 11520,
           "data": {
-            "clone_id": 1550284384702177390
+            "clone_id": 1550285858991644753
           }
         },
         {
@@ -607,7 +607,7 @@
           "name": "move_channel moveu de verdade",
           "status": "PASS",
           "detail": "saiu e voltou de categoria, confirmado pela API",
-          "ms": 1052,
+          "ms": 1581,
           "data": {}
         },
         {
@@ -623,7 +623,7 @@
           "name": "cargos: criar/editar/atribuir de verdade",
           "status": "PASS",
           "detail": "cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor",
-          "ms": 1135,
+          "ms": 1101,
           "data": {}
         },
         {
@@ -631,7 +631,7 @@
           "name": "permissões de canal confirmadas pela API",
           "status": "PASS",
           "detail": "set, sync, clear e show (com filtro por target) confirmados pela API",
-          "ms": 2030,
+          "ms": 3034,
           "data": {}
         },
         {
@@ -639,7 +639,7 @@
           "name": "import_structure recriou a estrutura",
           "status": "PASS",
           "detail": "import recriou 3 canais e 2 cargo(s)",
-          "ms": 2461,
+          "ms": 1930,
           "data": {
             "canais": 3
           }
@@ -649,23 +649,23 @@
           "name": "fluxo de confirmação em canais reais",
           "status": "PASS",
           "detail": "2 canais: pediu confirmação e só apagou com confirmed=true",
-          "ms": 52969,
+          "ms": 52003,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente apaga canal nominal sem travar",
-          "status": "FAIL",
-          "detail": "RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { \"message\":\"API rate limit exceeded\", \"request_id\":\"d4f63465f3c74675c9d7cd3764a60832\" } | llm7: HTTP 400 (qwen2.5-coder-32b) — {\"error\":{\"message\":\"Model 'qwen2.5-coder-32b' is currently unavailable.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"model_unavailabl… | pollinations: HTTP 400 (openai) — {\"error\":\"400 Bad Request\",\"status\":400,\"deprecation_notice\":\"NOTE: The Pollinations legacy text API is being deprecated for authenticated users.… Como resolver: cadastre uma chave em LLM_API_KEY e o provedor em LLM_PROVIDER (cerebras, deepseek, gemini, groq, mistral, openai, opencode-zen, openrouter) nos segredos/variáveis do GitHub Actions.",
-          "ms": 6121,
+          "status": "PASS",
+          "detail": "agente apagou o canal nominal direto: 'Canal #🧪-efemero excluído com sucesso! 🚮'",
+          "ms": 66221,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente pede confirmação em lote e apaga após 'sim'",
-          "status": "FAIL",
-          "detail": "RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { \"message\":\"API rate limit exceeded\", \"request_id\":\"c518826d617951179bdca379dd79eb14\" } | llm7: HTTP 400 (qwen2.5-coder-32b) — {\"error\":{\"message\":\"Model 'qwen2.5-coder-32b' is currently unavailable.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"model_unavailabl… | pollinations: HTTP 400 (openai) — {\"error\":\"400 Bad Request\",\"status\":400,\"deprecation_notice\":\"NOTE: The Pollinations legacy text API is being deprecated for authenticated users.… Como resolver: cadastre uma chave em LLM_API_KEY e o provedor em LLM_PROVIDER (cerebras, deepseek, gemini, groq, mistral, openai, opencode-zen, openrouter) nos segredos/variáveis do GitHub Actions.",
-          "ms": 36966,
+          "status": "WARN",
+          "detail": "o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('Você deseja excluir os canais **🧪-lote-1** e **🧪-lote-2**.  \\nConfirma que posso prosseguir com a exclusão dess'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "ms": 0,
           "data": {}
         },
         {
@@ -673,7 +673,7 @@
           "name": "apply_template (--allow-template)",
           "status": "PASS",
           "detail": "template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza)",
-          "ms": 4022,
+          "ms": 4658,
           "data": {
             "canais": 9
           }
@@ -703,8 +703,8 @@
           "phase": "botloop",
           "name": "canal temporário de teste",
           "status": "PASS",
-          "detail": "canal temporário 🧪-loop-do-bot (1550284915944460361) criado",
-          "ms": 949,
+          "detail": "canal temporário 🧪-loop-do-bot (1550286627325083648) criado",
+          "ms": 798,
           "data": {}
         },
         {
@@ -735,8 +735,8 @@
           "phase": "botloop",
           "name": "menção dispara o agente e responde",
           "status": "PASS",
-          "detail": "on_message → agente → resposta real no canal: 'O nome do servidor é **asta**.'",
-          "ms": 35779,
+          "detail": "on_message → agente → resposta real no canal: 'asta'",
+          "ms": 9298,
           "data": {}
         },
         {
@@ -744,7 +744,7 @@
           "name": "reações de feedback 👀→✅",
           "status": "PASS",
           "detail": "reações corretas no Discord real: ['✅']",
-          "ms": 133,
+          "ms": 151,
           "data": {
             "reacoes": [
               "✅"
@@ -755,7 +755,7 @@
           "phase": "botloop",
           "name": "ferramenta real acionada por mensagem",
           "status": "WARN",
-          "detail": "o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('**Resumo das ações realizadas:**\\n\\n1. Obtivemos as informações do servidor **asta** (ID: 1546763083005825084). '). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "detail": "o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('**Resumo**  \\n- Nome do servidor: **asta**  \\n- Foi tentada a criação do canal de texto **🧪-via-bot** na categor'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
           "ms": 0,
           "data": {}
         }
