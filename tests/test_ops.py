@@ -474,6 +474,44 @@ class TestShowPermissions(unittest.TestCase):
         out = asyncio.run(execute_tool("show_permissions", {"channel": "123", "target": str(alvo.id)}, ctx))
         self.assertIn("não tem permissões personalizadas", out)
 
+    def test_leitura_busca_o_estado_atual_na_api(self) -> None:
+        """
+        O objeto do cache pode estar atrasado: `show_permissions` precisa mostrar o que está
+        NO SERVIDOR (foi um assert ao vivo que pegou essa leitura velha).
+        """
+        ctx, guild = make_ctx()
+        canal = FakeChannel("geral", 123)
+        canal.overwrites = {}          # cache desatualizado (sem permissões)
+        ctx.channel = canal
+        guild.channels.append(canal)
+
+        atual = FakeChannel("geral", 123)
+        atual.overwrites = {FakeEntity("@everyone", 1): "ow-nova"}   # estado real no servidor
+
+        async def fetch_channel(cid: int) -> Any:
+            return atual if cid == 123 else None
+
+        guild.fetch_channel = fetch_channel  # type: ignore[attr-defined]
+
+        out = asyncio.run(execute_tool("show_permissions", {"channel": "123"}, ctx))
+        self.assertIn("everyone", out.lower())
+        self.assertIn("ow-nova", out)
+
+    def test_leitura_cai_para_o_cache_se_a_api_falhar(self) -> None:
+        ctx, guild = make_ctx()
+        canal = FakeChannel("geral", 123)
+        canal.overwrites = {FakeEntity("@everyone", 1): "ow-do-cache"}
+        ctx.channel = canal
+        guild.channels.append(canal)
+
+        async def fetch_quebrado(cid: int) -> Any:
+            raise RuntimeError("sem rede")
+
+        guild.fetch_channel = fetch_quebrado  # type: ignore[attr-defined]
+
+        out = asyncio.run(execute_tool("show_permissions", {"channel": "123"}, ctx))
+        self.assertIn("ow-do-cache", out)
+
     def test_alvo_inexistente_erro_claro(self) -> None:
         ctx, _ = self._ctx_com_overwrites()
         with self.assertRaises(ToolError) as ctx_erro:

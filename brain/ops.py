@@ -502,12 +502,31 @@ async def _find_overwrite_entity(ctx: ToolContext, target: str) -> Any:
     )
 
 
+async def _canal_sincronizado(guild: Any, ch: Any) -> Any:
+    """
+    Devolve o canal com o estado ATUAL do servidor.
+
+    O objeto do cache local pode estar um instante atrás (ex.: uma permissão recém-criada),
+    e aí `show_permissions` mostraria "não tem permissões personalizadas" logo depois de
+    alguém configurá-las — foi o que o teste ao vivo pegou.
+    """
+    cid = getattr(ch, "id", None)
+    fetcher = getattr(guild, "fetch_channel", None)
+    if cid is None or fetcher is None:
+        return ch
+    try:
+        atualizado = await fetcher(cid)
+    except Exception:  # noqa: BLE001 - sem rede/permissão, segue com o cache
+        return ch
+    return atualizado if atualizado is not None else ch
+
+
 async def op_show_permissions(
     ctx: ToolContext,
     channel: str,
     target: str | None = None,
 ) -> str:
-    ch = resolve_channel(ctx.guild, channel)
+    ch = await _canal_sincronizado(ctx.guild, resolve_channel(ctx.guild, channel))
     overwrites = getattr(ch, "overwrites", {})
     cid = getattr(ch, "id", "")
 

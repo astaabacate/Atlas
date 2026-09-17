@@ -1976,8 +1976,12 @@ class Harness:
             self.assert_true(not limpo.overwrites, f"as sobrescritas não foram removidas: {limpo.overwrites}")
             await ferramenta("set_permissions", {"channel": str(texto.id), "target": "@everyone",
                                                  "deny": ["send_messages"]})
+            na_api = await buscar(texto.id)
+            self.assert_true(bool(na_api.overwrites), "a permissão não chegou na API do Discord")
             saida = await ferramenta("show_permissions", {"channel": str(texto.id)})
-            self.assert_true("everyone" in saida.lower(), f"show_permissions não listou a @everyone: {saida[:120]}")
+            self.assert_true("everyone" in saida.lower(),
+                             f"show_permissions não listou a @everyone (API tem {len(na_api.overwrites)} "
+                             f"sobrescrita(s)): {saida[:120]}")
 
             # `target` precisa filtrar de verdade (antes era ignorado em silêncio)
             filtrado_dono = await ferramenta("show_permissions", {"channel": str(texto.id),
@@ -2044,8 +2048,14 @@ class Harness:
             alvo = next((c for c in novos if c.type.name == "text"), None)
             self.assert_true(alvo is not None, "não consegui criar o canal efêmero do teste do agente")
             registro_llm.clear()
-            resposta = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
-                                                     prompt=f"Apague o canal {TEMP_MARK}-efemero agora.")
+            try:
+                resposta = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
+                                                         prompt=f"Apague o canal {TEMP_MARK}-efemero agora.")
+            except Exception as exc:
+                if self._culpa_do_llm(str(exc)):
+                    return self.degradar_llm(phase, "agente apaga canal nominal sem travar",
+                                             "não deu para conversar: o LLM não respondeu", str(exc))
+                raise
             existe = any(c.id == alvo.id for c in await guild.fetch_channels())
             if existe and (self._culpa_do_llm(resposta)
                            or self.llm_nao_chamou(registro_llm, "delete_channels")):
@@ -2066,9 +2076,15 @@ class Harness:
             ids = {c.id for c in novos}
             self.assert_true(len(ids) == 2, "não consegui criar os 2 canais do lote")
             registro_llm.clear()
-            resposta = await live.agent.process_turn(
-                guild=guild, channel=ctx.channel, actor=live.actor,
-                prompt=f"Apague os canais {TEMP_MARK}-lote-1 e {TEMP_MARK}-lote-2 de uma vez.")
+            try:
+                resposta = await live.agent.process_turn(
+                    guild=guild, channel=ctx.channel, actor=live.actor,
+                    prompt=f"Apague os canais {TEMP_MARK}-lote-1 e {TEMP_MARK}-lote-2 de uma vez.")
+            except Exception as exc:
+                if self._culpa_do_llm(str(exc)):
+                    return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
+                                             "não deu para conversar: o LLM não respondeu", str(exc))
+                raise
             vivos = [c for c in await guild.fetch_channels() if c.id in ids]
             self.assert_true(len(vivos) == 2,
                              f"o agente apagou 2 canais SEM pedir confirmação: {resposta[:150]!r}")
@@ -2078,8 +2094,14 @@ class Harness:
             self.assert_true(any(t in resposta.lower() for t in ("confirm", "posso", "certeza", "apagar")),
                              f"o agente não pediu confirmação no texto: {resposta[:150]!r}")
             registro_llm.clear()
-            resposta2 = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
-                                                      prompt="sim, pode apagar")
+            try:
+                resposta2 = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
+                                                          prompt="sim, pode apagar")
+            except Exception as exc:
+                if self._culpa_do_llm(str(exc)):
+                    return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
+                                             "o 'sim' não pôde ser processado: o LLM não respondeu", str(exc))
+                raise
             restantes = [c for c in await guild.fetch_channels() if c.id in ids]
             if restantes and (self._culpa_do_llm(resposta2) or self._culpa_do_llm(resposta)
                               or self.llm_nao_chamou(registro_llm, "delete_channels")):
