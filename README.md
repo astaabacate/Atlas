@@ -252,6 +252,32 @@ pip install -r requirements.txt
 python -W error::ResourceWarning -m unittest discover -s tests -v
 ```
 
+### 🛰️ Teste E2E ao vivo (`scripts/e2e_live.py`)
+
+Os testes acima são offline (duplos de teste fiéis ao `discord.py`). Para provar que o bot
+**faz de verdade** no servidor, existe a suíte E2E ao vivo, que roda no GitHub Actions
+(workflow **E2E ao vivo do Farol**) porque o runner tem acesso a `discord.com`:
+
+| Fase | O que verifica |
+| --- | --- |
+| `static` | 27 ferramentas ↔ 27 executores ↔ 27 políticas, schemas e prompt de sistema |
+| `spy` | cada ferramenta "promete e cumpre": duplos que imitam o discord.py 2.7.1 |
+| `policy` | permissões do autor/bot, `@everyone`, cargos gerenciados, hierarquia, confirmação |
+| `connect` / `audit` | login no gateway, corrida de LLMs, permissões e cache vs API |
+| `tools` | ferramentas de leitura no servidor real |
+| `agent` | prompt → ferramenta → resposta com o modelo real |
+| `mutate` | cria/edita/apaga objetos 🧪 **no servidor** e confere pela API (limpeza garantida) |
+| `botloop` | `core.bot.FarolBot` recebendo mensagem real (menção, DM, reações, ferramenta) |
+| `sweep` | varredura de sobras 🧪 no fim |
+
+O relatório consolidado é publicado no branch em `reports/e2e-latest.{json,md}` e comentado no PR.
+
+As fases destrutivas só rodam com autorização explícita — qualquer um destes interruptores liga:
+variável de repositório `E2E_MUTATIONS=true`, disparo manual com `mutate=true`, ou o arquivo
+`.github/e2e-mutations-enabled` presente no branch. Tudo que o teste cria fica marcado com 🧪,
+é registrado por diferença de estado na API e removido no fim (a fase `sweep` limpa o que sobrar).
+`edit_server` e `set_icon` **não** são executados no servidor real (mudariam nome/ícone).
+
 ---
 
 ## 📄 Licença
