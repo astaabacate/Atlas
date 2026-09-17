@@ -1,21 +1,21 @@
 {
   "schema": 1,
-  "started_at": "2026-09-17T21:43:10+00:00",
-  "finished_at": "2026-09-17T21:43:10.039463+00:00",
+  "started_at": "2026-09-17T22:00:45+00:00",
+  "finished_at": "2026-09-17T22:00:45.516722+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "e9456fa",
-    "execução": "35278183016",
+    "commit": "4230914",
+    "execução": "35279295683",
     "discord.py": "2.7.1",
-    "fases": "static, spy, policy, connect, audit, tools, agent",
-    "mutações reais": "não"
+    "fases": "static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep",
+    "mutações reais": "sim"
   },
   "summary": {
-    "PASS": 49,
-    "FAIL": 4,
-    "WARN": 2,
-    "SKIP": 0
+    "PASS": 72,
+    "FAIL": 5,
+    "WARN": 1,
+    "SKIP": 1
   },
   "notes": [
     "conectado como Atlas#1985 em 1 servidor(es)"
@@ -34,18 +34,10 @@
         },
         {
           "phase": "static",
-          "name": "parâmetros declarados e nunca usados",
-          "status": "WARN",
-          "detail": "o LLM pode preencher e o executor ignorar: show_permissions.target, set_icon.style",
-          "ms": 0,
-          "data": {}
-        },
-        {
-          "phase": "static",
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "27 assinaturas conferem com os schemas",
-          "ms": 17,
+          "ms": 13,
           "data": {}
         },
         {
@@ -96,8 +88,8 @@
         {
           "phase": "spy",
           "name": "create_channels cria DENTRO de categoria",
-          "status": "FAIL",
-          "detail": "ToolError: Falha ao criar canais: __main__.SpyGuild.create_text_channel() got multiple values for keyword argument 'category'",
+          "status": "PASS",
+          "detail": "chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#1012> <#1013> 🎉 (✅ 2/2 concluíd'",
           "ms": 0,
           "data": {}
         },
@@ -121,7 +113,7 @@
           "phase": "spy",
           "name": "clone_channel clona de verdade",
           "status": "PASS",
-          "detail": "chamou clone() e respondeu 'Canal clonado com sucesso: <#1012> 🎉'",
+          "detail": "chamou clone() e respondeu 'Canal clonado com sucesso: <#1014> 🎉'",
           "ms": 0,
           "data": {}
         },
@@ -151,18 +143,34 @@
         },
         {
           "phase": "spy",
-          "name": "set_icon altera de verdade",
-          "status": "FAIL",
-          "detail": "respondeu 'Ícone do servidor atualizado com sucesso a partir de https://example.c' mas NÃO chamou edit() — chamadas vistas: nenhuma",
+          "name": "set_icon altera de verdade (baixa a URL e envia os bytes)",
+          "status": "PASS",
+          "detail": "baixou a URL, mandou os bytes em guild.edit(icon=...) e aceitou data URI",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "set_icon com estilo gera imagem sem rede",
+          "status": "PASS",
+          "detail": "gerou um PNG 256x256 sem tocar a rede",
+          "ms": 1,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "set_icon NÃO mente quando o download falha",
+          "status": "PASS",
+          "detail": "erro honesto: 'Falha ao baixar a imagem: https://exemplo.invalido/nao-existe.png'",
           "ms": 0,
           "data": {}
         },
         {
           "phase": "spy",
           "name": "apply_template cria de verdade",
-          "status": "FAIL",
-          "detail": "ToolError: Erro ao executar 'apply_template': __main__.SpyGuild.create_text_channel() got multiple values for keyword argument 'category'",
-          "ms": 1,
+          "status": "PASS",
+          "detail": "5 cargos, 3 categorias e 11 canais dentro delas",
+          "ms": 0,
           "data": {}
         },
         {
@@ -194,7 +202,7 @@
           "name": "somente-leitura não muta nada",
           "status": "PASS",
           "detail": "8 ferramentas de leitura rodaram sem mutar nada",
-          "ms": 4,
+          "ms": 2,
           "data": {}
         },
         {
@@ -316,7 +324,7 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 10,
+          "ms": 9,
           "data": {}
         },
         {
@@ -324,7 +332,7 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor pollinations (tools nativas: False) → 'pong'",
-          "ms": 317,
+          "ms": 368,
           "data": {
             "vencedor": "pollinations"
           }
@@ -341,11 +349,11 @@
           "phase": "connect",
           "name": "login e gateway",
           "status": "PASS",
-          "detail": "conectado como Atlas#1985 · gateway em 66ms",
-          "ms": 4007,
+          "detail": "conectado como Atlas#1985 · gateway em 72ms",
+          "ms": 2760,
           "data": {
             "usuario": "Atlas#1985",
-            "latencia_ms": 66,
+            "latencia_ms": 72,
             "servidores": [
               {
                 "nome": "asta",
@@ -360,7 +368,7 @@
           "name": "servidor e autor do teste",
           "status": "PASS",
           "detail": "servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador)",
-          "ms": 176,
+          "ms": 116,
           "data": {}
         }
       ]
@@ -432,7 +440,7 @@
           "name": "estado local bate com a API",
           "status": "PASS",
           "detail": "cache local bate com a API REST (6 canais, 4 cargos)",
-          "ms": 291,
+          "ms": 206,
           "data": {}
         }
       ]
@@ -487,7 +495,7 @@
           "name": "APIs externas (cores/emojis/tópicos/tradução)",
           "status": "PASS",
           "detail": "5 APIs externas responderam",
-          "ms": 1193,
+          "ms": 1172,
           "data": {
             "falhas": []
           }
@@ -502,7 +510,7 @@
           "name": "prompt → ferramenta → resposta coerente",
           "status": "PASS",
           "detail": "ferramentas ['tool_list_roles', 'tool_list_roles'] · vencedor pollinations · citou ['Atlas', 'iTinder', 'Cupido']",
-          "ms": 842,
+          "ms": 895,
           "data": {
             "ferramentas": [
               "tool_list_roles",
@@ -516,7 +524,7 @@
           "name": "fora de escopo é recusado sem executar",
           "status": "PASS",
           "detail": "recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é exc'",
-          "ms": 433,
+          "ms": 367,
           "data": {
             "tool_calls": []
           }
@@ -526,15 +534,220 @@
           "name": "agente conhece a estrutura real",
           "status": "PASS",
           "detail": "citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto)",
-          "ms": 573,
+          "ms": 363,
           "data": {}
         },
         {
           "phase": "agent",
           "name": "memória do canal entre turnos",
           "status": "FAIL",
-          "detail": "RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { \"message\":\"API rate limit exceeded\", \"request_id\":\"187de74ad206846060dafb5c23cece12\" } | pollinations: HTTP 400 (openai) — {\"error\":\"400 Bad Request\",\"status\":400,\"deprecation_notice\":\"NOTE: The Pollinations legacy text API is being deprecated for authenticated users.… | llm7: HTTP 400 (qwen2.5-coder-32b) — {\"error\":{\"message\":\"Model 'qwen2.5-coder-32b' is currently unavailable.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"model_unavailabl… Como resolver: cadastre uma chave em LLM_API_KEY e o provedor em LLM_PROVIDER (cerebras, deepseek, gemini, groq, mistral, openai, opencode-zen, openrouter) nos segredos/variáveis do GitHub Actions.",
-          "ms": 2859,
+          "detail": "RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (openai) — {\"error\":\"400 Bad Request\",\"status\":400,\"deprecation_notice\":\"NOTE: The Pollinations legacy text API is being deprecated for authenticated users.… | ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { \"message\":\"API rate limit exceeded\", \"request_id\":\"f6c7a230a66f0d6efc33c05e7debc73a\" } | llm7: HTTP 400 (qwen2.5-coder-32b) — {\"error\":{\"message\":\"Model 'qwen2.5-coder-32b' is currently unavailable.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"model_unavailabl… Como resolver: cadastre uma chave em LLM_API_KEY e o provedor em LLM_PROVIDER (cerebras, deepseek, gemini, groq, mistral, openai, opencode-zen, openrouter) nos segredos/variáveis do GitHub Actions.",
+          "ms": 717,
+          "data": {}
+        }
+      ]
+    },
+    "mutate": {
+      "title": "Mutações reais em objetos de teste (com limpeza)",
+      "checks": [
+        {
+          "phase": "mutate",
+          "name": "infra: categoria e canais de teste",
+          "status": "PASS",
+          "detail": "categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
+          "ms": 1110,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "create_channels DENTRO de categoria (via ferramenta)",
+          "status": "PASS",
+          "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz'])",
+          "ms": 583,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "create_channels na RAIZ (via ferramenta)",
+          "status": "PASS",
+          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria'])",
+          "ms": 823,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "edit_channel alterou de verdade",
+          "status": "PASS",
+          "detail": "nome, tópico e slowmode confirmados na API (🧪-renomeado)",
+          "ms": 333,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "clone_channel clonou de verdade",
+          "status": "PASS",
+          "detail": "clone 🧪-clone criado com a mesma categoria",
+          "ms": 750,
+          "data": {
+            "clone_id": 1550263998925242448
+          }
+        },
+        {
+          "phase": "mutate",
+          "name": "move_channel moveu de verdade",
+          "status": "PASS",
+          "detail": "saiu e voltou de categoria, confirmado pela API",
+          "ms": 43314,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "cargos: criar/editar/atribuir de verdade",
+          "status": "FAIL",
+          "detail": "ToolError: O cargo '🧪 teste-papel' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor.",
+          "ms": 1065,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "permissões de canal confirmadas pela API",
+          "status": "FAIL",
+          "detail": "ToolError: Não encontrei nenhum cargo ou membro chamado '1521612392105250836' no servidor. (Cargo '1521612392105250836' não foi encontrado no servidor.)",
+          "ms": 1661,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "import_structure recriou a estrutura",
+          "status": "PASS",
+          "detail": "import recriou 3 canais e 2 cargo(s)",
+          "ms": 1563,
+          "data": {
+            "canais": 3
+          }
+        },
+        {
+          "phase": "mutate",
+          "name": "fluxo de confirmação em canais reais",
+          "status": "PASS",
+          "detail": "2 canais: pediu confirmação e só apagou com confirmed=true",
+          "ms": 1519,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "agente apaga canal nominal sem travar",
+          "status": "PASS",
+          "detail": "agente apagou o canal nominal direto: 'Canal #🧪-efemero excluído com sucesso.'",
+          "ms": 89877,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "agente pede confirmação em lote e apaga após 'sim'",
+          "status": "FAIL",
+          "detail": "o agente apagou 2 canais SEM pedir confirmação: 'Canais #🧪-lote-1 e #🧪-lote-2 excluídos com sucesso.'",
+          "ms": 5415,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "apply_template (--allow-template)",
+          "status": "PASS",
+          "detail": "template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza)",
+          "ms": 2702,
+          "data": {
+            "canais": 9
+          }
+        },
+        {
+          "phase": "mutate",
+          "name": "edit_server / set_icon no servidor real",
+          "status": "SKIP",
+          "detail": "não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "mutate",
+          "name": "limpeza",
+          "status": "PASS",
+          "detail": "todos os objetos de teste foram removidos",
+          "ms": 0,
+          "data": {}
+        }
+      ]
+    },
+    "botloop": {
+      "title": "core.bot.FarolBot: on_message → resposta real no Discord",
+      "checks": [
+        {
+          "phase": "botloop",
+          "name": "canal temporário de teste",
+          "status": "PASS",
+          "detail": "canal temporário 🧪-loop-do-bot (1550264673503412274) criado",
+          "ms": 633,
+          "data": {}
+        },
+        {
+          "phase": "botloop",
+          "name": "ignora mensagem sem menção",
+          "status": "PASS",
+          "detail": "mensagem sem menção ignorada",
+          "ms": 1501,
+          "data": {}
+        },
+        {
+          "phase": "botloop",
+          "name": "ignora mensagens de outros bots",
+          "status": "PASS",
+          "detail": "mensagem de outro bot ignorada",
+          "ms": 1001,
+          "data": {}
+        },
+        {
+          "phase": "botloop",
+          "name": "DM é respondida com o aviso de escopo",
+          "status": "PASS",
+          "detail": "DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "botloop",
+          "name": "menção dispara o agente e responde",
+          "status": "PASS",
+          "detail": "on_message → agente → resposta real no canal: '❌ Ocorreu um erro ao processar seu pedido:\\n`Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ov'",
+          "ms": 4981,
+          "data": {}
+        },
+        {
+          "phase": "botloop",
+          "name": "reações de feedback 👀→✅",
+          "status": "FAIL",
+          "detail": "o bot não marcou ✅ (reações: ['❌'])",
+          "ms": 134,
+          "data": {}
+        },
+        {
+          "phase": "botloop",
+          "name": "ferramenta real acionada por mensagem",
+          "status": "PASS",
+          "detail": "o bot criou de verdade: ['🧪-via-bot']",
+          "ms": 91517,
+          "data": {}
+        }
+      ]
+    },
+    "sweep": {
+      "title": "Varredura de sobras de teste",
+      "checks": [
+        {
+          "phase": "sweep",
+          "name": "varredura de sobras",
+          "status": "PASS",
+          "detail": "3 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot)",
+          "ms": 0,
           "data": {}
         }
       ]
