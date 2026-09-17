@@ -1,20 +1,20 @@
 {
   "schema": 1,
-  "started_at": "2026-09-17T22:46:27+00:00",
-  "finished_at": "2026-09-17T22:46:27.640012+00:00",
+  "started_at": "2026-09-17T22:53:47+00:00",
+  "finished_at": "2026-09-17T22:53:47.374019+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "b0e70a7",
-    "execução": "35283256079",
+    "commit": "f439465",
+    "execução": "35283805588",
     "discord.py": "2.7.1",
     "fases": "static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep",
     "mutações reais": "sim"
   },
   "summary": {
-    "PASS": 78,
+    "PASS": 74,
     "FAIL": 0,
-    "WARN": 7,
+    "WARN": 6,
     "SKIP": 1
   },
   "notes": [
@@ -37,7 +37,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "27 assinaturas conferem com os schemas",
-          "ms": 24,
+          "ms": 20,
           "data": {}
         },
         {
@@ -154,7 +154,7 @@
           "name": "set_icon com estilo gera imagem sem rede",
           "status": "PASS",
           "detail": "gerou um PNG 256x256 sem tocar a rede",
-          "ms": 3,
+          "ms": 2,
           "data": {}
         },
         {
@@ -202,7 +202,7 @@
           "name": "somente-leitura não muta nada",
           "status": "PASS",
           "detail": "8 ferramentas de leitura rodaram sem mutar nada",
-          "ms": 5,
+          "ms": 3,
           "data": {}
         },
         {
@@ -332,7 +332,7 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 14,
+          "ms": 10,
           "data": {}
         },
         {
@@ -340,7 +340,7 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor pollinations (tools nativas: False) → 'pong'",
-          "ms": 223,
+          "ms": 467,
           "data": {
             "vencedor": "pollinations"
           }
@@ -357,11 +357,11 @@
           "phase": "connect",
           "name": "login e gateway",
           "status": "PASS",
-          "detail": "conectado como Atlas#1985 · gateway em 16ms",
-          "ms": 2665,
+          "detail": "conectado como Atlas#1985 · gateway em 47ms",
+          "ms": 3050,
           "data": {
             "usuario": "Atlas#1985",
-            "latencia_ms": 16,
+            "latencia_ms": 47,
             "servidores": [
               {
                 "nome": "asta",
@@ -376,7 +376,7 @@
           "name": "servidor e autor do teste",
           "status": "PASS",
           "detail": "servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador)",
-          "ms": 130,
+          "ms": 173,
           "data": {}
         }
       ]
@@ -448,7 +448,7 @@
           "name": "estado local bate com a API",
           "status": "PASS",
           "detail": "cache local bate com a API REST (6 canais, 4 cargos)",
-          "ms": 557,
+          "ms": 287,
           "data": {}
         }
       ]
@@ -503,7 +503,7 @@
           "name": "APIs externas (cores/emojis/tópicos/tradução)",
           "status": "PASS",
           "detail": "5 APIs externas responderam",
-          "ms": 761,
+          "ms": 1244,
           "data": {
             "falhas": []
           }
@@ -523,20 +523,10 @@
         },
         {
           "phase": "agent",
-          "name": "prompt → ferramenta → resposta coerente",
-          "status": "PASS",
-          "detail": "não conclusivo por causa do LLM gratuito: o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 27, 'ferramentas_chamadas': [], 'chars': 92, 'vencedor': 'pollinations'}])",
-          "ms": 298,
-          "data": {
-            "ferramentas": []
-          }
-        },
-        {
-          "phase": "agent",
           "name": "fora de escopo é recusado sem executar",
           "status": "PASS",
           "detail": "recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco exclu'",
-          "ms": 273,
+          "ms": 261,
           "data": {
             "tool_calls": []
           }
@@ -546,23 +536,15 @@
           "name": "agente conhece a estrutura real",
           "status": "PASS",
           "detail": "citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto)",
-          "ms": 331,
+          "ms": 239,
           "data": {}
         },
         {
           "phase": "agent",
           "name": "memória do canal entre turnos",
           "status": "WARN",
-          "detail": "não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "detail": "não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (opena'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
           "ms": 0,
-          "data": {}
-        },
-        {
-          "phase": "agent",
-          "name": "memória do canal entre turnos",
-          "status": "PASS",
-          "detail": "não conclusivo por causa do LLM gratuito: não deu para conversar: o LLM não respondeu",
-          "ms": 467,
           "data": {}
         }
       ]
@@ -575,7 +557,7 @@
           "name": "infra: categoria e canais de teste",
           "status": "PASS",
           "detail": "categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
-          "ms": 953,
+          "ms": 1182,
           "data": {}
         },
         {
@@ -583,15 +565,15 @@
           "name": "create_channels DENTRO de categoria (via ferramenta)",
           "status": "PASS",
           "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro'])",
-          "ms": 715,
+          "ms": 850,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "create_channels na RAIZ (via ferramenta)",
           "status": "PASS",
-          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz'])",
-          "ms": 547,
+          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-categoria', '🧪-raiz-texto'])",
+          "ms": 754,
           "data": {}
         },
         {
@@ -599,7 +581,7 @@
           "name": "edit_channel alterou de verdade",
           "status": "PASS",
           "detail": "nome, tópico e slowmode confirmados na API (🧪-renomeado)",
-          "ms": 186,
+          "ms": 1809,
           "data": {}
         },
         {
@@ -607,9 +589,9 @@
           "name": "clone_channel clonou de verdade",
           "status": "PASS",
           "detail": "clone 🧪-clone criado com a mesma categoria",
-          "ms": 910,
+          "ms": 912,
           "data": {
-            "clone_id": 1550275591968661604
+            "clone_id": 1550277278049640448
           }
         },
         {
@@ -617,7 +599,7 @@
           "name": "move_channel moveu de verdade",
           "status": "PASS",
           "detail": "saiu e voltou de categoria, confirmado pela API",
-          "ms": 45515,
+          "ms": 42653,
           "data": {}
         },
         {
@@ -633,7 +615,7 @@
           "name": "cargos: criar/editar/atribuir de verdade",
           "status": "PASS",
           "detail": "cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor",
-          "ms": 595,
+          "ms": 863,
           "data": {}
         },
         {
@@ -641,7 +623,7 @@
           "name": "permissões de canal confirmadas pela API",
           "status": "PASS",
           "detail": "set, sync, clear e show (com filtro por target) confirmados pela API",
-          "ms": 1334,
+          "ms": 1384,
           "data": {}
         },
         {
@@ -649,7 +631,7 @@
           "name": "import_structure recriou a estrutura",
           "status": "PASS",
           "detail": "import recriou 3 canais e 2 cargo(s)",
-          "ms": 1288,
+          "ms": 1649,
           "data": {
             "canais": 3
           }
@@ -659,39 +641,23 @@
           "name": "fluxo de confirmação em canais reais",
           "status": "PASS",
           "detail": "2 canais: pediu confirmação e só apagou com confirmed=true",
-          "ms": 2934,
-          "data": {}
-        },
-        {
-          "phase": "mutate",
-          "name": "agente apaga canal nominal sem travar",
-          "status": "WARN",
-          "detail": "o agente não pediu a exclusão do canal efêmero — o provedor gratuito não cooperou nesta rodada ('Operações concluídas.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
-          "ms": 0,
+          "ms": 1488,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente apaga canal nominal sem travar",
           "status": "PASS",
-          "detail": "não conclusivo por causa do LLM gratuito: o agente não pediu a exclusão do canal efêmero",
-          "ms": 151580,
+          "detail": "agente apagou o canal nominal direto: 'Canal #🧪‑efemero (ID: 1550277484199551019) excluído com sucesso.'",
+          "ms": 90057,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente pede confirmação em lote e apaga após 'sim'",
           "status": "WARN",
-          "detail": "o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('Para excluir os canais **🧪-lote-1** (<#1550276448093339752>) e **🧪-lote-2** (<#1550276448085090364>) de uma só'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "detail": "o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('**Resumo das ações realizadas:**\\n\\n- Canal **#🧪‑efemero** (ID: 1550277484199551019) excluído com sucesso.  \\n- T'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
           "ms": 0,
-          "data": {}
-        },
-        {
-          "phase": "mutate",
-          "name": "agente pede confirmação em lote e apaga após 'sim'",
-          "status": "PASS",
-          "detail": "não conclusivo por causa do LLM gratuito: o modelo nem tentou excluir os 2 canais",
-          "ms": 27390,
           "data": {}
         },
         {
@@ -699,7 +665,7 @@
           "name": "apply_template (--allow-template)",
           "status": "PASS",
           "detail": "template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza)",
-          "ms": 2579,
+          "ms": 3355,
           "data": {
             "canais": 9
           }
@@ -729,8 +695,8 @@
           "phase": "botloop",
           "name": "canal temporário de teste",
           "status": "PASS",
-          "detail": "canal temporário 🧪-loop-do-bot (1550276629434077278) criado",
-          "ms": 602,
+          "detail": "canal temporário 🧪-loop-do-bot (1550278439976837292) criado",
+          "ms": 633,
           "data": {}
         },
         {
@@ -761,8 +727,8 @@
           "phase": "botloop",
           "name": "menção dispara o agente e responde",
           "status": "PASS",
-          "detail": "on_message → agente → resposta real no canal: 'O nome do servidor é **asta**.'",
-          "ms": 4733,
+          "detail": "on_message → agente → resposta real no canal: 'asta'",
+          "ms": 2767,
           "data": {}
         },
         {
@@ -770,7 +736,7 @@
           "name": "reações de feedback 👀→✅",
           "status": "PASS",
           "detail": "reações corretas no Discord real: ['✅']",
-          "ms": 1589,
+          "ms": 141,
           "data": {
             "reacoes": [
               "✅"
@@ -783,14 +749,6 @@
           "status": "WARN",
           "detail": "o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('❌ Ocorreu um erro ao processar seu pedido:\\n`Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollina'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
           "ms": 0,
-          "data": {}
-        },
-        {
-          "phase": "botloop",
-          "name": "ferramenta real acionada por mensagem",
-          "status": "PASS",
-          "detail": "não conclusivo por causa do LLM gratuito: o bot não criou o canal",
-          "ms": 4494,
           "data": {}
         }
       ]
