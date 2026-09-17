@@ -127,7 +127,7 @@ jobs:
       - name: "Fase 5 — mutações reais em objetos de teste (criar/editar/apagar)"
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
-        run: python scripts/e2e_live.py --phases mutate --mutate --outdir reports/parts --tag 5-mutacoes
+        run: python scripts/e2e_live.py --phases mutate --mutate --allow-template --outdir reports/parts --tag 5-mutacoes
 
       - name: "Fase 6 — loop real do core.bot (on_message → resposta)"
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''

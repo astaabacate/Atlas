@@ -773,13 +773,11 @@ class Harness:
                          lambda: self.spy_check(phase, "edit_server altera de verdade", "edit_server",
                                                 {"name": "Servidor Spy v2", "description": "d"}, ctx, guild, guild, "edit"))
 
-        await self.check(phase, "set_icon altera de verdade",
-                         lambda: self.spy_check(phase, "set_icon altera de verdade", "set_icon",
-                                                {"url": "https://example.com/icon.png"}, ctx, guild, guild, "edit"))
+        await self.check(phase, "set_icon altera de verdade (baixa a URL e envia os bytes)", self._spy_set_icon)
+        await self.check(phase, "set_icon com estilo gera imagem sem rede", self._spy_set_icon_style)
+        await self.check(phase, "set_icon NÃO mente quando o download falha", self._spy_set_icon_falha)
 
-        await self.check(phase, "apply_template cria de verdade",
-                         lambda: self.spy_check(phase, "apply_template cria de verdade", "apply_template",
-                                                {"template": "estudos"}, ctx, guild, guild, "create_"))
+        await self.check(phase, "apply_template cria de verdade", self._spy_template)
 
         await self.check(phase, "import_structure cria de verdade",
                          lambda: self.spy_check(phase, "import_structure cria de verdade", "import_structure", {
@@ -813,6 +811,124 @@ class Harness:
         await execute_tool("delete_channels", {"channels": [str(a.id), str(b.id)], "confirmed": True}, ctx)
         self.assert_true("delete" in a.actions() and "delete" in b.actions(), "confirmed=true não apagou os canais")
         return "2 canais: exige confirmação e só apaga com confirmed=true"
+
+    async def _spy_set_icon(self) -> str:
+        """set_icon precisa BAIXAR a URL e mandar os bytes em guild.edit(icon=...)."""
+        from brain import ops as ops_mod
+        from brain.executors import execute_tool
+
+        ctx, guild, _, _ = await self._spy_ctx()
+        png = ops_mod._solid_png((12, 34, 56), size=128)
+        baixadas: list[str] = []
+
+        async def fake_download(url: str) -> bytes:
+            baixadas.append(url)
+            return png
+
+        original = ops_mod._download_image
+        ops_mod._download_image = fake_download
+        try:
+            guild.calls.clear()
+            out = await execute_tool("set_icon", {"url": "https://exemplo.invalido/icone.png"}, ctx)
+        finally:
+            ops_mod._download_image = original
+
+        self.assert_true(baixadas == ["https://exemplo.invalido/icone.png"],
+                         f"set_icon não baixou a URL informada (baixou {baixadas or 'nada'})")
+        edits = [kw for action, kw in guild.calls if action == "edit"]
+        self.assert_true(bool(edits), f"set_icon não chamou guild.edit (chamadas: {guild.actions()})")
+        self.assert_true(edits[-1].get("icon") == png,
+                         "guild.edit recebeu bytes diferentes dos baixados")
+        self.assert_true(guild.icon == png, "o ícone do servidor não mudou de verdade")
+        self.assert_true("sucesso" in out.lower(), f"mensagem final inesperada: {out!r}")
+
+        # Caminho offline: data URI base64 não passa pela rede.
+        guild.calls.clear()
+        import base64 as _b64
+        data_uri = "data:image/png;base64," + _b64.b64encode(png).decode()
+        await execute_tool("set_icon", {"url": data_uri}, ctx)
+        self.assert_true(guild.icon == png, "data URI não aplicou o ícone")
+        return "baixou a URL, mandou os bytes em guild.edit(icon=...) e aceitou data URI"
+
+    async def _spy_set_icon_style(self) -> str:
+        """Sem `url`, o `style` precisa gerar um PNG válido (nada de sucesso falso)."""
+        import struct
+
+        from brain.executors import execute_tool
+
+        ctx, guild, _, _ = await self._spy_ctx()
+        guild.calls.clear()
+        await execute_tool("set_icon", {"style": "gamer"}, ctx)
+
+        icone = guild.icon
+        self.assert_true(isinstance(icone, (bytes, bytearray)), f"ícone não é bytes: {type(icone).__name__}")
+        self.assert_true(bytes(icone[:8]) == b"\x89PNG\r\n\x1a\n", "o estilo não gerou um PNG válido")
+        largura, altura = struct.unpack(">II", bytes(icone[16:24]))
+        self.assert_true(min(largura, altura) >= 128,
+                         f"PNG gerado tem {largura}x{altura}; o Discord exige pelo menos 128x128")
+
+        await execute_tool("set_icon", {"style": "minimal"}, ctx)
+        self.assert_true(guild.icon != icone, "estilos diferentes geraram exatamente o mesmo ícone")
+        return f"gerou um PNG {largura}x{altura} sem tocar a rede"
+
+    async def _spy_set_icon_falha(self) -> str:
+        """Se o download falhar, a resposta NÃO pode dizer que deu certo."""
+        from brain import ops as ops_mod
+        from brain.executors import execute_tool
+        from brain.tools import ToolError
+
+        ctx, guild, _, _ = await self._spy_ctx()
+
+        async def download_quebrado(url: str) -> bytes:
+            raise ToolError(f"Falha ao baixar a imagem: {url}")
+
+        original = ops_mod._download_image
+        ops_mod._download_image = download_quebrado
+        try:
+            guild.calls.clear()
+            try:
+                out = await execute_tool("set_icon", {"url": "https://exemplo.invalido/nao-existe.png"}, ctx)
+            except ToolError as exc:
+                mensagem = str(exc)
+            else:
+                raise AssertionError(f"set_icon devolveu sucesso falso: {out!r}")
+        finally:
+            ops_mod._download_image = original
+
+        self.assert_true("sucesso" not in mensagem.lower(),
+                         f"mensagem de erro ainda fala em sucesso: {mensagem!r}")
+        self.assert_true(not any(a == "edit" for a in guild.actions()),
+                         "chamou guild.edit mesmo sem ter baixado a imagem")
+        self.assert_true(guild.icon is None, "o ícone mudou apesar do download ter falhado")
+        return f"erro honesto: {mensagem[:70]!r}"
+
+    async def _spy_template(self) -> str:
+        """apply_template precisa criar canais DENTRO das categorias (bug do `category` duplicado)."""
+        from brain.executors import execute_tool
+        from brain.ops import TEMPLATES_DATA
+
+        ctx, guild, _, _ = await self._spy_ctx()
+        guild.calls.clear()
+        out = await execute_tool("apply_template", {"template": "gamer"}, ctx)
+
+        tpl = TEMPLATES_DATA["gamer"]
+        criadas = {c.name: c for c in guild.categories}
+        total_canais = 0
+        for cat_data in tpl["categories"]:
+            cat = criadas.get(cat_data["name"])
+            self.assert_true(cat is not None, f"categoria {cat_data['name']!r} não foi criada")
+            for ch in cat_data["channels"]:
+                alvo = next((c for c in guild.channels if c.name == ch["name"]), None)
+                self.assert_true(alvo is not None, f"canal {ch['name']!r} não foi criado")
+                self.assert_true(getattr(alvo, "category", None) is cat,
+                                 f"canal {ch['name']!r} ficou fora da categoria {cat_data['name']!r}")
+                total_canais += 1
+
+        for role in tpl["roles"]:
+            self.assert_true(any(r.name == role["name"] for r in guild.roles),
+                             f"cargo {role['name']!r} não foi criado")
+        self.assert_true("sucesso" in out.lower(), f"mensagem final inesperada: {out!r}")
+        return f"{len(tpl['roles'])} cargos, {len(tpl['categories'])} categorias e {total_canais} canais dentro delas"
 
     async def _spy_roles(self) -> str:
         from brain.executors import execute_tool
@@ -858,6 +974,24 @@ class Harness:
 
         out = await execute_tool("show_permissions", {"channel": str(canal.id)}, ctx)
         self.assert_true("Permissões" in out, f"show_permissions devolveu {out[:80]!r}")
+
+        # `target` precisa ser respeitado: filtra o cargo/membro pedido (bug: parâmetro ignorado).
+        await execute_tool("create_roles", {"roles": [{"name": "cargo-beta"}]}, ctx)
+        await execute_tool("set_permissions", {"channel": str(canal.id), "target": "cargo-beta",
+                                               "deny": ["manage_messages"]}, ctx)
+        filtrado = await execute_tool("show_permissions", {"channel": str(canal.id), "target": "cargo-perm"}, ctx)
+        self.assert_true("cargo-perm" in filtrado, f"show_permissions(target) não citou o alvo: {filtrado[:90]!r}")
+        self.assert_true("cargo-beta" not in filtrado,
+                         f"show_permissions(target) mostrou OUTRO alvo também: {filtrado[:90]!r}")
+
+        dono = guild.members[0]
+        sem_perm = await execute_tool("show_permissions", {"channel": str(canal.id), "target": str(dono.id)}, ctx)
+        self.assert_true("não tem permissões personalizadas" in sem_perm.lower().replace("nao", "não"),
+                         f"membro sem overwrite devolveu {sem_perm[:90]!r}")
+        await execute_tool("set_permissions", {"channel": str(canal.id), "target": str(dono.id),
+                                               "allow": ["view_channel"]}, ctx)
+        com_perm = await execute_tool("show_permissions", {"channel": str(canal.id), "target": str(dono.id)}, ctx)
+        self.assert_true(dono.name in com_perm, f"show_permissions do membro não citou {dono.name}: {com_perm[:90]!r}")
 
         canal.calls.clear()
         await execute_tool("clear_permissions", {"channel": str(canal.id), "target": "cargo-perm"}, ctx)
@@ -1606,7 +1740,16 @@ class Harness:
                                                  "deny": ["send_messages"]})
             saida = await ferramenta("show_permissions", {"channel": str(texto.id)})
             self.assert_true("everyone" in saida.lower(), f"show_permissions não listou a @everyone: {saida[:120]}")
-            return "set, sync, clear e show de permissões confirmados pela API"
+
+            # `target` precisa filtrar de verdade (antes era ignorado em silêncio)
+            filtrado_dono = await ferramenta("show_permissions", {"channel": str(texto.id),
+                                                                  "target": str(live.actor.id)})
+            self.assert_true(live.actor.name.lower() in filtrado_dono.lower(),
+                             f"show_permissions(target) não mostrou o autor: {filtrado_dono[:120]!r}")
+            alheios = await ferramenta("show_permissions", {"channel": str(texto.id), "target": "@everyone"})
+            self.assert_true("everyone" in alheios.lower(),
+                             f"show_permissions(target=@everyone) não mostrou a @everyone: {alheios[:120]!r}")
+            return "set, sync, clear e show (com filtro por target) confirmados pela API"
 
         await self.check(phase, "permissões de canal confirmadas pela API", permissoes)
 
@@ -1711,8 +1854,15 @@ class Harness:
                 cargos_tpl = [r for r in await guild.fetch_roles() if r.id in self.owned_roles]
                 self.assert_true(len(novos) >= 5, f"o template criou poucos canais: {len(novos)}")
                 self.assert_true(len(cargos_tpl) >= 2, f"o template criou poucos cargos: {len(cargos_tpl)}")
-                return (f"template 'estudos' criou {len(novos)} canais e {len(cargos_tpl)} cargos "
-                        "(todos registrados para limpeza)"), {"canais": len(novos)}
+
+                # o bug do `category` duplicado quebrava isto: cada canal precisa ficar DENTRO da sua categoria
+                cats_novas = {c.id: c.name for c in novos if c.type.name == "category"}
+                self.assert_true(len(cats_novas) == 3, f"esperava 3 categorias do template: {list(cats_novas.values())}")
+                pendurados = [c for c in novos if c.type.name in ("text", "voice")]
+                foras = [c.name for c in pendurados if c.category_id not in cats_novas]
+                self.assert_true(not foras, f"canais do template fora das categorias criadas: {foras}")
+                return (f"template 'estudos' criou {len(cats_novas)} categorias, {len(pendurados)} canais dentro delas "
+                        f"e {len(cargos_tpl)} cargos (todos registrados para limpeza)"), {"canais": len(novos)}
 
             await self.check(phase, "apply_template (--allow-template)", template)
         else:
@@ -1720,8 +1870,8 @@ class Harness:
                             "não testado: cria ~11 canais e 5 cargos no servidor; rode com --allow-template")
 
         self.rep.record(phase, "edit_server / set_icon no servidor real", SKIP,
-                        "não executado de propósito (mudaria nome/ícone do servidor); o sucesso falso do set_icon "
-                        "já é provado na fase spy")
+                        "não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova "
+                        "que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...)")
 
         await self._cleanup(guild, phase)
 
