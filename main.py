@@ -49,13 +49,20 @@ def main() -> None:
         default_timeout=config.api_timeout,
     )
 
-    llm_provider = AutoProvider.create_default(
-        github_token=config.github_token,
-        api_key=config.llm_api_key,
-        custom_provider=config.llm_provider,
-        custom_model=config.llm_model,
-        custom_base_url=config.llm_base_url,
-    )
+    try:
+        llm_provider = AutoProvider.create_default(
+            api_key=config.llm_api_key,
+            custom_provider=config.llm_provider,
+            custom_model=config.llm_model,
+            custom_base_url=config.llm_base_url,
+            custom_models=config.llm_models,
+            disable_free=config.disable_free_llms,
+        )
+    except ValueError as exc:
+        sys.stderr.write(f"\n❌ Erro de configuração de LLM: {exc}\n\n")
+        sys.exit(2)
+
+    logger.info("Corredores de LLM na corrida: %s", llm_provider.describe())
 
     memory = ChannelMemory(max_turns=config.history_len)
 

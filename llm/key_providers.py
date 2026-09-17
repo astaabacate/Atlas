@@ -17,6 +17,7 @@ logger = logging.getLogger("farol.llm.key")
 
 class OpenAIProvider(ChatProvider):
     name = "openai"
+    supports_tools = True
 
     def __init__(
         self,
@@ -79,6 +80,7 @@ class OpenAIProvider(ChatProvider):
 
 class AnthropicProvider(ChatProvider):
     name = "anthropic"
+    supports_tools = True
 
     def __init__(
         self,

@@ -44,6 +44,8 @@ class Config:
     llm_model: str = ""
     llm_base_url: str = ""
     llm_api_key: str = ""
+    llm_models: list[str] = field(default_factory=list)
+    disable_free_llms: bool = False
     llm_timeout: float = 60.0
     llm_max_tokens: int = 1024
     max_tool_rounds: int = 3
@@ -82,6 +84,13 @@ class Config:
         model = src.get("LLM_MODEL", "").strip()
         base_url = src.get("LLM_BASE_URL", "").strip()
         api_key = src.get("LLM_API_KEY", "").strip()
+        # Cadeia de fallback de modelos: LLM_MODELS="gpt-4o-mini,deepseek-v3-0324"
+        llm_models = [
+            item.strip()
+            for item in src.get("LLM_MODELS", "").split(",")
+            if item.strip()
+        ]
+        disable_free_llms = _parse_bool(src.get("DISABLE_FREE_LLMS"))
 
         try:
             timeout = float(src.get("LLM_TIMEOUT", "60").strip())
@@ -142,6 +151,8 @@ class Config:
             llm_model=model,
             llm_base_url=base_url,
             llm_api_key=api_key,
+            llm_models=llm_models,
+            disable_free_llms=disable_free_llms,
             llm_timeout=timeout,
             llm_max_tokens=max_tokens,
             max_tool_rounds=max_tool_rounds,
