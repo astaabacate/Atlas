@@ -1,24 +1,23 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 49 · ❌ 4 · ⚠️ 2 · ⏭️ 0
+- **Resumo:** ✅ 72 · ❌ 5 · ⚠️ 1 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** e9456fa
-- **execução:** 35278183016
+- **commit:** 4230914
+- **execução:** 35279295683
 - **discord.py:** 2.7.1
-- **fases:** static, spy, policy, connect, audit, tools, agent
-- **mutações reais:** não
+- **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
+- **mutações reais:** sim
 
 ## Anotações
 - conectado como Atlas#1985 em 1 servidor(es)
 
 ## Checagens estáticas (schemas ↔ executores)
-`static` — ✅ 6 · ❌ 0 · ⚠️ 1 · ⏭️ 0
+`static` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `27 ferramentas ↔ 27 executores` | 27 ferramentas e 27 executores casados |
-| WARN | `parâmetros declarados e nunca usados` | o LLM pode preencher e o executor ignorar: show_permissions.target, set_icon.style |
 | PASS | `assinaturas ↔ schemas` | 27 assinaturas conferem com os schemas |
 | PASS | `toda ferramenta tem política` | as 27 ferramentas têm política declarada |
 | PASS | `qualidade dos schemas enviados ao LLM` | descrições e schemas bem formados para function calling |
@@ -26,20 +25,22 @@
 | PASS | `tamanho do payload enviado ao LLM` | schema com 11386 chars + prompt de 1585 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
-`spy` — ✅ 12 · ❌ 3 · ⚠️ 0 · ⏭️ 0
+`spy` — ✅ 17 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `create_channels cria na raiz de verdade` | chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#1009> <#1010> <#1011> 🎉 (✅ 3/3 ' |
-| FAIL | `create_channels cria DENTRO de categoria` | ToolError: Falha ao criar canais: __main__.SpyGuild.create_text_channel() got multiple values for keyword argument 'category' |
+| PASS | `create_channels cria DENTRO de categoria` | chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#1012> <#1013> 🎉 (✅ 2/2 concluíd' |
 | PASS | `edit_channel edita de verdade` | chamou edit() e respondeu 'Canal <#1008> atualizado com sucesso!' |
 | PASS | `move_channel move de verdade` | chamou edit() e respondeu 'Canal <#1008> movido com sucesso!' |
-| PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado com sucesso: <#1012> 🎉' |
+| PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado com sucesso: <#1014> 🎉' |
 | PASS | `delete_channels apaga de verdade (1 canal)` | chamou delete() e respondeu '🗑️ Exclusão concluída: #canal-renomeado (✅ 1/1 concluídos co' |
 | PASS | `delete_channels em lote pede confirmação` | 2 canais: exige confirmação e só apaga com confirmed=true |
 | PASS | `edit_server altera de verdade` | chamou edit() e respondeu 'Informações do servidor atualizadas com sucesso!' |
-| FAIL | `set_icon altera de verdade` | respondeu 'Ícone do servidor atualizado com sucesso a partir de https://example.c' mas NÃO chamou edit() — chamadas vistas: nenhuma |
-| FAIL | `apply_template cria de verdade` | ToolError: Erro ao executar 'apply_template': __main__.SpyGuild.create_text_channel() got multiple values for keyword argument 'category' |
+| PASS | `set_icon altera de verdade (baixa a URL e envia os bytes)` | baixou a URL, mandou os bytes em guild.edit(icon=...) e aceitou data URI |
+| PASS | `set_icon com estilo gera imagem sem rede` | gerou um PNG 256x256 sem tocar a rede |
+| PASS | `set_icon NÃO mente quando o download falha` | erro honesto: 'Falha ao baixar a imagem: https://exemplo.invalido/nao-existe.png' |
+| PASS | `apply_template cria de verdade` | 5 cargos, 3 categorias e 11 canais dentro delas |
 | PASS | `import_structure cria de verdade` | chamou create_() e respondeu '✅ Estrutura importada com sucesso: 1 cargos e 1 canais recri' |
 | PASS | `cargos: criar/editar/dar/tirar/apagar de verdade` | criou/editou/deu/tirou/apagou: todas as chamadas de API aconteceram |
 | PASS | `permissões: set/clear/sync tocam a API` | set/clear/sync chamaram a API e show leu as permissões |
@@ -72,7 +73,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor pollinations (tools nativas: False) → 'pong' |
 | PASS | `servidores do bot` | 1: asta (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 66ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 72ms |
 | PASS | `servidor e autor do teste` | servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -107,4 +108,45 @@
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['tool_list_roles', 'tool_list_roles'] · vencedor pollinations · citou ['Atlas', 'iTinder', 'Cupido'] |
 | PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é exc' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
-| FAIL | `memória do canal entre turnos` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"187de74ad206846060dafb5c23cece12" } \| pollinations: HTTP 400 (openai) — {"error":"400 Bad Request","status":400,"deprecation_notice":"NOTE: The Pollinations legacy text API is being deprecated for authent… |
+| FAIL | `memória do canal entre turnos` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: pollinations: HTTP 400 (openai) — {"error":"400 Bad Request","status":400,"deprecation_notice":"NOTE: The Pollinations legacy text API is being deprecated for authenticated users.… \| ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"f6c7a230a66f0d6efc33c… |
+
+## Mutações reais em objetos de teste (com limpeza)
+`mutate` — ✅ 11 · ❌ 3 · ⚠️ 0 · ⏭️ 1
+
+| Status | Verificação | Detalhe |
+| --- | --- | --- |
+| PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
+| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria']) |
+| PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
+| PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
+| PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
+| FAIL | `cargos: criar/editar/atribuir de verdade` | ToolError: O cargo '🧪 teste-papel' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor. |
+| FAIL | `permissões de canal confirmadas pela API` | ToolError: Não encontrei nenhum cargo ou membro chamado '1521612392105250836' no servidor. (Cargo '1521612392105250836' não foi encontrado no servidor.) |
+| PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
+| PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal #🧪-efemero excluído com sucesso.' |
+| FAIL | `agente pede confirmação em lote e apaga após 'sim'` | o agente apagou 2 canais SEM pedir confirmação: 'Canais #🧪-lote-1 e #🧪-lote-2 excluídos com sucesso.' |
+| PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
+| SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
+| PASS | `limpeza` | todos os objetos de teste foram removidos |
+
+## core.bot.FarolBot: on_message → resposta real no Discord
+`botloop` — ✅ 6 · ❌ 1 · ⚠️ 0 · ⏭️ 0
+
+| Status | Verificação | Detalhe |
+| --- | --- | --- |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550264673503412274) criado |
+| PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
+| PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
+| PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: '❌ Ocorreu um erro ao processar seu pedido:\n`Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ov' |
+| FAIL | `reações de feedback 👀→✅` | o bot não marcou ✅ (reações: ['❌']) |
+| PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
+
+## Varredura de sobras de teste
+`sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+
+| Status | Verificação | Detalhe |
+| --- | --- | --- |
+| PASS | `varredura de sobras` | 3 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot) |
