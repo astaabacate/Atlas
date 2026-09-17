@@ -790,6 +790,7 @@ class Harness:
         await self.check(phase, "permissões: set/clear/sync tocam a API", self._spy_permissions, skip_when=None)
         await self.check(phase, "somente-leitura não muta nada", self._spy_readonly, skip_when=None)
         await self.check(phase, "conversation_clear limpa a memória", self._spy_clear_memory, skip_when=None)
+        await self.check(phase, "agente não se auto-confirma (offline)", self._spy_agente_confirmacao, skip_when=None)
 
     async def _spy_bulk_confirm(self) -> str:
         from brain.executors import execute_tool
@@ -929,6 +930,51 @@ class Harness:
                              f"cargo {role['name']!r} não foi criado")
         self.assert_true("sucesso" in out.lower(), f"mensagem final inesperada: {out!r}")
         return f"{len(tpl['roles'])} cargos, {len(tpl['categories'])} categorias e {total_canais} canais dentro delas"
+
+    async def _spy_agente_confirmacao(self) -> str:
+        """
+        O agente não pode se auto-confirmar: mesmo que o modelo mande `confirmed=true`,
+        só executa depois que a pessoa confirmar. (Bug pego no teste ao vivo: ele apagou
+        2 canais de uma vez sem perguntar.)
+        """
+        from brain.agent import Agent
+        from brain.memory import ChannelMemory
+        from llm.base import ChatProvider, LLMResponse, ToolCall
+
+        class LLMRoteirizado(ChatProvider):
+            def __init__(self, roteiro: list[LLMResponse]) -> None:
+                self.roteiro = roteiro
+
+            async def chat(self, messages: list[dict[str, Any]], tools: Any = None,
+                           timeout: float = 60.0, max_tokens: int = 1024) -> LLMResponse:
+                return self.roteiro.pop(0)
+
+        ctx, guild, _, canal = await self._spy_ctx()
+        lote = [await guild.create_text_channel(f"lote-{i}") for i in (1, 2)]
+        for ch in lote:
+            ch.calls.clear()
+
+        def chamada_deletar() -> LLMResponse:
+            return LLMResponse(content="", tool_calls=[ToolCall(
+                id="conf_1", name="delete_channels",
+                args={"channels": [str(ch.id) for ch in lote], "confirmed": True})])
+
+        llm = LLMRoteirizado([chamada_deletar(),
+                              LLMResponse(content="Posso apagar os 2 canais? Confirme, por favor.", tool_calls=[])])
+        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+
+        resposta = await agent.process_turn(guild=guild, channel=canal, actor=guild.members[0],
+                                            prompt="Apague os canais lote-1 e lote-2 de uma vez.")
+        self.assert_true(not any("delete" in ch.actions() for ch in lote),
+                         "o agente apagou 2 canais sem a confirmação do usuário")
+        self.assert_true("confirm" in resposta.lower() or "posso" in resposta.lower(),
+                         f"o agente não pediu confirmação: {resposta[:80]!r}")
+
+        llm.roteiro = [chamada_deletar(), LLMResponse(content="Pronto, canais apagados.", tool_calls=[])]
+        await agent.process_turn(guild=guild, channel=canal, actor=guild.members[0], prompt="sim, pode apagar")
+        self.assert_true(all("delete" in ch.actions() for ch in lote),
+                         "depois do 'sim' o agente não apagou os canais")
+        return "sem confirmação do usuário nada é apagado; com o 'sim', apaga"
 
     async def _spy_roles(self) -> str:
         from brain.executors import execute_tool
@@ -1700,24 +1746,40 @@ class Harness:
             self.assert_true(papel is not None, "o cargo não apareceu na API")
             self.assert_true(str(papel.color) == "#5865f2", f"cor errada (esperado #5865f2): {papel.color}")
             self.assert_true(papel.mentionable and papel.hoist, "mentionable/hoist não aplicados")
-            await ferramenta("edit_role", {"role": str(papel.id), "name": f"{TEMP_MARK} teste-papel-v2",
-                                           "color": "#00c853"})
-            papel2 = next((r for r in await guild.fetch_roles() if r.id == papel.id), None)
-            self.assert_true(papel2.name.endswith("v2"), f"o nome do cargo não mudou: {papel2.name}")
-            self.assert_true(str(papel2.color) == "#00c853", f"a cor do cargo não mudou: {papel2.color}")
-            nota = ""
+
+            # Editar/atribuir depende da POSIÇÃO do cargo do bot no servidor: se ele está no chão
+            # (posição 1), o Discord não deixa mexer nem nos cargos que ele mesmo criou. Não é bug
+            # do código — é configuração do servidor (README Passo 3), então vira WARN acionável.
             try:
-                await ferramenta("give_role", {"member": str(guild.me.id), "role": str(papel.id)})
-                membro = await guild.fetch_member(guild.me.id)
-                self.assert_true(any(r.id == papel.id for r in membro.roles), "o cargo não foi dado ao bot")
-                await ferramenta("take_role", {"member": str(guild.me.id), "role": str(papel.id)})
-                membro = await guild.fetch_member(guild.me.id)
-                self.assert_true(not any(r.id == papel.id for r in membro.roles), "o cargo não foi retirado do bot")
-                nota = "cargo dado e retirado do próprio bot"
+                await ferramenta("edit_role", {"role": str(papel.id), "name": f"{TEMP_MARK} teste-papel-v2",
+                                               "color": "#00c853"})
+                papel2 = next((r for r in await guild.fetch_roles() if r.id == papel.id), None)
+                self.assert_true(papel2.name.endswith("v2"), f"o nome do cargo não mudou: {papel2.name}")
+                self.assert_true(str(papel2.color) == "#00c853", f"a cor do cargo não mudou: {papel2.color}")
+
+                nota = ""
+                try:
+                    await ferramenta("give_role", {"member": str(guild.me.id), "role": str(papel.id)})
+                    membro = await guild.fetch_member(guild.me.id)
+                    self.assert_true(any(r.id == papel.id for r in membro.roles), "o cargo não foi dado ao bot")
+                    await ferramenta("take_role", {"member": str(guild.me.id), "role": str(papel.id)})
+                    membro = await guild.fetch_member(guild.me.id)
+                    self.assert_true(not any(r.id == papel.id for r in membro.roles),
+                                     "o cargo não foi retirado do bot")
+                    nota = "cargo dado e retirado do próprio bot"
+                except ToolError as exc:
+                    nota = f"dar/tirar cargo não suportado neste servidor ({str(exc)[:70]})"
+                    self.rep.record(phase, "give_role/take_role", WARN, nota)
+                return f"cargo criado, editado e confirmado na API ({nota})"
             except ToolError as exc:
-                nota = f"dar/tirar cargo não suportado neste servidor ({str(exc)[:70]})"
-                self.rep.record(phase, "give_role/take_role", WARN, nota)
-            return f"cargo criado, editado e confirmado na API ({nota})"
+                if "mesma posição do meu cargo mais alto" not in str(exc):
+                    raise
+                self.rep.record(
+                    phase, "cargo do farol no chão do servidor", WARN,
+                    f"{exc} Ação do dono (README Passo 3): arraste o cargo do farol para cima dos outros — "
+                    "sem isso ele não edita nem os cargos que ele mesmo cria.")
+                return ("cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do "
+                        "cargo do bot no servidor")
 
         await self.check(phase, "cargos: criar/editar/atribuir de verdade", cargos)
 

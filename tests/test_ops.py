@@ -427,6 +427,53 @@ class TestShowPermissions(unittest.TestCase):
 
         self.assertIn("não tem permissões personalizadas", out)
 
+    def test_target_por_id_busca_na_api_quando_o_cache_esta_vazio(self) -> None:
+        """
+        Sem a intent de membros, `guild.members` vem vazio: o alvo por ID precisa ser buscado
+        com `fetch_member` (foi o que o teste ao vivo pegou em show_permissions(target=<id>)).
+        """
+        ctx, guild = make_ctx()
+        canal = FakeChannel("geral", 123)
+        canal.overwrites = {}
+        ctx.channel = canal
+        guild.channels.append(canal)
+        guild.members = []  # cache vazio (sem MEMBERS intent)
+
+        alvo = FakeEntity("dono", 4242)
+        buscados: list[int] = []
+
+        async def fetch_member(mid: int) -> Any:
+            buscados.append(mid)
+            if mid != alvo.id:
+                raise LookupError("Unknown Member")
+            return alvo
+
+        guild.fetch_member = fetch_member  # type: ignore[attr-defined]
+        canal.overwrites[alvo] = "ow-do-dono"
+
+        out = asyncio.run(execute_tool("show_permissions", {"channel": "123", "target": str(alvo.id)}, ctx))
+
+        self.assertEqual(buscados, [alvo.id])
+        self.assertIn("dono", out)
+        self.assertIn("ow-do-dono", out)
+
+    def test_target_por_id_sem_overwrite_avisa_que_herda(self) -> None:
+        ctx, guild = make_ctx()
+        canal = FakeChannel("geral", 123)
+        canal.overwrites = {}
+        ctx.channel = canal
+        guild.channels.append(canal)
+        guild.members = []
+        alvo = FakeEntity("dono", 4242)
+
+        async def fetch_member(mid: int) -> Any:
+            return alvo
+
+        guild.fetch_member = fetch_member  # type: ignore[attr-defined]
+
+        out = asyncio.run(execute_tool("show_permissions", {"channel": "123", "target": str(alvo.id)}, ctx))
+        self.assertIn("não tem permissões personalizadas", out)
+
     def test_alvo_inexistente_erro_claro(self) -> None:
         ctx, _ = self._ctx_com_overwrites()
         with self.assertRaises(ToolError) as ctx_erro:

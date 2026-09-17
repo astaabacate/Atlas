@@ -12,7 +12,7 @@ import unittest
 from types import SimpleNamespace
 from typing import Any
 
-from brain.agent import Agent
+from brain.agent import Agent, asks_for_confirmation, user_confirmed
 from brain.memory import ChannelMemory
 from brain.tools import ToolError
 from llm.base import ChatProvider, LLMResponse, ToolCall
@@ -214,6 +214,121 @@ class TestAgent(unittest.TestCase):
         self.assertEqual(res, "Resumo final de todas as ações.")
         # Verifica se o resumo final foi solicitado sem schema de tools
         self.assertIsNone(fake_llm.call_history[-1]["tools"])
+
+
+class TestConfirmacaoDestrutiva(unittest.TestCase):
+    """
+    O modelo NÃO pode se auto-confirmar: `confirmed=true` só vale quando a ferramenta já
+    pediu confirmação e o usuário confirmou depois. Bug pego no teste ao vivo (o agente
+    apagou 2 canais de uma vez sem perguntar nada).
+    """
+
+    def setUp(self) -> None:
+        self.actor = SimpleNamespace(id=1, guild_permissions=SimpleNamespace(administrator=True))
+        self.bot_member = SimpleNamespace(id=2, guild_permissions=SimpleNamespace(administrator=True),
+                                          top_role=SimpleNamespace(position=100))
+        self.apagados: list[str] = []
+
+        def fazer_canal(cid: int, nome: str) -> SimpleNamespace:
+            canal = SimpleNamespace(id=cid, name=nome, mentions=[])
+
+            async def delete() -> None:
+                self.apagados.append(nome)
+                self.canais = [c for c in self.canais if c.id != cid]
+
+            canal.delete = delete
+            return canal
+
+        self.canais = [fazer_canal(11, "canal-a"), fazer_canal(12, "canal-b")]
+        self.guild = SimpleNamespace(
+            name="Servidor Teste", id=12345, channels=self.canais, categories=[], roles=[],
+            members=[], me=self.bot_member, owner_id=1,
+            get_channel=lambda cid: next((c for c in self.canais if c.id == cid), None),
+        )
+        self.channel = SimpleNamespace(id=555, name="geral")
+
+    def _agent_com(self, respostas: list[LLMResponse]) -> tuple[Agent, FakeLLM]:
+        llm = FakeLLM(respostas)
+        return Agent(llm_provider=llm, memory=ChannelMemory()), llm
+
+    def _turno(self, agent: Agent, prompt: str) -> str:
+        return asyncio.run(agent.process_turn(guild=self.guild, channel=self.channel,
+                                              actor=self.actor, prompt=prompt))
+
+    def test_modelo_nao_se_autoconfirma(self) -> None:
+        agent, _ = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
+                                                         args={"channels": ["11", "12"], "confirmed": True})]),
+            LLMResponse(content="Posso apagar os 2 canais? Confirme por favor.", tool_calls=[]),
+        ])
+
+        resposta = self._turno(agent, "Apague os canais canal-a e canal-b de uma vez.")
+
+        self.assertEqual(self.apagados, [], "o agente apagou sem a confirmação do usuário")
+        self.assertIn("confirm", resposta.lower())
+        pendentes = agent.pending_confirmation(555)
+        self.assertTrue("delete_channels" in pendentes or "*" in pendentes,
+                        f"o pedido de confirmação não ficou registrado: {pendentes}")
+
+        agent2, _ = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c2", name="delete_channels",
+                                                         args={"channels": ["11", "12"], "confirmed": True})]),
+            LLMResponse(content="Feito, canais apagados.", tool_calls=[]),
+        ])
+        agent2._aguardando_confirmacao[555] = {"delete_channels"}
+        agent2.memory = agent.memory  # mantém o histórico da conversa
+        self._turno(agent2, "sim, pode apagar")
+
+        self.assertEqual(sorted(self.apagados), ["canal-a", "canal-b"], "não apagou depois do 'sim'")
+
+    def test_sim_sem_pendencia_nao_libera(self) -> None:
+        agent, _ = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
+                                                         args={"channels": ["11", "12"], "confirmed": True})]),
+            LLMResponse(content="Erro ao apagar.", tool_calls=[]),
+        ])
+
+        self._turno(agent, "sim")
+
+        self.assertEqual(self.apagados, [], "bastou dizer 'sim' sem o bot ter perguntado nada")
+
+    def test_confirmacao_no_texto_libera_o_sim(self) -> None:
+        agent, _ = self._agent_com([
+            LLMResponse(content="Tem certeza que quer apagar os 2 canais?", tool_calls=[]),
+        ])
+        self._turno(agent, "Apague os canais canal-a e canal-b")
+        self.assertIn("*", agent.pending_confirmation(555))
+
+        agent2, _ = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c2", name="delete_channels",
+                                                         args={"channels": ["11", "12"], "confirmed": True})]),
+            LLMResponse(content="Pronto!", tool_calls=[]),
+        ])
+        agent2._aguardando_confirmacao[555] = agent.pending_confirmation(555)
+        self._turno(agent2, "isso, manda ver")
+
+        self.assertEqual(sorted(self.apagados), ["canal-a", "canal-b"])
+
+    def test_canal_unico_nominal_continua_apagando_direto(self) -> None:
+        agent, _ = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
+                                                         args={"channels": ["11"], "confirmed": True})]),
+            LLMResponse(content="Canal apagado.", tool_calls=[]),
+        ])
+
+        self._turno(agent, "Apague o canal canal-a")
+
+        self.assertEqual(self.apagados, ["canal-a"], "canal único nominal deveria apagar sem travar")
+
+    def test_helpers_de_confirmacao(self) -> None:
+        self.assertTrue(user_confirmed("sim, pode apagar"))
+        self.assertTrue(user_confirmed("Confirmo!"))
+        self.assertTrue(user_confirmed("isso mesmo"))
+        self.assertFalse(user_confirmed("apague os canais 1 e 2"))
+        self.assertFalse(user_confirmed("não, deixa quieto"))
+        self.assertTrue(asks_for_confirmation("Posso apagar esses 2 canais?"))
+        self.assertTrue(asks_for_confirmation("Tem certeza disso?"))
+        self.assertFalse(asks_for_confirmation("Canais excluídos com sucesso!"))
 
 
 if __name__ == "__main__":

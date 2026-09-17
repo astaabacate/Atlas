@@ -469,14 +469,33 @@ def _format_overwrite(ow: Any) -> str:
     return " | ".join(parts)
 
 
-def _find_overwrite_entity(ctx: ToolContext, target: str) -> Any:
-    """Aceita membro ou cargo como alvo (nome, ID ou menção)."""
+async def _find_overwrite_entity(ctx: ToolContext, target: str) -> Any:
+    """
+    Aceita membro ou cargo como alvo (nome, ID ou menção).
+
+    Se o cache local não tiver o membro (acontece quando a intent de membros está desligada
+    no Developer Portal), busca direto na API pelo ID — foi assim que o teste ao vivo pegou
+    `show_permissions(target=<id do dono>)` falhando.
+    """
     erros: list[str] = []
     for resolver in (resolve_role, resolve_member):
         try:
             return resolver(ctx.guild, target)
         except Exception as exc:  # noqa: BLE001 - tenta o próximo resolvedor
             erros.append(str(exc))
+
+    query = str(target).strip()
+    alvo_id = int(query) if query.isdigit() else None
+    if alvo_id is not None:
+        for nome_busca in ("fetch_member", "fetch_role"):
+            busca = getattr(ctx.guild, nome_busca, None)
+            if busca is None:
+                continue
+            try:
+                return await busca(alvo_id)
+            except Exception as exc:  # noqa: BLE001 - tenta a próxima busca
+                erros.append(f"{nome_busca}({alvo_id}): {exc}")
+
     raise ToolError(
         f"Não encontrei nenhum cargo ou membro chamado '{target}' no servidor. "
         f"({erros[0] if erros else ''})"
@@ -493,7 +512,7 @@ async def op_show_permissions(
     cid = getattr(ch, "id", "")
 
     if target:
-        ent = _find_overwrite_entity(ctx, target)
+        ent = await _find_overwrite_entity(ctx, target)
         ow = None
         for candidate, candidate_ow in overwrites.items():
             same_id = getattr(candidate, "id", None) is not None and getattr(candidate, "id", None) == getattr(ent, "id", None)

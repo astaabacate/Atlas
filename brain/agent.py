@@ -32,11 +32,43 @@ REGRAS ABSOLUTAS:
 7. Ações destrutivas e confirmação:
    - Excluir UM canal indicado nominalmente NÃO pede confirmação: execute imediatamente!
    - Peça confirmação SOMENTE quando o estrago for grande: excluir 2 ou mais canais, esvaziar/excluir uma categoria inteira, ou excluir um cargo.
-   - Quando o usuário confirmar (disser "sim", "pode apagar", "confirmo"), chame a ferramenta novamente com `confirmed=true`.
+   - NUNCA invente confirmação: só use `confirmed=true` DEPOIS que o usuário confirmar explicitamente
+     ("sim", "pode apagar", "confirmo"). Se ele ainda não confirmou, chame a ferramenta SEM `confirmed`
+     (a própria ferramenta vai pedir a confirmação) e pergunte no texto.
 8. FORA DE ESCOPO: moderação, punições, bans, expulsões, matchmaking, sorteios, jogos, enquetes. Quando pedirem isso, responda educadamente que seu foco exclusivo é montar e organizar a estrutura do servidor.
 
 {snapshot}
 """
+
+
+# Ferramentas que exigem confirmação EXPLÍCITA do usuário antes de um estrago grande.
+# O modelo não pode se auto-confirmar: quem confirma é a pessoa (bug pego no teste ao vivo,
+# em que o agente apagou 2 canais de uma vez sem perguntar nada).
+CONFIRMATION_TOOLS = frozenset({"delete_channels", "delete_role"})
+
+_AFFIRMATIVE_RE = re.compile(
+    r"\b(sim|s|ss|confirmo|confirmado|confirma|pode|pode apagar|pode sim|manda|manda ver|claro|"
+    r"isso|isso mesmo|beleza|blz|ok|okay|autorizo|autorizado|vai|executa|execute|apaga)\b"
+)
+
+
+def _strip_accents(text: str) -> str:
+    import unicodedata
+
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")
+
+
+def user_confirmed(prompt: str) -> bool:
+    """True quando a mensagem do usuário é uma confirmação explícita ("sim, pode apagar")."""
+    return bool(_AFFIRMATIVE_RE.search(_strip_accents(prompt.lower())))
+
+
+_ASKING_RE = re.compile(r"confirm|posso apagar|tem certeza|certeza disso|autoriza|devo (apagar|excluir)")
+
+
+def asks_for_confirmation(text: str) -> bool:
+    """True quando a resposta do agente está pedindo um 'sim' antes de destruir algo."""
+    return bool(_ASKING_RE.search(_strip_accents((text or "").lower())))
 
 
 def _extract_fallback_tool_calls(text: str) -> list[ToolCall]:
@@ -78,6 +110,33 @@ class Agent:
         self.llm_timeout = llm_timeout
         self.api_registry = api_registry
         self.tools_schema = [t.to_openai() for t in get_tool_definitions()]
+        # canal → ferramentas destrutivas que pediram confirmação no último turno
+        self._aguardando_confirmacao: dict[int, set[str]] = {}
+
+    def pending_confirmation(self, channel_id: int) -> set[str]:
+        """Ferramentas que estão esperando um 'sim' do usuário naquele canal."""
+        return set(self._aguardando_confirmacao.get(channel_id, set()))
+
+    def _authorize_confirmed(self, channel_id: int, tool_name: str, args: dict[str, Any],
+                             prompt: str) -> dict[str, Any]:
+        """
+        Tira o `confirmed=true` que o MODELO inventou.
+
+        Só é aceito quando a ferramenta já tinha pedido confirmação no turno anterior E a
+        mensagem atual do usuário é uma confirmação explícita. Sem isso, a chamada segue sem
+        `confirmed` e a própria ferramenta devolve o pedido de confirmação.
+        """
+        if not args.get("confirmed") or tool_name not in CONFIRMATION_TOOLS:
+            return args
+
+        pendentes = self._aguardando_confirmacao.get(channel_id, set())
+        if ("*" in pendentes or tool_name in pendentes) and user_confirmed(prompt):
+            return args
+
+        logger.info("confirmação do modelo ignorada em %s (pendentes=%s)", tool_name, pendentes or "nenhuma")
+        limpo = dict(args)
+        limpo.pop("confirmed", None)
+        return limpo
 
     async def process_turn(
         self,
@@ -134,6 +193,10 @@ class Agent:
                 final_text = response.content.strip()
                 if final_text:
                     self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})
+                    if asks_for_confirmation(final_text):
+                        # perguntou no TEXTO (sem chamar a ferramenta): o "sim" da próxima
+                        # mensagem precisa valer para a ferramenta destrutiva que vier
+                        self._aguardando_confirmacao[channel_id] = {"*"}
                 return final_text or "Operação concluída com sucesso."
 
             # O modelo chamou ferramentas
@@ -157,13 +220,18 @@ class Agent:
             self.memory.add_message(channel_id, assistant_msg)
 
             # Executar cada ferramenta
+            pedindo_confirmacao: set[str] = set()
             for call in tool_calls:
+                args = self._authorize_confirmed(channel_id, call.name, dict(call.args or {}), prompt)
                 try:
-                    result_str = await execute_tool(call.name, call.args, ctx)
+                    result_str = await execute_tool(call.name, args, ctx)
                 except ToolError as exc:
                     result_str = f"Erro: {exc}"
                 except Exception as exc:
                     result_str = f"Erro inesperado: {exc}"
+
+                if call.name in CONFIRMATION_TOOLS and "confirmed=true" in result_str:
+                    pedindo_confirmacao.add(call.name)
 
                 tool_result_msg = {
                     "role": "tool",
@@ -173,6 +241,12 @@ class Agent:
                 }
                 messages.append(tool_result_msg)
                 self.memory.add_message(channel_id, tool_result_msg)
+
+            if pedindo_confirmacao:
+                self._aguardando_confirmacao[channel_id] = set(pedindo_confirmacao)
+            elif any(c.name in CONFIRMATION_TOOLS for c in tool_calls):
+                # a ferramenta destrutiva rodou de verdade (o usuário já havia confirmado)
+                self._aguardando_confirmacao.pop(channel_id, None)
 
         # Se atingiu o limite de rodadas de ferramentas, pede resumo final
         summary_prompt = {
