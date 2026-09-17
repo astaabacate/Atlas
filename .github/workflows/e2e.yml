@@ -125,39 +125,48 @@ jobs:
 
       - name: Consolidar relatório e publicar no branch
         if: always()
+        # Atenção: o runner executa `bash -e`; por isso cada comando é tratado aqui —
+        # o merge sai com 1 quando existe falha de teste e NÃO pode abortar a publicação.
         run: |
           set -uo pipefail
           mkdir -p reports
+
+          MERGE_STATUS=0
           python scripts/e2e_live.py --merge reports/parts --outdir reports \
-            --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          MERGE_STATUS=$?
+            --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || MERGE_STATUS=$?
 
           echo "=== resumo ==="
           head -12 reports/e2e-latest.md || true
 
           publicar() {
             local caminho="$1" mensagem="$2"
-            local conteudo sha
-            conteudo=$(base64 -w0 "$caminho")
+            local conteudo sha erro
+            conteudo=$(base64 -w0 "$caminho" 2>/dev/null) || { echo "::error title=e2e publicar::base64 falhou em ${caminho}"; return 1; }
             sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
             if [ -n "$sha" ]; then
-              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
-                -f message="$mensagem" -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null \
-                || echo "aviso: não consegui atualizar ${caminho}"
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=e2e publicar ${caminho}::$(printf '%s' "$erro" | head -c 400)"; return 1; }
             else
-              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
-                -f message="$mensagem" -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" >/dev/null \
-                || echo "aviso: não consegui criar ${caminho}"
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=e2e publicar ${caminho}::$(printf '%s' "$erro" | head -c 400)"; return 1; }
             fi
+            echo "::notice title=e2e publicar::${caminho} publicado no branch ${GITHUB_REF_NAME}"
           }
 
-          publicar "reports/e2e-latest.json" "chore(e2e): relatório JSON da execução ${GITHUB_RUN_ID} [skip ci]"
-          publicar "reports/e2e-latest.md" "chore(e2e): relatório da execução ${GITHUB_RUN_ID} [skip ci]"
+          publicar "reports/e2e-latest.json" "chore(e2e): relatório JSON da execução ${GITHUB_RUN_ID} [skip ci]" || true
+          publicar "reports/e2e-latest.md" "chore(e2e): relatório da execução ${GITHUB_RUN_ID} [skip ci]" || true
 
           PR=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
           if [ -n "$PR" ]; then
             { echo "## E2E ao vivo — execução ${GITHUB_RUN_ID}"; echo; cat reports/e2e-latest.md; } > /tmp/comentario.md
-            gh pr comment "$PR" --body-file /tmp/comentario.md >/dev/null || echo "aviso: não consegui comentar na PR"
+            erro_pr=$(gh pr comment "$PR" --body-file /tmp/comentario.md 2>&1 >/dev/null) \
+              || echo "::warning title=e2e comentario::$(printf '%s' "$erro_pr" | head -c 300)"
           fi
+
+          # resumo em anotações: canal garantido mesmo se a publicação falhar
+          python scripts/e2e_live.py --merge reports/parts --outdir reports --resumo-anotacoes \
+            --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null 2>&1 || true
 
           exit $MERGE_STATUS

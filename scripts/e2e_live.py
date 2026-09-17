@@ -1204,9 +1204,9 @@ class Harness:
 
         async def list_roles() -> str:
             out = await execute_tool("list_roles", {}, ctx)
-            self.assert_true(any(r.name in out for r in guild.roles), f"não listou cargos reais: {out[:120]}")
-            self.assert_true(str(guild.roles[-1].id) in out, "não trouxe IDs")
-            return f"listou {len(guild.roles)} cargos com IDs"
+            faltando = [r.name for r in guild.roles if f"<@&{r.id}>" not in out]
+            self.assert_true(not faltando, f"não listou todos os cargos reais (menções): faltou {faltando[:4]}")
+            return f"listou os {len(guild.roles)} cargos reais com menção e posição"
 
         await self.check(phase, "list_roles", list_roles)
 
@@ -1215,8 +1215,12 @@ class Harness:
             bruto = out[out.find("{"): out.rfind("}") + 1] if "{" in out else out
             data = json.loads(bruto)
             self.assert_true("categories" in data and "roles" in data, "JSON sem categories/roles")
-            self.assert_true(len(data["roles"]) == len(guild.roles),
-                             f"exportou {len(data['roles'])} cargos, o servidor tem {len(guild.roles)}")
+            # @everyone é intocável por projeto: não entra no backup
+            esperados = [r.name for r in guild.roles if not r.is_default()]
+            self.assert_true(len(data["roles"]) == len(esperados),
+                             f"exportou {len(data['roles'])} cargos, esperado {len(esperados)} (sem @everyone)")
+            self.assert_true(len(data["categories"]) == len(guild.categories),
+                             f"exportou {len(data['categories'])} categorias, o servidor tem {len(guild.categories)}")
             canais = sum(len(c.get("channels", [])) for c in data["categories"]) + len(
                 data.get("uncategorized_channels", []))
             return (f"{len(data['categories'])} categorias, {canais} canais e {len(data['roles'])} cargos "
@@ -1317,7 +1321,7 @@ class Harness:
             self.assert_true(bool(resposta.strip()), "agente devolveu resposta vazia")
             chamadas_feitas = [n for c in chamadas for n in c["ferramentas_chamadas"]]
             self.assert_true(bool(chamadas_feitas), f"o LLM não chamou nenhuma ferramenta (rodadas: {chamadas})")
-            reais = [r.name for r in guild.roles if r.name in resposta]
+            reais = [r.name for r in guild.roles if r.name in resposta or f"<@&{r.id}>" in resposta]
             self.assert_true(bool(reais), f"a resposta não citou nenhum cargo real: {resposta[:160]!r}")
             vencedor = chamadas[0]["vencedor"] if chamadas else "?"
             return (f"ferramentas {chamadas_feitas} · vencedor {vencedor} · citou {reais[:3]}"), {
@@ -1339,13 +1343,16 @@ class Harness:
         await self.check(phase, "fora de escopo é recusado sem executar", fora_de_escopo)
 
         async def conhece_estrutura() -> str:
-            categorias = [c.name for c in guild.categories] or [c.name for c in guild.text_channels]
-            if not categorias:
+            # o bot responde com nomes OU com menções (<#id>), então os dois valem
+            marcadores: list[tuple[str, str]] = []
+            for ch in list(guild.categories) + list(guild.channels):
+                marcadores.append((ch.name, f"<#{ch.id}>"))
+            if not marcadores:
                 raise AssertionError("servidor sem categorias/canais para checar")
             resposta = await perguntar("Quais categorias e canais existem neste servidor? Cite nomes reais.")
-            citados = [n for n in categorias if n in resposta]
-            self.assert_true(bool(citados), f"não citou nomes reais do servidor: {resposta[:160]!r}")
-            return f"citou nomes reais ({', '.join(citados[:3])})"
+            citados = [nome for nome, mencao in marcadores if nome in resposta or mencao in resposta]
+            self.assert_true(bool(citados), f"não citou nada real do servidor (nem nome nem menção): {resposta[:160]!r}")
+            return f"citou itens reais do servidor ({', '.join(citados[:3])})"
 
         await self.check(phase, "agente conhece a estrutura real", conhece_estrutura)
 
@@ -1996,6 +2003,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--no-annotations", dest="annotations", action="store_false", default=True)
     parser.add_argument("--started-at", dest="started_at", default="", help="ISO da primeira fase (merge)")
     parser.add_argument("--json-stdout", dest="json_stdout", action="store_true")
+    parser.add_argument("--resumo-anotacoes", dest="resumo_anotacoes", action="store_true",
+                        help="com --merge: publica também o resumo como anotações de check-run")
     return parser.parse_args(argv)
 
 
@@ -2005,7 +2014,7 @@ def phases_list(raw: str) -> list[str]:
     return [p.strip() for p in raw.split(",") if p.strip()]
 
 
-def merge_parts(directory: Path, outdir: Path, started_at: str = "") -> int:
+def merge_parts(directory: Path, outdir: Path, started_at: str = "", anotar: bool = False) -> int:
     parts = sorted(directory.glob("*.json"))
     if not parts:
         print(f"nenhum relatório em {directory}", file=sys.stderr)
@@ -2043,6 +2052,8 @@ def merge_parts(directory: Path, outdir: Path, started_at: str = "") -> int:
     md = reporter.to_markdown()
     (outdir / "e2e-latest.md").write_text(md, encoding="utf-8")
     print(md)
+    if anotar:
+        reporter.emit_annotations()
     return reporter.exit_code()
 
 
@@ -2050,7 +2061,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     if args.merge:
-        return merge_parts(Path(args.merge), Path(args.outdir), args.started_at)
+        return merge_parts(Path(args.merge), Path(args.outdir), args.started_at, anotar=args.resumo_anotacoes)
 
     phases = phases_list(args.phases)
     started = datetime.now(timezone.utc)
