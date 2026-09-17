@@ -3,30 +3,31 @@ Módulo de provedores LLM.
 """
 
 from llm.auto import AutoProvider
-from llm.base import ChatProvider, LLMResponse, ToolCall
+from llm.base import ChatProvider, LLMResponse, ProviderError, ToolCall
 from llm.free_providers import (
-    BlackboxProvider,
-    GitHubModelsProvider,
-    KiloProvider,
+    KNOWN_GATEWAYS,
     LLM7Provider,
     OVHProvider,
+    OpenAICompatibleHttpProvider,
     PollinationsProvider,
-    ZenProvider,
+    build_anonymous_runners,
+    build_gateway_provider,
 )
 from llm.key_providers import AnthropicProvider, GeminiProvider, OpenAIProvider
 
 __all__ = [
     "ChatProvider",
     "LLMResponse",
+    "ProviderError",
     "ToolCall",
     "AutoProvider",
+    "OpenAICompatibleHttpProvider",
     "LLM7Provider",
-    "ZenProvider",
-    "KiloProvider",
     "OVHProvider",
     "PollinationsProvider",
-    "GitHubModelsProvider",
-    "BlackboxProvider",
+    "build_anonymous_runners",
+    "build_gateway_provider",
+    "KNOWN_GATEWAYS",
     "OpenAIProvider",
     "AnthropicProvider",
     "GeminiProvider",

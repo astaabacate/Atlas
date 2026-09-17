@@ -114,25 +114,82 @@ O Farol inclui 27 ferramentas com validação estrita de schemas e executores:
 
 ---
 
-## 🧠 4. O Cérebro: Corrida de LLMs Gratuitas
+## 🧠 4. O Cérebro: Corrida de LLMs
 
 O Farol utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
-1. Cada mensagem do usuário dispara chamadas simultâneas para múltiplos provedores gratuitos com o mesmo timeout.
-2. A primeira resposta válida que chegar vence a rodada e as requisições restantes são **canceladas imediatamente**.
-3. Se um provedor cair ou retornar `429 Too Many Requests`, ele simplesmente perde a corrida e o bot responde com o próximo mais rápido.
+1. Cada mensagem do usuário dispara chamadas simultâneas para todos os corredores configurados, com o mesmo timeout.
+2. A primeira resposta válida vence a rodada e as requisições restantes são **canceladas imediatamente**.
+3. Se um provedor cair, limitar (`429`) ou recusar o modelo (`400/404`), ele perde a corrida — e cada corredor ainda tenta o próximo modelo da sua lista antes de desistir.
+4. Se **todos** falharem, o erro enviado ao Discord traz uma linha por corredor (sem HTML) e diz exatamente qual segredo configurar.
 
-### Corredores Integrados
-- `github_models`: Usa o `GITHUB_TOKEN` padrão do GitHub Actions, acessando o modelo `gpt-4o-mini` com suporte nativo a function calling.
-- `llm7`: Acesso gratuito e anônimo sem cadastro via `api.llm7.io`.
-- `zen`: OpenCode Zen rodando `nemotron-3-ultra-free`.
-- `kilo`: Gateway Kilo Code (`kilo-auto/free`).
-- `ovh`: Endpoints de IA OVHcloud (`Llama 3.3 70B`).
-- `pollinations`: API de texto Pollinations AI.
-- `blackbox`: API Blackbox AI.
-- *Opcionais com chave:* OpenAI (`gpt-4o-mini`), Anthropic (`claude-3-5-haiku`), Gemini (`gemini-2.0-flash`).
+### Corredores anônimos (sem chave, ligados por padrão)
 
-### Fallback Inteligente de Ferramentas
-Provedores anônimos que não suportam a especificação de function calling da OpenAI são interpretados via fallback de extração de blocos ` ```tool ` no texto, permitindo execução contínua em qualquer modelo.
+| Corredor | Endpoint | Cadeia de modelos | Function calling |
+| --- | --- | --- | --- |
+| `llm7` | `api.llm7.io/v1` | `gpt-4o-mini` → `deepseek-v3-0324` → `mistral-small-3.1-24b` → `qwen2.5-coder-32b` | nativo (degrada sozinho se o modelo recusar o schema) |
+| `ovh` | `oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `Meta-Llama-3_3-70B-Instruct` → `Qwen3-Coder-30B-A3B-Instruct` → `Llama-3.1-8B-Instruct` | protocolo de texto |
+| `pollinations` | `text.pollinations.ai/openai` | `openai` → `openai-fast` | protocolo de texto |
+
+Desligue todos com `DISABLE_FREE_LLMS=true`.
+
+> ⚠️ **Serviços gratuitos mudam modelos e limites sem aviso.** As cadeias acima são
+> melhor-esforço: quando um corredor recebe "model unavailable", ele tenta o próximo modelo
+> da lista. Para o bot ficar estável 24/7, configure um provedor com chave (a seguir).
+
+### Corredores com chave (recomendado para uso contínuo)
+
+Defina a variável `LLM_PROVIDER` e cadastre **um** segredo no GitHub Actions
+(Settings → Secrets and variables → Actions):
+
+| `LLM_PROVIDER` | Segredo | Modelo padrão |
+| --- | --- | --- |
+| `groq` | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
+| `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` |
+| `openrouter` | `OPENROUTER_API_KEY` | `openai/gpt-4o-mini` |
+| `deepseek` | `DEEPSEEK_API_KEY` | `deepseek-chat` |
+| `cerebras` | `CEREBRAS_API_KEY` | `llama-3.3-70b` |
+| `mistral` | `MISTRAL_API_KEY` | `mistral-small-latest` |
+| `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
+| `anthropic` | `ANTHROPIC_API_KEY` | `claude-3-5-haiku-20241022` |
+| `opencode-zen` | `OPENCODE_API_KEY` | `deepseek-v4-flash` |
+
+Variáveis de ajuste:
+
+| Variável | Função |
+| --- | --- |
+| `LLM_MODEL` | Modelo principal do provedor escolhido |
+| `LLM_MODELS` | Cadeia de fallback separada por vírgula (`a,b,c`) |
+| `LLM_BASE_URL` | Base de **qualquer** gateway OpenAI-compatível (use com `LLM_PROVIDER=meu-nome`) |
+| `LLM_API_KEY` | Chave genérica — tem prioridade sobre o segredo específico do provedor |
+| `DISABLE_FREE_LLMS` | `true` para correr apenas com o provedor pago |
+
+O provedor com chave **não desliga** os gratuitos: ele entra na corrida como mais um
+corredor e, por responder com function calling nativo, costuma vencer.
+
+### Provedores removidos (e o porquê)
+
+| Removido | Motivo |
+| --- | --- |
+| `github_models` | O endpoint Azure (`models.inference.ai.azure.com`) foi desligado em 17/10/2025 e o serviço **GitHub Models foi aposentado em 30/07/2026** — daí o `Name or service not known`. `GITHUB_TOKEN` não gera mais corredor de LLM. |
+| `zen` | OpenCode Zen passou a exigir login, cartão e chave paga (o anônimo devolve `401 Invalid API key`). Continua disponível como pago: `LLM_PROVIDER=opencode-zen`. |
+| `kilo` | `api.kilo.ai/v1/chat/completions` devolve 404 em HTML (caminho inexistente). |
+| `blackbox` | `api.blackbox.ai/chat/completions` devolve 404 (caminho inexistente). |
+
+### Fallback inteligente de ferramentas
+
+Quando o corredor vencedor não suporta function calling nativo, o adaptador injeta um
+protocolo de texto no prompt (` ```tool {"name": ..., "args": {...}}``` `) e o agente lê
+esses blocos. O histórico também é convertido: mensagens `role=tool` e
+`assistant.tool_calls` viram texto puro, porque provedores sem function calling rejeitam
+esses papéis. Se o provedor aceitar o schema na teoria e recusá-lo na prática, o adaptador
+detecta o erro, degrada para o protocolo de texto e repete a chamada sozinho.
+
+### ❌ "Nenhum dos N provedores de LLM respondeu"
+
+1. Confira o log da run: a linha `Corredores de LLM na corrida: ...` mostra quem entrou na disputa.
+2. Se só houver corredores gratuitos, eles provavelmente caíram ou mudaram de modelo — cadastre uma chave (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`…) e defina `LLM_PROVIDER`.
+3. Se a mensagem trouxer `HTTP 401`, a chave está errada; `HTTP 404` em HTML indica `LLM_BASE_URL` errado.
+4. Depois de mudar segredos/variáveis, rode **Actions → Farol Bot 24/7 → Run workflow** para reiniciar o processo.
 
 ---
 

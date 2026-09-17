@@ -125,8 +125,11 @@ class FarolBot(discord.Client):
             except Exception as exc:
                 logger.exception("Erro ao processar mensagem do usuário %s: %s", message.author, exc)
                 try:
+                    detail = " ".join(str(exc).split())
+                    if len(detail) > 500:
+                        detail = detail[:499].rstrip() + "…"
                     await message.reply(
-                        f"❌ Ocorreu um erro ao processar seu pedido:\n`{exc}`\n"
+                        f"❌ Ocorreu um erro ao processar seu pedido:\n`{detail}`\n"
                         "Se o erro persistir, verifique as permissões do meu cargo.",
                         mention_author=False,
                     )
