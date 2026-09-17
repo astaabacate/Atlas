@@ -7,8 +7,9 @@ name: E2E ao vivo do Farol
 # O relatório completo é publicado no próprio branch da sessão
 # (reports/e2e-latest.json e reports/e2e-latest.md) e resumido em anotações de check-run.
 #
-# Mutações reais só rodam com a variável de repositório E2E_MUTATIONS=true
-# (Settings → Secrets and variables → Actions → Variables) ou pelo disparo manual.
+# Mutações reais (criar/apagar objetos marcados com 🧪, sempre com limpeza garantida) só rodam
+# quando autorizadas: variável de repositório E2E_MUTATIONS=true, disparo manual com mutate=true,
+# ou o arquivo .github/e2e-mutations-enabled presente no branch.
 
 on:
   push:
@@ -73,7 +74,6 @@ jobs:
       MEMBERS_INTENT: ${{ vars.MEMBERS_INTENT || 'false' }}
       MESSAGE_CONTENT_INTENT: ${{ vars.MESSAGE_CONTENT_INTENT || 'false' }}
       E2E_GUILD_ID: ${{ vars.E2E_GUILD_ID || '' }}
-      E2E_MUTATIONS: ${{ (github.event_name == 'workflow_dispatch' && inputs.mutate) && 'true' || vars.E2E_MUTATIONS || 'false' }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
@@ -88,6 +88,22 @@ jobs:
 
       - name: Instalar dependências
         run: pip install -r requirements.txt
+
+      - name: Decidir se as mutações reais estão autorizadas
+        id: modo
+        run: |
+          # Qualquer um dos interruptores liga as mutações (nada destrutivo sem autorização):
+          #  1. variável de repositório E2E_MUTATIONS=true
+          #  2. disparo manual com mutate=true
+          #  3. arquivo .github/e2e-mutations-enabled presente no branch
+          if [ "${{ vars.E2E_MUTATIONS || 'false' }}" = "true" ] || [ "${{ inputs.mutate }}" = "true" ] \
+             || [ -f .github/e2e-mutations-enabled ]; then
+            echo "autorizado=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=e2e modo::mutações reais AUTORIZADAS — objetos 🧪 serão criados e removidos no servidor"
+          else
+            echo "autorizado=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=e2e modo::somente leitura — para autorizar: variável E2E_MUTATIONS=true"
+          fi
 
       - name: "Fase 1 — offline: schemas, duplos de teste e política"
         continue-on-error: true
@@ -109,17 +125,17 @@ jobs:
         run: python scripts/e2e_live.py --phases agent --outdir reports/parts --tag 4-agente
 
       - name: "Fase 5 — mutações reais em objetos de teste (criar/editar/apagar)"
-        if: always() && env.E2E_MUTATIONS == 'true' && env.DISCORD_TOKEN != ''
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
         run: python scripts/e2e_live.py --phases mutate --mutate --outdir reports/parts --tag 5-mutacoes
 
       - name: "Fase 6 — loop real do core.bot (on_message → resposta)"
-        if: always() && env.E2E_MUTATIONS == 'true' && env.DISCORD_TOKEN != ''
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
         run: python scripts/e2e_live.py --phases botloop --mutate --outdir reports/parts --tag 6-loop
 
       - name: "Fase 7 — varredura de sobras de teste"
-        if: always() && env.E2E_MUTATIONS == 'true' && env.DISCORD_TOKEN != ''
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
         run: python scripts/e2e_live.py --phases sweep --mutate --outdir reports/parts --tag 7-varredura
 

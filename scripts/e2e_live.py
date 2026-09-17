@@ -2043,11 +2043,19 @@ def merge_parts(directory: Path, outdir: Path, started_at: str = "", anotar: boo
     notes: list[str] = []
     started = started_at
     finished = ""
+    fases: list[str] = []
+    mutacoes = "não"
     for path in parts:
         data = json.loads(path.read_text(encoding="utf-8"))
         started = started or data.get("started_at", "")
         finished = data.get("finished_at") or finished
-        meta.update(data.get("meta", {}))
+        parte_meta = data.get("meta", {})
+        for fase in str(parte_meta.get("fases", "")).split(","):
+            if fase.strip() and fase.strip() not in fases:
+                fases.append(fase.strip())
+        if parte_meta.get("mutações reais") == "sim":
+            mutacoes = "sim"
+        meta.update({k: v for k, v in parte_meta.items() if k not in ("fases", "mutações reais")})
         for note in data.get("notes", []):
             if note not in notes:
                 notes.append(note)
@@ -2056,6 +2064,9 @@ def merge_parts(directory: Path, outdir: Path, started_at: str = "", anotar: boo
                 checks.append(Check(phase=raw.get("phase", phase), name=raw.get("name", ""),
                                     status=raw.get("status", "SKIP"), detail=raw.get("detail", ""),
                                     ms=int(raw.get("ms", 0)), data=raw.get("data", {}) or {}))
+    if fases:
+        meta["fases"] = ", ".join(fases)
+    meta["mutações reais"] = mutacoes
 
     reporter = Reporter([], meta)
     reporter.started = datetime.fromisoformat(started) if started else datetime.now(timezone.utc)
