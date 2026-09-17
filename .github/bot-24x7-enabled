@@ -26,3 +26,9 @@ PARAR SÓ AGORA
 --------------
 Cancele a execução em andamento. Atenção: o vigia reergue o bot em até 30 minutos —
 para uma parada longa, use o .github/bot-disabled.
+
+RESTART PEDIDO EM 2026-09-17T23:39Z
+-------------------------------
+Motivo: levar ao bot online a correção da corrida de LLMs gratuitos (429 / catálogo morto /
+fila cheia). O reinício entra na fila e assume quando a fatia atual terminar; se quiser
+imediato, cancele a execução em andamento na aba Actions.
