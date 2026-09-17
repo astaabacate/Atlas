@@ -1,13 +1,13 @@
 # 🏮 Farol — relatório de teste E2E
 
 - **Resumo:** ✅ 49 · ❌ 4 · ⚠️ 2 · ⏭️ 0
-- **fases:** agent
-- **mutações reais:** não
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** cf528c6
-- **execução:** 35277915862
+- **commit:** e9456fa
+- **execução:** 35278183016
 - **discord.py:** 2.7.1
+- **fases:** static, spy, policy, connect, audit, tools, agent
+- **mutações reais:** não
 
 ## Anotações
 - conectado como Atlas#1985 em 1 servidor(es)
@@ -72,7 +72,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor pollinations (tools nativas: False) → 'pong' |
 | PASS | `servidores do bot` | 1: asta (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 59ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 66ms |
 | PASS | `servidor e autor do teste` | servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -107,4 +107,4 @@
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['tool_list_roles', 'tool_list_roles'] · vencedor pollinations · citou ['Atlas', 'iTinder', 'Cupido'] |
 | PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é exc' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
-| FAIL | `memória do canal entre turnos` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"f233797c9daa803051299e05e5ddfc39" } \| llm7: HTTP 400 (qwen2.5-coder-32b) — {"error":{"message":"Model 'qwen2.5-coder-32b' is currently unavailable.","type":"invalid_request_error","param":null,"code":"mod… |
+| FAIL | `memória do canal entre turnos` | RuntimeError: Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations). Erros: ovh: HTTP 429 (Meta-Llama-3_3-70B-Instruct) — { "message":"API rate limit exceeded", "request_id":"187de74ad206846060dafb5c23cece12" } \| pollinations: HTTP 400 (openai) — {"error":"400 Bad Request","status":400,"deprecation_notice":"NOTE: The Pollinations legacy text API is being deprecated for authent… |
