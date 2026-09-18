@@ -1218,43 +1218,50 @@ async def op_apply_template(ctx: ToolContext, template: str) -> str:
         raise ToolError(f"Modelo '{template}' desconhecido. Escolha entre: gamer, estudos, comunidade.")
 
     tpl = TEMPLATES_DATA[tpl_key]
+    guild = ctx.guild
+    problemas: list[str] = []
+
+    # 1. Cria cargos (um a um para saber exatamente o que falhou — resumo nunca mente)
     roles_created = 0
+    for cargo in tpl["roles"]:
+        try:
+            await op_create_roles(ctx, [cargo])
+            roles_created += 1
+        except Exception as exc:  # noqa: BLE001 - segue aplicando e relata no fim
+            problemas.append(f"cargo {cargo.get('name', '?')}: {exc}")
+
+    # 2. Cria categorias e canais pelo MESMO caminho do create_channels
+    #    (tipo respeitado de verdade; template com fórum/palco não vira texto calado)
     categories_created = 0
     channels_created = 0
-
-    # 1. Cria cargos
-    role_res = await run_bulk(
-        tpl["roles"],
-        lambda r: op_create_roles(ctx, [r]),
-        concurrency=3,
-    )
-    roles_created = len(role_res.succeeded)
-
-    # 2. Cria categorias e canais
-    guild = ctx.guild
     for cat_data in tpl["categories"]:
         cat_name = cat_data["name"]
         cat_creator = getattr(guild, "create_category", None)
         cat_obj = None
         if cat_creator:
-            cat_obj = await cat_creator(name=cat_name)
-            categories_created += 1
+            try:
+                cat_obj = await cat_creator(name=cat_name)
+                categories_created += 1
+            except Exception as exc:  # noqa: BLE001
+                problemas.append(f"categoria {cat_name}: {exc}")
+                continue
 
-        ch_list = cat_data.get("channels", [])
-        for ch_info in ch_list:
-            cname = ch_info["name"]
-            ctype = ch_info.get("type", "text")
-            ctopic = ch_info.get("topic")
-
-            if ctype == "voice":
-                created = await _create_guild_channel(guild, cat_obj, "voice", cname)
-            else:
-                extras = {"topic": ctopic} if ctopic else {}
-                created = await _create_guild_channel(guild, cat_obj, "text", cname, **extras)
-            if created is not None:
+        for ch_info in cat_data.get("channels", []):
+            item = dict(ch_info)
+            if cat_obj is not None:
+                item["category"] = str(getattr(cat_obj, "id", ""))
+            try:
+                await _criar_canal_do_item(guild, item)
                 channels_created += 1
+            except Exception as exc:  # noqa: BLE001
+                problemas.append(f"canal {ch_info.get('name', '?')}: {exc}")
 
-    return f"✅ Modelo '{tpl_key}' aplicado: {roles_created} cargos, {categories_created} categorias, {channels_created} canais criados com sucesso!"
+    resumo = (f"✅ Modelo '{tpl_key}' aplicado com sucesso: {roles_created} cargo(s), "
+              f"{categories_created} categoria(s) e {channels_created} canal(is) criados.")
+    if problemas:
+        resumo += (f" ⚠️ {len(problemas)} item(ns) NÃO foram criados: "
+                   + "; ".join(problemas[:4]))
+    return resumo
 
 
 # --- 6. Backup (2) ---

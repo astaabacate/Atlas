@@ -661,6 +661,41 @@ class TestCapacidadesDeMensagens(unittest.TestCase):
                 self.assertFalse(hasattr(servidor.channels[0], "purged"))
 
 
+class TestApplyTemplateHonesto(unittest.TestCase):
+    def test_resumo_nao_esconde_item_que_falhou(self) -> None:
+        """Se um canal do modelo não nasce, o resumo diz — não pode ser 'tudo criado com sucesso'."""
+        from brain import ops as mod
+
+        ctx, servidor = contexto()
+
+        async def create_category_ok(name: str, **kwargs: Any) -> Any:
+            return await Servidor.create_category(servidor, name=name, **kwargs)
+
+        servidor.create_category = create_category_ok  # type: ignore[assignment]
+        original = mod.TEMPLATES_DATA["gamer"]
+        mod.TEMPLATES_DATA["gamer"] = {
+            "roles": [{"name": "Ok"}],
+            "categories": [{"name": "📁 C", "channels": [
+                {"name": "bom", "type": "text"},
+                {"name": "ruim", "type": "holograma"},
+            ]}],
+        }
+        try:
+            saida = executar("apply_template", {"template": "gamer"}, ctx)
+        finally:
+            mod.TEMPLATES_DATA["gamer"] = original
+
+        self.assertIn("sucesso", saida.lower())
+        self.assertIn("NÃO foram criados", saida)
+        self.assertIn("ruim", saida)
+
+    def test_template_desconhecido_lista_as_opcoes(self) -> None:
+        ctx, _ = contexto()
+        msg = falha("apply_template", {"template": "inexistente"}, ctx)
+        self.assertIn("gamer", msg)
+        self.assertIn("estudos", msg)
+
+
 class TestCoerenciaSchemaExecucao(unittest.TestCase):
     """
     Trava do inventário: schema, função e executor falam a mesma língua.
