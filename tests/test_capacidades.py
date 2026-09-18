@@ -445,7 +445,12 @@ class TestExclusaoEmLoteDeCargos(unittest.TestCase):
         self.assertIn("Configurações do Servidor", saida, "tem que dizer ONDE resolver")
         self.assertIn("farol", saida)
         self.assertIn("Nada foi apagado nesta rodada", saida, "não pode fingir que fez")
-        self.assertNotIn("@everyone", saida)
+        # antes: assertNotIn("@everyone") — o cargo @everyone nunca pode entrar na lista de
+        # cargos que o bot tentou apagar. Agora a mensagem CITA o @everyone de propósito, para
+        # explicar a direção da lista (o print do dono veio do celular, onde a tela é invertida):
+        self.assertIn("a lista é invertida (o @everyone aparece primeiro)", saida)
+        self.assertEqual(saida.count("@everyone"), 1,
+                         "só a dica de direção pode citar @everyone")
 
     def test_apaga_o_que_pode_e_lista_o_que_nao_pode(self) -> None:
         ctx, servidor = self._servidor(bot_posicao=10)  # cargos 1..9 estão abaixo do bot
@@ -510,6 +515,10 @@ class TestExclusaoEmLoteDeCargos(unittest.TestCase):
         self.assertIn("posição", msg)
         self.assertIn("Configurações do Servidor", msg)
         self.assertIn("arraste", msg)
+        # Direção da lista: o print do dono (celular) mostrou a tela INVERTIDA — sem isso ele
+        # arrastaria o cargo do bot para o lado errado.
+        self.assertIn("celular", msg)
+        self.assertIn("invertida", msg)
 
 
 # --------------------------------------------------------------- diagnóstico

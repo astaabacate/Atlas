@@ -889,16 +889,24 @@ def _instrucao_hierarquia(pos_alvo: int | None, pos_bot: int, bot_name: str = "f
     O QUE fazer para o bot poder gerenciar o cargo — em português e com o caminho exato.
 
     Sem isso a resposta era só "não consigo apagar", e o dono do servidor ficava sem saber que a
-    solução é arrastar o cargo do bot para cima (regra de hierarquia do Discord).
+    solução é subir o cargo do bot (regra de hierarquia do Discord).
+
+    A DIREÇÃO da lista entrou depois do print do dono (18/09): no celular a tela de cargos é
+    INVERTIDA em relação ao PC — o @everyone (o cargo mais fraco de todos) aparece primeiro e os
+    cargos mais fortes ficam no fim. Quem lê "o bot está em 3º" naquele print está lendo o 3º mais
+    FRACO. Dizer só "arraste para cima" faz o dono arrastar para o lado errado.
     """
     onde = (f"Hoje o meu está na posição {pos_bot} e esse aí na posição {pos_alvo}. "
             if pos_alvo is not None else f"Hoje o meu está na posição {pos_bot}. ")
     return (
-        "O Discord só me deixa mexer em cargos que estejam ABAIXO do meu cargo mais alto. "
-        + onde +
-        "Para eu conseguir: **Configurações do Servidor → Cargos** e arraste o cargo "
-        f"**{bot_name}** (o meu) para cima dos cargos que você quer que eu gerencie — depois me "
-        "peça de novo que eu apago de uma vez."
+        "O Discord só me deixa mexer em cargos ABAIXO do meu cargo mais alto (cargo mais alto = "
+        "mais poder). " + onde +
+        "Em **Configurações do Servidor → Cargos**, arraste o cargo "
+        f"**{bot_name}** (o meu) para ficar ACIMA dos que você quer que eu gerencie. "
+        "Atenção à direção da "
+        "lista: no **PC** o mais forte fica no **topo**; no **celular** a lista é invertida (o "
+        "@everyone aparece primeiro) e o mais forte fica no **fim** — é para lá que o meu cargo "
+        "tem que ir. Depois me peça de novo."
     )
 
 

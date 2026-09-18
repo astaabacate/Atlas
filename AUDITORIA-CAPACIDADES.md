@@ -343,3 +343,24 @@ permissão, e que a sonda sempre deixa rastro, inclusive quando o token falha).
 (o token do bot foi resetado) — a sonda roda e publica o motivo, mas a prova crua ao vivo só sai
 quando o dono atualizar o segredo em Settings → Secrets and variables → Actions → `DISCORD_TOKEN`.
 O bot 24/7 também não sobe no próximo reinício enquanto o segredo estiver assim.
+
+### Rodada 10 (18/09): "como ele tá abaixo se ele é o 3º maior?" — a lista do celular é invertida
+
+O dono mandou o print de **Cargos do servidor** no celular e apontou o cargo `Atlas` como o 3º da
+lista. O que o print mostra e o que a API mede:
+
+| Evidência | O que diz |
+| --- | --- |
+| Print do dono | `@everyone` aparece **primeiro** na lista (no PC ele é o **último**: é o cargo mais fraco de todos) |
+| E2E ao vivo (todas as execuções, via API) | `posicao_cargo_bot = 1` — o cargo do bot é o **mais baixo** da hierarquia, e as 24 demais funções estão ≥ ele |
+| Discord (documentado) | cargo novo nasce no **fundo** da hierarquia; e os três cargos com "1 Membro" (`Cupido`, `iTinder`, `Atlas`) são exatamente os **três bots** do servidor (4 membros = dono + 3 bots) |
+
+Ou seja: no celular a tela vai do **mais fraco (topo)** ao **mais forte (fim)** — o `Atlas` ser o 3º de
+cima significa que ele é o 3º mais FRACO, não o 3º mais forte. E o `@everyone` encabeçando a lista é a
+prova visual disso.
+
+**Corrigido no produto:** a instrução de hierarquia agora diz a direção certa nos dois lugares —
+"no **PC** o mais forte fica no **topo**; no **celular** a lista é invertida (o @everyone aparece
+primeiro) e o mais forte fica no **fim**". Antes ela dizia só "arraste para cima", que no celular é o
+lado errado. Regressão: `test_delete_role_individual_com_recusa_explica_o_caminho` passou a cobrar a
+dica de direção (e continua cobrando que o `@everyone` não entre na lista de cargos tentados).
