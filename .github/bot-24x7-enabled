@@ -95,3 +95,12 @@ nex-n2.5-pro responde com conteúdo 100% das vezes em 1,21 s; ele assume a ponta
 ultra-550b, de 1,93 s) — resposta do bot começa ~0,7 s antes. Entra na fila e substitui a
 execução ainda pendente.
 
+RESTART PEDIDO EM 2026-09-18T07:01Z
+-------------------------------
+Motivo: a fatia pendente estava num ponto ANTERIOR às últimas correções do LLM. Entram: a
+espera pelo castigo curto quando todo o pool cai (com um corredor só, era falha na hora — a
+causa do "não consegui falar com nenhum modelo" nas tarefas específicas), a poda progressiva do
+histórico quando o pedido não cabe, o motivo certo na mensagem ("conversa comprida demais"),
+a barreira contra eco do contexto (o textão em inglês que começava com "[Ação solicitada: ...]"),
+e a fila do kilo medida na 8ª rodada. Esta execução substitui a pendente anterior.
+
