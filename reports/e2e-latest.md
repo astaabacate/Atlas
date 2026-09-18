@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 102 · ❌ 2 · ⚠️ 8 · ⏭️ 1
+- **Resumo:** ✅ 104 · ❌ 1 · ⚠️ 7 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** ba96026
-- **execução:** 35328362690
+- **commit:** 2f04421
+- **execução:** 35329922112
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
@@ -81,7 +81,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 71ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 58ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -114,8 +114,8 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Recruta', 'Recruta'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso aplicar bans ou punições; meu foco é montar e organizar a estrutura do servidor.' |
-| FAIL | `agente conhece a estrutura real` | não citou nada real do servidor (nem nome nem menção): '📊 **Informações de Pinguim:**\n• **ID:** `1546763083005825084`\n• **Dono:** <@1521612392105250836>\n• **Membros:** 4\n• **Canais:** 1\n• **Cargos:** 25\n• **Criado em' |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor, então não executo bans ou' |
+| FAIL | `agente conhece a estrutura real` | TypeError: Harness._culpa_do_llm() takes 1 positional argument but 2 were given |
 | PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
@@ -124,8 +124,8 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
-| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz']) |
+| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-categoria', '🧪-raiz-voz', '🧪-raiz-texto']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -136,9 +136,9 @@
 | PASS | `fluxo de confirmação em canais reais (modo cauteloso)` | 2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true |
 | PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
 | PASS | `clear_messages apaga mensagens reais do canal` | apagou 3 mensagem(ns) reais e o canal ficou vazio |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 5.8s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 4.2s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído' |
-| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Para excluir 🧪-caut-1 e 🧪-caut-2 de uma vez, confirme com “sim”.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 6.4s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
+| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 11.9s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído' |
+| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Confirma a exclusão de #🧪-caut-1 e #🧪-caut-2 de uma vez?'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 | PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | não conclusivo por causa do LLM gratuito: o modelo nem tentou excluir os canais |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
@@ -172,21 +172,21 @@
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
 ## core.bot.FarolBot: on_message → resposta real no Discord
-`botloop` — ✅ 5 · ❌ 1 · ⚠️ 1 · ⏭️ 0
+`botloop` — ✅ 7 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550437657488920656) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550440840906678322) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: '🤖 Os modelos gratuitos estão com a fila cheia agora (limite de uso). Tente de novo em alguns segundo' |
-| FAIL | `reações de feedback 👀→✅` | o bot não marcou ✅ (reações: ['❌']) |
-| WARN | `ferramenta real acionada por mensagem` | o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('🤖 Não consegui falar com nenhum modelo de linguagem agora. Tente de novo em instantes.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'O nome deste servidor é **Pinguim**.' |
+| PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
+| PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
 
 ## Varredura de sobras de teste
 `sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `varredura de sobras` | 2 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop) |
+| PASS | `varredura de sobras` | 3 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot) |
