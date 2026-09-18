@@ -169,8 +169,14 @@ com o próprio resultado em vez de pedir um resumo ao modelo — isso corta quas
 mensagem aparecer. Desligue com `DIRECT_TOOL_REPLY=false`.
 
 **Ordem da fila por latência:** o primeiro modelo do corredor é o que responde primeiro no Discord.
-A ordem vem da medição real do CI (`reports/kilo-latencia-modelos.md`), não de chute — hoje:
-`nemotron-3-super-120b` (0,5 s) → `nex-n2.5-pro` (0,9 s) → `nemotron-3.5-lightning` (1,0 s) → reservas.
+A ordem vem da medição real do CI, não de chute: o smoke mede **3 amostras por modelo por rodada**,
+guarda tudo em `reports/kilo-latencia-historico.json` e a fila sai da **mediana acumulada** +
+**taxa de resposta com conteúdo** (`reports/kilo-latencia-modelos.md`). Uma rodada isolada oscila
+(um modelo que respondeu em 0,66 s volta vazio na seguinte), então a decisão nunca é de uma amostra
+só. Critério: quem **já devolveu conteúdo** vem na frente de quem nunca devolveu, dentro disso
+mediana crescente, e o roteador `kilo-auto` (o que mais devolve vazio) é o último. Hoje:
+`nex-n2.5-pro` (100% · 2,2 s) → `nemotron-3-super-120b` (50% · 1,9 s) → `dots-3-note-preview`
+(50% · 1,2 s) → `nemotron-3.5-lightning` (100% · 3,1 s) → `nemotron-3-ultra-550b` (100% · 6,7 s) → reservas.
 
 **Lista de modelos conferida ao vivo:** a ficha do `kilo` não é chute — cada id sai do catálogo real
 (`GET /api/gateway/models`, 380 modelos, 21 marcados `:free`), publicado pelo CI em

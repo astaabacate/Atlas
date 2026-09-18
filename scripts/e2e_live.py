@@ -1589,9 +1589,18 @@ class Harness:
             return
 
         async def corrida_llm() -> tuple[str, dict[str, Any]]:
-            resp = await self.env.llm.chat(messages=[{"role": "user", "content": "Responda apenas: pong"}],
-                                           tools=None, timeout=self.args.llm_timeout)
+            try:
+                resp = await self.env.llm.chat(messages=[{"role": "user", "content": "Responda apenas: pong"}],
+                                               tools=None, timeout=self.args.llm_timeout)
+            except Exception as exc:  # noqa: BLE001
+                if self._culpa_do_llm(str(exc)):
+                    return self.degradar_llm(phase, "corrida de LLMs responde",
+                                             "nenhum corredor grátis atendeu nesta rodada", str(exc)), {}
+                raise
             texto = (resp.content or "").strip()
+            if not texto and self._culpa_do_llm(resp.content or ""):
+                return self.degradar_llm(phase, "corrida de LLMs responde",
+                                         "o corredor devolveu resposta vazia", resp.content or ""), {}
             self.assert_true(bool(texto), "a corrida de LLMs devolveu resposta vazia")
             return (f"vencedor {self.env.llm.last_winner} (tools nativas: {self.env.llm.last_winner_native_tools}) "
                     f"→ {texto[:50]!r}", {"vencedor": self.env.llm.last_winner})
@@ -1933,7 +1942,18 @@ class Harness:
                     if ch.type.name == "text":
                         self.owned_channels.add(ch.id)
                 self.assert_true(bool(marcadores), "não consegui criar estrutura para o teste")
-            resposta = await perguntar("Liste as categorias e os canais deste servidor.", canal_novo())
+            try:
+                resposta = await perguntar("Liste as categorias e os canais deste servidor.", canal_novo())
+            except Exception as exc:  # noqa: BLE001
+                if self._culpa_do_llm(str(exc)):
+                    return self.degradar_llm(phase, "agente conhece a estrutura real",
+                                             "não deu para perguntar: nenhum corredor grátis atendeu",
+                                             str(exc))
+                raise
+            if self._culpa_do_llm(resposta) and not any(nome in resposta or mencao in resposta
+                                                        for nome, mencao in marcadores):
+                return self.degradar_llm(phase, "agente conhece a estrutura real",
+                                         "a resposta veio do aviso de fila cheia", resposta)
             citados = [nome for nome, mencao in marcadores if nome in resposta or mencao in resposta]
             self.assert_true(bool(citados), f"não citou nada real do servidor (nem nome nem menção): {resposta[:160]!r}")
             return f"citou itens reais do servidor ({', '.join(citados[:3])})"

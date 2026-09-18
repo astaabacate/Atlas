@@ -170,6 +170,43 @@ separado, `reasoning_content`), e o bot repassava aquilo como se fosse a respost
 4 testes de agente (inglês reescrito, textão reescrito, fallback com resultado da ferramenta,
 fallback curto) e 1 checagem de E2E que reproduz exatamente o caso relatado.
 
+## 3.5) Fila do corredor `kilo` agora sai de MEDIANA medida (18/09)
+
+A fila era ordenada pela última medição do smoke — e isso quebrou a CI uma vez: a rodada
+`02:53Z` mostrou o `nemotron-3-super-120b` devolvendo **"200 vazio"**, enquanto a rodada
+`01:40Z` o tinha como o mais rápido. Um teste comparava a fila com **uma** rodada e oscilava
+junto com a rede.
+
+Correção (dado, não sorte):
+
+- o smoke passou a medir **3 amostras por modelo por rodada** (antes: 1) com `max_tokens=64`
+  — com 24 tokens, modelo de raciocínio gasta o orçamento pensando e aparecia como "vazio";
+- cada rodada vai para `reports/kilo-latencia-historico.json` (últimas 30), e o relatório
+  `reports/kilo-latencia-modelos.md` ganhou o **agregado**: taxa de resposta com conteúdo
+  (n/total) e **mediana** por modelo (empate de contagem fica com a amostra mais lenta, para
+  não ordenar por otimismo);
+- a fila do `kilo` obedece a três regras verificadas por teste: (1) quem **já devolveu
+  conteúdo** vem antes de quem nunca devolveu; (2) o primeiro da fila precisa ter ≥ 50% de
+  conteúdo e mediana < 5 s; (3) `kilo-auto` por último (é o que mais devolve vazio).
+
+| posição | modelo | taxa com conteúdo | mediana |
+|---:|---|---:|---:|
+| 1 | `nex-agi/nex-n2.5-pro:free` | 100% (2/2) | 2,23 s |
+| 2 | `nvidia/nemotron-3-super-120b-a12b:free` | 50% (1/2) | 1,89 s |
+| 3 | `dots-studio/dots-3-note-preview:free` | 50% (1/2) | 1,18 s |
+| 4 | `nvidia/nemotron-3.5-lightning:free` | 100% (2/2) | 3,10 s |
+| 5 | `nvidia/nemotron-3-ultra-550b-a55b:free` | 100% (2/2) | 6,66 s |
+| 6-11 | step, inkling, qwen, laguna, north-mini-code, lfm | 0% (0/2) | — |
+| 12 | `kilo-auto/free` | 0% (0/2) | — |
+
+Efeito no E2E: com o **único** corredor sem chave caindo (NVIDIA devolveu erro de upstream na
+rodada de 18/09), a corrida de LLMs e a checagem "agente conhece a estrutura real" saíam como
+❌ FAIL, ainda que a culpa fosse do provedor. Agora elas registram **⚠️ WARN** com a mensagem
+crua (`_culpa_do_llm` + `degradar_llm`), como as outras checagens dependentes de LLM. E o E2E
+não depende mais de existir canal/categoria no servidor: quando o dono pede "apague tudo" o
+servidor fica vazio, então as checagens de canal/permissão criam estrutura temporária e a
+apagam no fim.
+
 ## 4) Realmente gratuitos (sem trial que expira)
 
 Todos os 12 têm camada gratuita descrita na documentação oficial do provedor, com link e data na

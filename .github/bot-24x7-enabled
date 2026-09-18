@@ -58,3 +58,8 @@ RESTART PEDIDO EM 2026-09-18T03:20Z
 -------------------------------
 Motivo: o bot mandou o rascunho interno do modelo (textão em inglês). Entram o corte de
 raciocínio no provedor e a barreira de resposta no agente (PT-BR, curto, nunca rascunho).
+
+RESTART PEDIDO EM 2026-09-18T03:35Z
+-------------------------------
+Motivo: fila do corredor kilo reordenada por MEDIANA medida (3 amostras/rodada + histórico),
+para o bot pegar o modelo que de fato responde primeiro.

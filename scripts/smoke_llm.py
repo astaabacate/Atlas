@@ -578,11 +578,18 @@ async def sondar_candidatos(timeout: float, secrets: list[str]) -> list[dict[str
             for c in CANDIDATOS_SEM_CREDENCIAL]
 
 
-async def medir_latencia_modelos(timeout: float, secrets: list[str]) -> list[tuple[str, str, float]]:
-    """Uma chamada curta por modelo do pool para saber quem responde rápido.
+async def medir_latencia_modelos(timeout: float, secrets: list[str], repeticoes: int = 3,
+                             max_tokens: int = 64) -> list[tuple[str, str, float]]:
+    """Mede cada modelo do pool `kilo` e devolve a MEDIANA de várias amostras.
 
-    Sem isso a ordem da lista é chute: o bot escolhe o primeiro modelo da fila e, se ele
-    pensa 20 s, a resposta demora 20 s. Medido a cada rodada, o relatório diz quem é liso.
+    Sem isso a ordem da lista é chute: o bot usa o primeiro que responde, então o rápido tem
+    que ir na frente. Uma amostra só não serve — a rede oscila (um modelo que respondeu em
+    0,66 s volta "200 vazio" na rodada seguinte), e ordenar por acaso faz o bot pegar fila
+    errada. Com 3 amostras por rodada + histórico (`reports/kilo-latencia-historico.json`),
+    a ordem vem da mediana acumulada, não de um pico.
+
+    `max_tokens=64` (e não 24) porque modelo de raciocínio gasta o orçamento pensando e
+    devolveria "200 vazio" sem que o problema seja o modelo.
     """
     ficha = next((spec for spec in FREE_PROVIDERS if spec.nome == "kilo"), None)
     if ficha is None:
@@ -591,36 +598,140 @@ async def medir_latencia_modelos(timeout: float, secrets: list[str]) -> list[tup
     base = ficha.base_url
     headers = dict(ficha.headers)
     headers["Content-Type"] = "application/json"
+
+    async def uma(sess: aiohttp.ClientSession, modelo: str) -> tuple[str, float]:
+        payload = {
+            "model": modelo,
+            "messages": [{"role": "user", "content": "Responda apenas OK."}],
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+        t0 = time.perf_counter()
+        try:
+            async with sess.post(f"{base}/chat/completions", json=payload, headers=headers,
+                                 timeout=aiohttp.ClientTimeout(total=min(timeout * 2, 60))) as resp:
+                corpo = await resp.text()
+            ms = (time.perf_counter() - t0) * 1000
+            if resp.status != 200:
+                return f"HTTP {resp.status}", ms
+            data = json.loads(corpo)
+            msg = ((data.get("choices") or [{}])[0].get("message") or {})
+            if (msg.get("content") or "").strip():
+                return "200", ms
+            return "200 vazio", ms
+        except Exception as exc:  # noqa: BLE001
+            ms = (time.perf_counter() - t0) * 1000
+            return compact_error_text(redact(f"{type(exc).__name__}", secrets), 30), ms
+
     medidas: list[tuple[str, str, float]] = []
+    amostras: dict[str, list[tuple[str, float]]] = {}
     async with aiohttp.ClientSession() as sess:
         for modelo in ficha.modelos:
-            payload = {
-                "model": modelo,
-                "messages": [{"role": "user", "content": "Responda apenas OK."}],
-                "max_tokens": 24,
-                "stream": False,
-            }
-            t0 = time.perf_counter()
-            try:
-                async with sess.post(f"{base}/chat/completions", json=payload, headers=headers,
-                                     timeout=aiohttp.ClientTimeout(total=min(timeout * 2, 60))) as resp:
-                    corpo = await resp.text()
-                ms = (time.perf_counter() - t0) * 1000
-                if resp.status != 200:
-                    medidas.append((modelo, f"HTTP {resp.status}", ms))
-                    continue
-                data = json.loads(corpo)
-                msg = ((data.get("choices") or [{}])[0].get("message") or {})
-                conteudo = (msg.get("content") or "").strip()
-                if conteudo:
-                    medidas.append((modelo, "200", ms))
-                else:
-                    medidas.append((modelo, "200 vazio", ms))
-            except Exception as exc:  # noqa: BLE001
-                ms = (time.perf_counter() - t0) * 1000
-                medidas.append((modelo, compact_error_text(redact(f"{type(exc).__name__}", secrets), 30), ms))
+            coletadas = [await uma(sess, modelo) for _ in range(max(1, repeticoes))]
+            amostras[modelo] = coletadas
+            status = [st for st, _ in coletadas]
+            # status da rodada = o mais comum; empate fica com o melhor (o modelo funcionou)
+            resultado = max(set(status), key=lambda st: (status.count(st), st == "200"))
+            ms = sorted(m for _, m in coletadas)[len(coletadas) // 2]
+            medidas.append((modelo, resultado, ms))
 
+    _registrar_latencia(medidas, amostras)
     return medidas
+
+
+def _registrar_latencia(medidas: list[tuple[str, str, float]],
+                        amostras: dict[str, list[tuple[str, float]]]) -> None:
+    """Guarda a rodada no histórico e resume mediana/taxa de conteúdo por modelo."""
+    path = Path("reports/kilo-latencia-historico.json")
+    if path.exists():
+        try:
+            historico = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            historico = {"rodadas": []}
+    else:
+        historico = {"rodadas": []}
+    rodadas = historico.setdefault("rodadas", [])
+    rodadas.append({
+        "em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "modelos": {
+            modelo: {
+                "resultado": resultado,
+                "ms_mediana": round(ms),
+                "amostras": [[st, round(m)] for st, m in amostras.get(modelo, [])],
+            }
+            for modelo, resultado, ms in medidas
+        },
+    })
+    del rodadas[:-30]  # 30 rodadas já bastam para a mediana e não incham o repositório
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(historico, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    escrever_relatorio_latencia(historico, medidas)
+
+
+def escrever_relatorio_latencia(historico: dict[str, Any],
+                                medidas: list[tuple[str, str, float]]) -> None:
+    """Escreve o `reports/kilo-latencia-modelos.md` (agregado + última rodada)."""
+    rodadas = historico.get("rodadas") or []
+    resumo = resumo_latencia(historico)
+    linhas = [
+        "# Latência real por modelo do gateway Kilo",
+        "",
+        "Medida pelo CI com chamadas curtas (`max_tokens=64`) e **3 amostras por modelo por rodada**;",
+        "a coluna latência é a **mediana**. É o que define a ordem da fila do corredor: o bot usa o",
+        "primeiro que responder, então o rápido vai na frente. Uma rodada isolada oscila — a decisão",
+        "vem do histórico (`reports/kilo-latencia-historico.json`), não de um pico.",
+        "",
+        f"- última rodada: {rodadas[-1]['em'] if rodadas else '?'}",
+        f"- rodadas no histórico: {len(rodadas)}",
+        "",
+        "## Agregado (todas as rodadas do histórico)",
+        "",
+        "| modelo | resposta com conteúdo | mediana | amostras |",
+        "|---|---|---:|---:|",
+    ]
+    ordenado = sorted(resumo.items(), key=lambda kv: (kv[1]["taxa_conteudo"] < 0.5, kv[1]["ms"],
+                                                      -kv[1]["taxa_conteudo"]))
+    for modelo, info in ordenado:
+        ms_txt = f"{info['ms'] / 1000:.2f}s" if info["ms"] is not None else "-"
+        linhas.append(f"| `{modelo}` | {info['taxa_conteudo'] * 100:.0f}% "
+                      f"({info['com_conteudo']}/{info['total']}) | {ms_txt} | {info['com_conteudo']} com conteúdo |")
+    n_amostras = max(len(a.get("amostras") or []) for a in (rodadas[-1].get("modelos", {}) if rodadas else {})
+                     .values()) if rodadas else 0
+    linhas += ["", f"## Última rodada ({rodadas[-1]['em'] if rodadas else '?'})", "",
+               f"| modelo | resultado | latência (mediana de {n_amostras} amostras) |",
+               "|---|---|---:|"]
+    linhas += [f"| `{m}` | {r} | {ms / 1000:.2f}s |" for m, r, ms in sorted(medidas, key=lambda x: x[2])]
+    linhas += ["", "_Mediana com contagem par fica com a amostra mais lenta de propósito: melhor ordenar por",
+               "pessimismo do que por sorte._"]
+    Path("reports/kilo-latencia-modelos.md").write_text("\n".join(linhas) + "\n", encoding="utf-8")
+
+
+def resumo_latencia(historico: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Mediana e taxa de conteúdo por modelo somando todas as rodadas do histórico."""
+    acumulado: dict[str, dict[str, Any]] = {}
+    for rodada in historico.get("rodadas", []):
+        for modelo, info in (rodada.get("modelos") or {}).items():
+            reg = acumulado.setdefault(modelo, {"ms_lista": [], "total": 0, "com_conteudo": 0})
+            reg["total"] += 1
+            if info.get("resultado") == "200":
+                reg["com_conteudo"] += 1
+                reg["ms_lista"].append(float(info.get("ms_mediana") or 0))
+    resumo: dict[str, dict[str, Any]] = {}
+    for modelo, reg in acumulado.items():
+        lista = reg["ms_lista"]
+        if lista:
+            lista = sorted(lista)
+            mediana = lista[len(lista) // 2]
+        else:
+            mediana = None
+        resumo[modelo] = {
+            "ms": mediana,
+            "total": reg["total"],
+            "com_conteudo": reg["com_conteudo"],
+            "taxa_conteudo": (reg["com_conteudo"] / reg["total"]) if reg["total"] else 0.0,
+        }
+    return resumo
 
 
 class Relatorio:
@@ -755,21 +866,6 @@ async def run(timeout: float, concurrency: int, out: str = "") -> int:
     medidas = await medir_latencia_modelos(timeout, secrets)
     for modelo, resultado, ms in sorted(medidas, key=lambda m: m[2]):
         relatorio.print(f"| `{modelo}` | {resultado} | {ms / 1000:.2f}s |")
-    if medidas:
-        path = Path("reports/kilo-latencia-modelos.md")
-        linhas_tabela = [
-            "| modelo | resultado | latência |",
-            "|---|---|---:|",
-        ] + [f"| `{m}` | {r} | {ms / 1000:.2f}s |" for m, r, ms in sorted(medidas, key=lambda x: x[2])]
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            "# Latência real por modelo do gateway Kilo\n\n"
-            "Medida pelo CI com uma chamada curta por modelo (`max_tokens=24`). É o que define a\n"
-            "ordem da fila do corredor: o bot usa o primeiro que responder, então o rápido vai na frente.\n\n"
-            f"- executada em: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n\n"
-            + "\n".join(linhas_tabela) + "\n",
-            encoding="utf-8",
-        )
 
     # Candidatos SEM credencial: entram no pool só com 200 comprovado aqui.
     relatorio.print()

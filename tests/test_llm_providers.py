@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import unittest
 from pathlib import Path
 from typing import Any
@@ -646,6 +647,7 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
 
     RELATORIO = Path(__file__).resolve().parents[1] / "reports" / "kilo-modelos-free.md"
     RELATORIO_LATENCIA = Path(__file__).resolve().parents[1] / "reports" / "kilo-latencia-modelos.md"
+    HISTORICO_LATENCIA = Path(__file__).resolve().parents[1] / "reports" / "kilo-latencia-historico.json"
 
     def test_ficha_do_kilo_confere_com_o_catalogo_publicado(self) -> None:
         if not self.RELATORIO.exists():
@@ -665,20 +667,58 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
             "o catálogo do Kilo mudou: atualize a ficha com o que reports/kilo-modelos-free.md traz",
         )
 
+    def _resumo_do_historico(self) -> dict[str, dict[str, Any]]:
+        """Mediana e taxa de conteúdo por modelo somando as rodadas medidas pelo smoke."""
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        from smoke_llm import resumo_latencia  # noqa: PLC0415
+
+        return resumo_latencia(json.loads(self.HISTORICO_LATENCIA.read_text(encoding="utf-8")))
+
     def test_ordem_do_kilo_comeca_pelo_modelo_mais_rapido(self) -> None:
-        """Rapidez percebida primeiro, mas sem flakiness: a rede oscila entre rodadas."""
+        """Ordem da fila tem que sair do histórico medido — nunca de uma rodada solta.
+
+        A rede oscila: um modelo que respondeu em 0,66 s volta "200 vazio" na rodada seguinte. Se
+        o teste olhasse só a última medição, a CI quebraria por acaso (foi o que aconteceu em
+        18/09). Aqui a comparação é com a mediana acumulada, e a tolerância é "entre os 3 mais
+        rápidos" justamente porque os tempos vizinhos empatam dentro do ruído.
+        """
         ficha = next(spec for spec in FREE_PROVIDERS if spec.nome == "kilo")
-        rapido = self.RELATORIO_LATENCIA
-        if rapido.exists():
-            linhas = [ln for ln in rapido.read_text(encoding="utf-8").splitlines() if ln.startswith("| `")]
-            # só os que responderam com conteúdo e em menos de 5 s entram na comparação
-            bons = [ln.split("`")[1] for ln in linhas
-                    if "| 200 |" in ln and float(ln.rsplit("|", 2)[1].strip().rstrip("s")) < 5.0]
-            if bons:
-                self.assertIn(ficha.modelos[0], bons[:3],
-                              f"o primeiro da fila devia estar entre os 3 mais rápidos: {bons[:3]}")
         self.assertEqual(ficha.modelos[-1], "kilo-auto/free",
                          "o roteador (que às vezes devolve vazio) vai por último")
+
+        if not self.HISTORICO_LATENCIA.exists():
+            self.skipTest("sem histórico de medição: só os invariantes estruturais valem")
+        resumo = self._resumo_do_historico()
+        conhecidos = [m for m in ficha.modelos if m in resumo]
+        com_conteudo = [m for m in conhecidos if resumo[m]["com_conteudo"] > 0]
+        if len(com_conteudo) < 3:
+            self.skipTest(f"histórico curto: só {len(com_conteudo)} modelo(s) com conteúdo medido")
+
+        # 1) o primeiro da fila tem que ser confiável (respondeu com conteúdo em pelo menos
+        #    metade das rodadas) e rápido na mediana.
+        primeiro = ficha.modelos[0]
+        info = resumo.get(primeiro)
+        self.assertIsNotNone(info, f"o primeiro da fila ({primeiro}) nunca foi medido pelo smoke")
+        self.assertGreaterEqual(
+            info["taxa_conteudo"], 0.5,
+            f"o primeiro da fila devolveu conteúdo em só {info['taxa_conteudo'] * 100:.0f}% das rodadas",
+        )
+        self.assertLess(info["ms"], 5000, f"o primeiro da fila tem mediana de {info['ms'] / 1000:.2f}s")
+
+        # 2) e estar entre os 3 mais rápidos dentre os que já responderam com conteúdo
+        fila = sorted(com_conteudo, key=lambda m: (resumo[m]["ms"], -resumo[m]["taxa_conteudo"]))
+        self.assertIn(primeiro, fila[:3],
+                      f"o primeiro da fila devia estar entre os 3 mais rápidos: {fila[:3]}")
+
+        # 3) nenhum modelo que NUNCA devolveu conteúdo pode vir antes de um que devolveu:
+        #    seria gastar a primeira tentativa (e o tempo do usuário) em quem não responde.
+        zeros = {m for m in conhecidos if resumo[m]["com_conteudo"] == 0}
+        achou_zero = False
+        for modelo in ficha.modelos:
+            if modelo in zeros:
+                achou_zero = True
+            elif modelo in com_conteudo and achou_zero:
+                self.fail(f"{modelo} já devolveu conteúdo, mas está atrás de modelo que nunca devolveu")
 
 
 class TestFreePool(unittest.TestCase):

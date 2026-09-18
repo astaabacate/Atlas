@@ -515,17 +515,26 @@ FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
         nome="kilo",
         base_url="https://api.kilo.ai/api/gateway",
         # Lista conferida no catálogo AO VIVO (GET /api/gateway/models, sem credencial):
-        # reports/kilo-modelos-free.md (21 ":free" de 380) e ordenada pela LATÊNCIA MEDIDA
-        # em reports/kilo-latencia-modelos.md. O primeiro da fila é o que responde primeiro:
-        # rapidez percebida > contexto gigante (não adianta 1M se a resposta demora 20 s).
+        # reports/kilo-modelos-free.md (21 ":free" de 380).
+        #
+        # ORDEM = MEDIÇÃO, não chute: o smoke mede cada modelo 3× por rodada e guarda o
+        # histórico em reports/kilo-latencia-historico.json; a mediana agregada (e a taxa de
+        # resposta com conteúdo) está em reports/kilo-latencia-modelos.md. Critério:
+        #   1) quem JÁ devolveu conteúdo vem na frente de quem nunca devolveu (0%);
+        #   2) entre esses, mediana de latência crescente;
+        #   3) empate técnico → o de maior contexto;
+        #   4) o roteador `kilo-auto` fica por último (é o que mais devolve vazio).
+        # O bot usa o primeiro que responder, então rapidez percebida > contexto gigante.
         modelos=(
-            "nvidia/nemotron-3-super-120b-a12b:free",     # 0,54 s · 262K
-            "nex-agi/nex-n2.5-pro:free",                  # 0,92 s · 262K
-            "nvidia/nemotron-3.5-lightning:free",         # 1,02 s · 1M
-            "nvidia/nemotron-3-ultra-550b-a55b:free",     # 7,50 s · 1M (fundo esperto)
-            "thinkingmachines/inkling-small:free",        # 1.048.576 (reserva lenta)
-            "dots-studio/dots-3-note-preview:free",       # 512.000
+            "nex-agi/nex-n2.5-pro:free",                  # 2,23 s · 100% com conteúdo · 262K
+            "nvidia/nemotron-3-super-120b-a12b:free",     # 1,89 s ·  50% com conteúdo · 262K
+            "dots-studio/dots-3-note-preview:free",       # 1,18 s ·  50% com conteúdo · 512K
+            "nvidia/nemotron-3.5-lightning:free",         # 3,10 s · 100% com conteúdo · 1M
+            "nvidia/nemotron-3-ultra-550b-a55b:free",     # 6,66 s · 100% com conteúdo · 1M
+            # -- reservas: ainda não devolveram conteúdo nas rodadas medidas, mas continuam
+            #    na fila (disputam quando os de cima falham) e podem subir no próximo smoke.
             "stepfun/step-3.7-flash:free",                # 262.144
+            "thinkingmachines/inkling-small:free",        # 1.048.576
             "qwen/qwen3.8-27b:free",                      # 262.144
             "poolside/laguna-s-2.1:free",                 # 262.144
             "cohere/north-mini-code:free",                # 256.000
