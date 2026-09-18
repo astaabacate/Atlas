@@ -257,10 +257,16 @@ def parse_openai_tool_calls(raw_calls: list[dict[str, Any]]) -> list[ToolCall]:
     return result
 
 
-def summarize_tools(tools: list[dict[str, Any]], limit: int = 40) -> str:
-    """Lista compacta de ferramentas (nome + descrição) para o protocolo de texto."""
+def summarize_tools(tools: list[dict[str, Any]], limit: int | None = 40) -> str:
+    """
+    Lista compacta de ferramentas (nome + descrição) para o protocolo de texto.
+
+    `limit=None` lista TODAS: nos provedores sem function calling nativo, ferramenta que não
+    aparece na lista é ferramenta que o modelo nunca consegue chamar (capacidade inalcançável
+    em linguagem natural).
+    """
     lines: list[str] = []
-    for tool in tools[:limit]:
+    for tool in tools if limit is None else tools[:limit]:
         fn = tool.get("function", {}) if isinstance(tool, dict) else {}
         name = fn.get("name", "")
         if not name:
@@ -295,7 +301,7 @@ Ferramentas disponíveis:
 
 def build_tool_protocol_notice(tools: list[dict[str, Any]]) -> str:
     """Mensagem de sistema que ensina o modelo a emitir ```tool {...}``` sem function calling."""
-    return TOOL_PROTOCOL_TEMPLATE.format(tools=summarize_tools(tools))
+    return TOOL_PROTOCOL_TEMPLATE.format(tools=summarize_tools(tools, limit=None))
 
 
 def sanitize_messages_for_plain_text(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

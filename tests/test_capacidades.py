@@ -1049,6 +1049,60 @@ class TestFerramentasDeConsulta(unittest.TestCase):
                          "edit_server tem que mandar SÓ o campo pedido")
 
 
+class TestAlcanceEmLinguagemNatural(unittest.TestCase):
+    """
+    Nos provedores SEM function calling nativo (boa parte dos gratuitos), o modelo só conhece as
+    ferramentas pela lista do protocolo de texto. Ferramenta fora da lista = capacidade
+    inalcançável por linguagem natural, por melhor que o código esteja.
+    """
+
+    def test_o_protocolo_de_texto_lista_todas_as_ferramentas(self) -> None:
+        from brain.tools import get_tool_definitions
+        from llm.base import summarize_tools
+
+        schemas = [t.to_openai() for t in get_tool_definitions()]
+        resumo = summarize_tools(schemas, limit=None)
+        faltando = [t.name for t in get_tool_definitions()
+                    if f"- {t.name}(" not in resumo]
+        self.assertEqual(faltando, [], f"ferramentas invisíveis para o modelo: {faltando}")
+
+    def test_toda_ferramenta_tem_descricao_e_parametros_marcados(self) -> None:
+        from brain.tools import get_tool_definitions
+
+        sem_descricao: list[str] = []
+        for t in get_tool_definitions():
+            schema = t.to_openai()
+            fn = schema["function"]
+            if not (fn.get("description") or "").strip():
+                sem_descricao.append(t.name)
+        self.assertEqual(sem_descricao, [], f"ferramentas sem descrição: {sem_descricao}")
+
+    def test_o_resumo_mostra_os_obrigatorios_com_asterisco(self) -> None:
+        from brain.tools import get_tool_definitions
+        from llm.base import summarize_tools
+
+        schemas = [t.to_openai() for t in get_tool_definitions()]
+        resumo = summarize_tools(schemas, limit=None)
+        for t in get_tool_definitions():
+            schema = t.to_openai()
+            obrigatorios = schema["function"].get("parameters", {}).get("required", []) or []
+            for nome_param in obrigatorios:
+                self.assertIn(f"{nome_param}*", resumo,
+                              f"o parâmetro obrigatório {nome_param} de {t.name} não aparece "
+                              "marcado no protocolo")
+
+    def test_limitacao_do_resumo_nao_esconde_ferramenta_por_acidente(self) -> None:
+        from brain.tools import get_tool_definitions
+        from llm.base import summarize_tools
+
+        schemas = [t.to_openai() for t in get_tool_definitions()]
+        if len(schemas) > 40:
+            self.fail("passamos de 40 ferramentas: o protocolo de texto precisa de outra estratégia")
+        completo = summarize_tools(schemas, limit=None)
+        self.assertEqual(completo, summarize_tools(schemas, limit=40),
+                         "com 28 ferramentas o padrão (40) e o completo têm que dar no mesmo")
+
+
 class TestCoerenciaSchemaExecucao(unittest.TestCase):
     """
     Trava do inventário: schema, função e executor falam a mesma língua.
