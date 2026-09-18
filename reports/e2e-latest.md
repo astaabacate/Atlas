@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 105 · ❌ 1 · ⚠️ 7 · ⏭️ 1
+- **Resumo:** ✅ 104 · ❌ 2 · ⚠️ 7 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** d8e2510
-- **execução:** 35334073061
+- **commit:** 49208b0
+- **execução:** 35335678474
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
@@ -17,12 +17,12 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `27 ferramentas ↔ 27 executores` | 29 ferramentas e 29 executores casados |
-| PASS | `assinaturas ↔ schemas` | 29 assinaturas conferem com os schemas |
-| PASS | `toda ferramenta tem política` | as 29 ferramentas têm política declarada |
+| PASS | `27 ferramentas ↔ 27 executores` | 30 ferramentas e 30 executores casados |
+| PASS | `assinaturas ↔ schemas` | 30 assinaturas conferem com os schemas |
+| PASS | `toda ferramenta tem política` | as 30 ferramentas têm política declarada |
 | PASS | `qualidade dos schemas enviados ao LLM` | descrições e schemas bem formados para function calling |
 | PASS | `prompt de sistema completo` | prompt com os 7 blocos obrigatórios (regra de confirmação dinâmica) |
-| PASS | `tamanho do payload enviado ao LLM` | schema com 14011 chars + prompt de 2038 chars |
+| PASS | `tamanho do payload enviado ao LLM` | schema com 14455 chars + prompt de 2038 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
 `spy` — ✅ 22 · ❌ 0 · ⚠️ 0 · ⏭️ 0
@@ -81,7 +81,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 55ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 19ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -110,23 +110,23 @@
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 3 · ❌ 1 · ⚠️ 0 · ⏭️ 0
+`agent` — ✅ 2 · ❌ 1 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Recruta', 'Recruta'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso aplicar bans: meu foco exclusivo é montar e organizar a estrutura do servidor.' |
+| WARN | `prompt → ferramenta → resposta coerente` | o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 30, 'ferramentas_chamadas': [], 'chars': 794, 'vencedor': 'kilo'}]) — o provedor gratuito não cooperou nesta rodada ('Cargos do servidor **Pinguim**:\n\n- @Admin (1550389621769109615)\n- @Moderador (1550389621509062738)\n- @Streamer'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento d… |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso aplicar bans ou punições; meu foco exclusivo é montar e organizar a estrutura do' |
 | FAIL | `agente conhece a estrutura real` | TypeError: Harness._culpa_do_llm() takes 1 positional argument but 2 were given |
 | PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 17 · ❌ 0 · ⚠️ 2 · ⏭️ 1
+`mutate` — ✅ 16 · ❌ 1 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
-| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria']) |
+| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -137,10 +137,9 @@
 | PASS | `fluxo de confirmação em canais reais (modo cauteloso)` | 2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true |
 | PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
 | PASS | `clear_messages apaga mensagens reais do canal` | apagou 3 mensagem(ns) reais e o canal ficou vazio |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 3.2s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 4.6s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído' |
-| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Para apagar `🧪-caut-1` e `🧪-caut-2` de uma vez, confirme digitando **sim**.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
-| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | não conclusivo por causa do LLM gratuito: o modelo nem tentou excluir os canais |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 4.3s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
+| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 4.7s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído' |
+| FAIL | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | TypeError: Harness._culpa_do_llm() takes 1 positional argument but 2 were given |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -173,15 +172,16 @@
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
 ## core.bot.FarolBot: on_message → resposta real no Discord
-`botloop` — ✅ 7 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`botloop` — ✅ 8 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550452937233272914) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550457555371950193) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: '📊 **Informações de Pinguim:**\n• **ID:** `1546763083005825084`\n• **Dono:** <@1521612392105250836>\n• *' |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal em **26.8s**: 'Pinguim' |
+| PASS | `tempo até responder (mensagem → resposta)` | o cliente espera **4.0s** (mediana de 3) entre mandar e receber: 3.2s, 4.0s, 11.6s |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
 | PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
 
