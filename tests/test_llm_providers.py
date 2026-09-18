@@ -716,10 +716,13 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
         # 3) a fila inteira tem que respeitar o ranking medido: taxa de conteúdo não-decrescente
         #    ao longo dela. Assim um modelo confiável nunca fica atrás de um que quase nunca
         #    responde — e se a medição virar, a CI mostra em vez de o dono descobrir no Discord.
-        taxas = [resumo[m]["taxa_conteudo"] for m in conhecidos]
-        self.assertEqual(taxas, sorted(taxas, reverse=True),
-                         f"fila fora de ordem pelo ranking medido: "
-                         f"{[(m, resumo[m]['taxa_conteudo']) for m in conhecidos]}")
+        taxa = {m: resumo[m]["taxa_conteudo"] for m in conhecidos}
+        sugerida = sorted(conhecidos, key=lambda m: (-taxa[m], resumo[m]["ms"]))
+        taxas = [taxa[m] for m in conhecidos]
+        self.assertEqual(
+            taxas, sorted(taxas, reverse=True),
+            "fila fora de ordem pelo ranking medido. Ordem sugerida pela medição: "
+            + " → ".join(f"{m} ({taxa[m] * 100:.0f}%)" for m in sugerida))
 
         # 4) nenhum modelo que NUNCA devolveu conteúdo pode vir antes de um que devolveu:
         #    seria gastar a primeira tentativa (e o tempo do usuário) em quem não responde.

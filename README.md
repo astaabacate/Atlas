@@ -173,7 +173,9 @@ A ordem vem da medição real do CI, não de chute: o smoke mede **3 amostras po
 guarda tudo em `reports/kilo-latencia-historico.json` e a fila sai da **mediana acumulada** +
 **taxa de resposta com conteúdo** (`reports/kilo-latencia-modelos.md`). Uma rodada isolada oscila
 (um modelo que respondeu em 0,66 s volta vazio na seguinte), então a decisão nunca é de uma amostra
-só. Critério (confiabilidade antes de velocidade): maior **taxa de rodadas com conteúdo** primeiro,
+só. A CI cobra essa ordem: se as rodadas novas mudarem o ranking, o teste falha **trazendo a ordem
+sugerida** pela medição — basta reordenar a ficha e as rodadas seguem. Critério (confiabilidade
+antes de velocidade): maior **taxa de rodadas com conteúdo** primeiro,
 mediana de latência como desempate, reservas que nunca responderam no fim e o roteador `kilo-auto`
 (o que mais devolve vazio) sempre por último. Ranquear só por mediana era enganoso — um modelo que
 acertou 1 de 4 rodadas aparecia em 1º. Agregado de 18/09 (4 rodadas × 3 amostras):
