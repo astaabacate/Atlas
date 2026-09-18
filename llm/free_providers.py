@@ -54,6 +54,9 @@ MAX_DISCOVERED_MODELS = 6
 
 # Cooldown padrão depois de um 429 (o header Retry-After manda quando existir).
 DEFAULT_COOLDOWN = 45.0
+# Repetição com mais espaço quando o modelo devolve vazio por teto de tokens (raciocínio).
+MIN_AMPLIACAO_TOKENS = 1024
+MAX_AMPLIACAO_TOKENS = 8192
 MAX_INLINE_RETRY_WAIT = 2.5
 
 
@@ -297,6 +300,8 @@ class OpenAICompatibleHttpProvider(ChatProvider):
 
         last_error: ProviderError | None = None
         retry_429_usado = False
+        # Modelo que voltou vazio por teto de tokens ganha UMA repetição com o dobro de espaço.
+        ampliados: set[str] = set()
         # Percorre por índice: quando o catálogo é redescoberto no meio do caminho, a
         # varredura recomeça já sem o modelo morto.
         modelos = list(self.models)
@@ -331,6 +336,14 @@ class OpenAICompatibleHttpProvider(ChatProvider):
                                 self._start_cooldown(retry_exc.retry_after or self.cooldown)
                                 raise
                             exc = retry_exc
+
+                if exc.is_empty_response and exc.truncated and model not in ampliados:
+                    ampliados.add(model)
+                    max_tokens = min(max(max_tokens * 2, MIN_AMPLIACAO_TOKENS), MAX_AMPLIACAO_TOKENS)
+                    logger.debug("[%s] %s devolveu nada no teto de tokens; repetindo com %d",
+                                 self.name, model, max_tokens)
+                    indice -= 1
+                    continue
 
                 if exc.is_tools_rejection and not self.native_tools_rejected:
                     # O provedor não engole o schema: tenta de novo via protocolo de texto.
@@ -415,12 +428,20 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         tool_calls: list[ToolCall] = []
         if msg.get("tool_calls"):
             tool_calls = parse_openai_tool_calls(msg["tool_calls"])
+        concluiu_por_limite = str(choices[0].get("finish_reason") or "").lower() == "length"
 
         if not content and not tool_calls:
+            # Modelos de raciocínio (grátis, via gateway) gastam o teto inteiro "pensando" e
+            # devolvem nada. Não é resposta: é pedido de mais espaço — quem chama decide.
             raise ProviderError(
                 provider=self.name,
-                message=f"{self.name}: resposta vazia ({model})",
+                message=(
+                    f"{self.name}: resposta vazia ({model}"
+                    + (" — teto de tokens)" if concluiu_por_limite else ")")
+                ),
                 model=model,
+                empty_response=True,
+                truncated=concluiu_por_limite,
             )
         return LLMResponse(content=content, tool_calls=tool_calls)
 
@@ -677,6 +698,18 @@ def relatorio_do_pool(env: dict[str, str] | None = None) -> list[tuple[FreeProvi
     """(ficha, motivo) por provedor: motivo vazio = pronto para entrar na corrida."""
     src = env if env is not None else os.environ
     return [(spec, _ficha_pronta(spec, src)[1]) for spec in FREE_PROVIDERS]
+
+
+def secrets_faltando(env: dict[str, str] | None = None) -> list[str]:
+    """Nomes dos secrets/variáveis que faltam para o pool inteiro entrar na corrida."""
+    nomes: list[str] = []
+    for spec, motivo in relatorio_do_pool(env):
+        if not motivo:
+            continue
+        for nome in (spec.key_env, spec.conta_id_env):
+            if nome and nome not in nomes:
+                nomes.append(nome)
+    return nomes
 
 
 def descrever_pool(env: dict[str, str] | None = None) -> tuple[str, list[str]]:

@@ -25,6 +25,8 @@ class ProviderError(RuntimeError):
         model: str = "",
         html_body: bool = False,
         retry_after: float | None = None,
+        empty_response: bool = False,
+        truncated: bool = False,
     ) -> None:
         self.provider = provider
         self.status = status
@@ -33,7 +35,16 @@ class ProviderError(RuntimeError):
         self.raw_message = message
         # Segundos pedidos pelo provedor no header Retry-After (quando veio).
         self.retry_after = retry_after
+        # Resposta sem conteúdo e sem tool_calls; `truncated` diz que faltou teto de tokens
+        # (modelo de raciocínio gastou tudo "pensando"), então vale repetir com mais espaço.
+        self.empty_response = empty_response
+        self.truncated = truncated
         super().__init__(message)
+
+    @property
+    def is_empty_response(self) -> bool:
+        """True quando o modelo não devolveu nada (nem texto, nem ferramenta)."""
+        return self.empty_response
 
     @property
     def is_rate_limited(self) -> bool:

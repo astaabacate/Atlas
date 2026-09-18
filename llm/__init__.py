@@ -12,6 +12,8 @@ from llm.free_providers import (
     build_gateway_provider,
     descrever_pool,
     relatorio_do_pool,
+    secrets_faltando,
+    tabela_do_pool,
 )
 from llm.key_providers import AnthropicProvider, GeminiProvider, OpenAIProvider
 
@@ -25,6 +27,8 @@ __all__ = [
     "FREE_PROVIDERS",
     "build_free_runners",
     "relatorio_do_pool",
+    "secrets_faltando",
+    "tabela_do_pool",
     "descrever_pool",
     "build_gateway_provider",
     "KNOWN_GATEWAYS",

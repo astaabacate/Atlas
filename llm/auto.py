@@ -23,6 +23,7 @@ from llm.free_providers import (
     build_free_runners,
     build_gateway_provider,
     descrever_pool,
+    secrets_faltando,
 )
 from llm.key_providers import AnthropicProvider
 
@@ -338,11 +339,14 @@ class AutoProvider(ChatProvider):
         ]
         if shown:
             partes.append("Erros: " + " | ".join(shown) + (f" | +{extra} outros" if extra > 0 else ""))
+        faltando = secrets_faltando()
         partes.append(
-            "Os gratuitos compartilham o IP do servidor e estouram limite com facilidade. "
-            "Para acabar com isso, cadastre uma chave GRATUITA (Groq, Gemini ou OpenRouter — sem cartão) "
-            f"nos segredos do GitHub Actions: LLM_API_KEY + LLM_PROVIDER ({', '.join(sorted(KNOWN_GATEWAYS))})."
+            "Os gratuitos compartilham o IP do servidor e estouram limite. Para ampliar o pool, "
+            "cadastre chaves GRATUITAS (sem cartão; LLM_API_KEY + LLM_PROVIDER também funcionam) "
+            "nos secrets do GitHub Actions."
         )
+        if faltando:
+            partes.append("Faltando: " + ", ".join(faltando[:10]) + ("…" if len(faltando) > 10 else ""))
         return " ".join(partes)
 
     async def close(self) -> None:

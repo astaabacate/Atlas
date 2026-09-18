@@ -540,6 +540,71 @@ class TestTabelaDoPool(unittest.TestCase):
         self.assertEqual(corredor.cooldown, FREE_PROVIDERS[0].cooldown)
 
 
+class TestRespostaVaziaPorTeto(unittest.TestCase):
+    """Modelo grátis de raciocínio gasta o teto e devolve vazio: repetir com mais espaço."""
+
+    def test_vazio_por_teto_repete_o_mesmo_modelo_com_mais_tokens(self) -> None:
+        pedidos: list[int] = []
+
+        def fake_session() -> Any:
+            return None
+
+        provider = OpenAICompatibleHttpProvider(
+            name="corredor-raciocinio",
+            endpoint_url="https://exemplo.invalido/v1/chat/completions",
+            models=["modelo-que-pensa"],
+            session_factory=fake_session,
+        )
+
+        async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
+            pedidos.append(int(payload["max_tokens"]))
+            if len(pedidos) == 1:
+                raise ProviderError(
+                    provider=provider.name,
+                    message=f"{provider.name}: resposta vazia ({model} — teto de tokens)",
+                    model=model,
+                    empty_response=True,
+                    truncated=True,
+                )
+            return LLMResponse(content="agora respondeu")
+
+        provider._post = fake_post  # type: ignore[assignment]
+        resposta = asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}], timeout=5, max_tokens=100))
+
+        self.assertEqual(resposta.content, "agora respondeu")
+        self.assertEqual(len(pedidos), 2, "tinha que repetir uma única vez")
+        self.assertGreater(pedidos[1], pedidos[0], "a repetição precisa de mais espaço")
+        self.assertGreaterEqual(pedidos[1], 1024, "mínimo generoso para raciocínio")
+
+    def test_vazio_comum_nao_repete_o_modelo(self) -> None:
+        chamadas = {"n": 0}
+
+        def fake_session() -> Any:
+            return None
+
+        provider = OpenAICompatibleHttpProvider(
+            name="corredor-mudo",
+            endpoint_url="https://exemplo.invalido/v1/chat/completions",
+            models=["modelo-mudo"],
+            session_factory=fake_session,
+        )
+
+        async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
+            chamadas["n"] += 1
+            raise ProviderError(
+                provider=provider.name,
+                message=f"{provider.name}: resposta vazia ({model})",
+                model=model,
+                empty_response=True,
+                truncated=False,
+            )
+
+        provider._post = fake_post  # type: ignore[assignment]
+        with self.assertRaises(ProviderError):
+            asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}], timeout=5, max_tokens=100))
+        self.assertEqual(chamadas["n"], 1, "sem teto estourado, repetir só queimaria cota")
+
+
 class TestFreePool(unittest.TestCase):
     """O pool só é o que a documentação confirma: nada de provedor morto na lista."""
 
