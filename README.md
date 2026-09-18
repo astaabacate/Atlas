@@ -146,6 +146,19 @@ credencial cadastrada fica fora da corrida (o log diz exatamente qual secret fal
 
 Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
 
+**Como saber quem está realmente respondendo:** a sonda ao vivo roda no CI a cada push em
+`llm/**` (workflow *Smoke LLM Providers*) e grava o resultado em
+[`reports/smoke-llm.md`](reports/smoke-llm.md) — tabela por corredor com `GET /models`,
+`POST /chat/completions` em português, tool call nativo, chamadas consecutivas (429/Retry-After)
+e fallback textual. Rode local com `python scripts/smoke_llm.py --timeout 30 --out /tmp/sonda.md`
+(requer rede; no sandbox fechado o GET volta `-`).
+
+**Cadastro de secrets (sem cartão):** `gh secret set GEMINI_API_KEY` · `GROQ_API_KEY` ·
+`MISTRAL_API_KEY` · `NVIDIA_API_KEY` · `ZAI_API_KEY` · `CLOUDFLARE_API_TOKEN` (+ variável
+`CLOUDFLARE_ACCOUNT_ID`: `gh variable set CLOUDFLARE_ACCOUNT_ID`) · `OLLAMA_API_KEY` ·
+`OPENROUTER_API_KEY` · `MODELSCOPE_API_KEY` · `SILICONFLOW_API_KEY` · `COHERE_API_KEY`.
+Cada secret cadastrado entra na corrida no próximo ciclo, sem mudar código.
+
 > 🧹 **Corredores removidos (17/09/2026):** `llm7`, `ovh` e `pollinations` **saíram do código** —
 > não são mais classe, corredor, fallback, segunda/terceira onda nem config. Eles falhavam juntos
 > (HTTP 429 "queue full/rate limit" e modelo aposentado) e derrubavam a corrida inteira.

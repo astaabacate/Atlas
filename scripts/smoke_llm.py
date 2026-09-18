@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import time
+import aiohttp
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,7 @@ from llm.base import ProviderError, compact_error_text
 from llm.free_providers import (
     KNOWN_GATEWAYS,
     OpenAICompatibleHttpProvider,
+    _extract_model_ids,
     build_gateway_provider,
     descrever_pool,
     relatorio_do_pool,
@@ -61,6 +63,17 @@ SMOKE_TOOLS: list[dict[str, Any]] = [
     }
 ]
 
+TEXTO_MESSAGES = [
+    {
+        "role": "user",
+        "content": "Responda apenas com a palavra OK, em português, sem ferramentas.",
+    },
+]
+
+CONSECUTIVAS_MESSAGES = [
+    {"role": "user", "content": "Responda apenas OK."},
+]
+
 SMOKE_MESSAGES = [
     {
         "role": "system",
@@ -90,6 +103,20 @@ class ProbeResult:
     native_tool_call: bool
     error: str
     catalogo: str = "-"
+    catalogo_status: str = "-"
+    catalogo_qtd: int = 0
+    consecutivas: str = "-"
+    texto_puro: bool = False
+    retry_after: str = ""
+
+    @property
+    def aprovado(self) -> bool:
+        """🟢 = respondeu, catálogo OK, pelo menos uma chamada consecutiva sem erro."""
+        if self.status != "200" or self.error:
+            return False
+        if self.catalogo_status not in {"200", "vazio", "sem endpoint"}:
+            return False
+        return "429" not in self.consecutivas and "erro" not in self.consecutivas
 
 
 def truthy(value: str | None) -> bool:
@@ -284,7 +311,43 @@ def extract_status_from_error(text: str) -> str:
     return match.group(1) if match else "-"
 
 
+async def sondar_catalogo(provider: Any, timeout: float, secrets: list[str]) -> tuple[str, int, str]:
+    """GET cru no catálogo de modelos.
+
+    Faz a requisição aqui (e não via `refresh_models`) para o status ser REAL: o provedor
+    engole erro de rede de propósito, o que esconderia um catálogo inacessível na sonda.
+    """
+    url = str(getattr(provider, "models_url", "") or "")
+    if not url:
+        return "sem endpoint", 0, ""
+    headers = dict(getattr(provider, "headers", {}) or {})
+    try:
+        async with aiohttp.ClientSession() as sess:
+            async with sess.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+                if resp.status != 200:
+                    corpo = await resp.text()
+                    return str(resp.status), 0, compact_error_text(redact(corpo, secrets), 120)
+                data = await resp.json(content_type=None)
+        ids = _extract_model_ids(data)
+        refresh = getattr(provider, "refresh_models", None)
+        if callable(refresh):
+            try:
+                await refresh(force=True)
+            except Exception:  # noqa: BLE001 - a descoberta é otimização
+                pass
+        return "200", len(ids), ""
+    except Exception as exc:  # noqa: BLE001 - vira coluna de diagnóstico
+        return "-", 0, compact_error_text(redact(f"{type(exc).__name__}: {exc}", secrets), 120)
+
+
 async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> ProbeResult:
+    """Protocolo obrigatório da sonda, na ordem:
+
+    1. GET do catálogo (`/models`) — prova que a URL e a credencial valem algo;
+    2. POST `/chat/completions` em português, com ferramenta — prova o caminho real do Farol;
+    3. três chamadas consecutivas — registra 429/Retry-After sem abusar de cota;
+    4. chamada sem ferramentas — prova o fallback textual (quando o provedor recusa schema).
+    """
     provider = entry.provider
     name = str(getattr(provider, "name", "?"))
     install_openai_compatible_tracker(provider)
@@ -293,7 +356,18 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
     model = provider_model_hint(provider) or "-"
     native = False
     error = ""
+    catalogo_status = "sem endpoint"
+    catalogo_qtd = 0
+    consecutivas = "-"
+    texto_puro = False
+    retry_after = ""
 
+    # 1) catálogo /models (GET cru, status real)
+    catalogo_status, catalogo_qtd, erro_catalogo = await sondar_catalogo(provider, timeout, secrets)
+    if erro_catalogo and not error:
+        error = f"catálogo: {erro_catalogo}"
+
+    # 2) POST /chat/completions em PT, com tools
     try:
         response = await provider.chat(
             messages=SMOKE_MESSAGES,
@@ -310,15 +384,41 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
         status = str(exc.status or getattr(provider, "_smoke_status", "-") or "-")
         model = str(exc.model or getattr(provider, "_smoke_model", "") or model or "-")
         error = compact_error_text(redact(str(exc), secrets), 220)
+        if exc.status == 429:
+            retry_after = str(exc.retry_after or "")
     except Exception as exc:  # noqa: BLE001 - qualquer exceção vira linha de diagnóstico
         status = extract_status_from_error(str(exc))
         model = str(getattr(provider, "_smoke_model", "") or model or "-")
         error = compact_error_text(redact(f"{type(exc).__name__}: {exc}", secrets), 220)
-    finally:
+
+    # 3) três chamadas consecutivas (sem abuso: 3 requisições, só se a primeira respondeu)
+    if status == "200" and not error:
+        marcas: list[str] = []
+        for _ in range(3):
+            try:
+                await provider.chat(messages=CONSECUTIVAS_MESSAGES, timeout=timeout, max_tokens=16)
+                marcas.append(str(getattr(provider, "_smoke_status", "200") or "200"))
+            except ProviderError as exc:
+                marcas.append(str(exc.status or "-"))
+                if exc.status == 429:
+                    retry_after = str(exc.retry_after or "")
+                    break
+            except Exception:  # noqa: BLE001
+                marcas.append("erro")
+                break
+        consecutivas = "/".join(marcas) if marcas else "-"
+
+        # 4) fallback textual: mesma pergunta, sem tools
         try:
-            await provider.close()
-        except Exception:
-            pass
+            texto = await provider.chat(messages=TEXTO_MESSAGES, timeout=timeout, max_tokens=32)
+            texto_puro = bool((texto.content or "").strip())
+        except Exception:  # noqa: BLE001 - o fallback textual é informativo
+            texto_puro = False
+
+    try:
+        await provider.close()
+    except Exception:
+        pass
 
     latency_ms = int((time.perf_counter() - started) * 1000)
     return ProbeResult(
@@ -330,6 +430,11 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
         native_tool_call=native,
         error=error,
         catalogo=descrever_catalogo(provider),
+        catalogo_status=catalogo_status,
+        catalogo_qtd=catalogo_qtd,
+        consecutivas=consecutivas,
+        texto_puro=texto_puro,
+        retry_after=retry_after,
     )
 
 
@@ -416,13 +521,42 @@ async def run(timeout: float, concurrency: int, out: str = "") -> int:
             + " |"
         )
 
+    relatorio.print()
+    relatorio.print("Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):")
+    relatorio.print()
+    relatorio.print("| corredor | GET /models | nº modelos | chat PT | tools nativo | fallback textual | 3 consecutivas | Retry-After |")
+    relatorio.print("|---|---|---:|---|---|---|---|---|")
+    for result in results:
+        relatorio.print(
+            "| "
+            + " | ".join(
+                [
+                    short_cell(result.name),
+                    short_cell(result.catalogo_status),
+                    str(result.catalogo_qtd or "-"),
+                    "200" if result.status == "200" and not result.error else result.status,
+                    "sim" if result.native_tool_call else "não",
+                    "sim" if result.texto_puro else "não",
+                    short_cell(result.consecutivas),
+                    short_cell(result.retry_after or "-", 40),
+                ]
+            )
+            + " |"
+        )
+    relatorio.print()
+
     successes = [r for r in results if r.status == "200" and not r.error]
     native_successes = [r for r in successes if r.native_tool_call]
     relatorio.print()
     relatorio.print(f"Resumo: {len(successes)}/{len(results)} provedores responderam; {len(native_successes)} com tool_call nativo.")
-    if successes:
-        relatorio.print("🟢 TESTADOS E FUNCIONANDO AGORA: "
-              + ", ".join(f"{r.name} ({r.model})" for r in successes))
+    aprovados = [r for r in successes if r.aprovado]
+    if aprovados:
+        relatorio.print("🟢 TESTADOS E FUNCIONANDO AGORA (protocolo completo): "
+              + ", ".join(f"{r.name} ({r.model})" for r in aprovados))
+    parciais = [r for r in successes if not r.aprovado]
+    if parciais:
+        relatorio.print("🟡 RESPONDERAM, MAS COM RESSALVA NESTA RODADA: "
+              + ", ".join(f"{r.name} (catálogo={r.catalogo_status}, consecutivas={r.consecutivas})" for r in parciais))
     falharam = [r for r in results if r not in successes]
     if falharam:
         relatorio.print("🔴 não responderam nesta rodada: " + ", ".join(f"{r.name}" for r in falharam))
