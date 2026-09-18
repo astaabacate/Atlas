@@ -105,7 +105,12 @@ execuções [`35291065652`](https://github.com/astaabacate/Atlas/actions/runs/35
    (`nemotron-3-ultra-550b`, 7,5 s) e o `inkling-small` (19 s no teste do pool) como reserva.
 2. **Resposta vazia não repete o mesmo modelo:** passa a vez na hora. Antes o corredor repetia o
    modelo que já tinha falhado, somando a latência dele de novo.
-3. **Roteador por último:** o `kilo-auto/free` é quem mais devolve vazio; com os modelos explícitos
+3. **Resposta pronta não volta ao LLM (`DIRECT_TOOL_REPLY`, padrão ligado):** em exclusão de canal/
+   cargo e limpeza de conversa, o bot responde com o resultado da própria ferramenta em vez de pedir
+   um resumo ao modelo. Eram **duas** chamadas de LLM por comando; agora é **uma** — o tempo até a
+   mensagem aparecer cai quase pela metade. (Ferramentas não-terminais, como criar canal, continuam
+   com o resumo do modelo, porque aí ele precisa continuar a conversa.)
+4. **Roteador por último:** o `kilo-auto/free` é quem mais devolve vazio; com os modelos explícitos
    na frente, a resposta não cai nele no caminho normal.
 
 **"Ele pergunta demais"** — `CONFIRM_DESTRUCTIVE`, padrão **desligado** (modo direto): o pedido do

@@ -51,6 +51,9 @@ class Config:
     # Confirmação de ação destrutiva em lote. Padrão do dono: executa direto e informa
     # (o pedido já é a autorização). Ligue com CONFIRM_DESTRUCTIVE=true se quiser perguntar.
     confirm_destructive: bool = False
+    # Ferramentas "terminais" (excluir/limpar) já devolvem a resposta pronta: responder com ela
+    # economiza uma ida ao LLM inteira (~metade do tempo até a mensagem aparecer no Discord).
+    direct_tool_reply: bool = True
     max_tool_rounds: int = 3
     history_len: int = 10
     bulk_concurrency: int = 3
@@ -106,6 +109,7 @@ class Config:
             max_tokens = 1024
 
         confirm_destructive = _parse_bool(src.get("CONFIRM_DESTRUCTIVE"))
+        direct_tool_reply = _parse_bool(src.get("DIRECT_TOOL_REPLY", "true"), default=True)
 
         try:
             max_tool_rounds = int(src.get("MAX_TOOL_ROUNDS", "3").strip())
@@ -159,6 +163,7 @@ class Config:
             llm_models=llm_models,
             disable_free_llms=disable_free_llms,
             confirm_destructive=confirm_destructive,
+            direct_tool_reply=direct_tool_reply,
             llm_timeout=timeout,
             llm_max_tokens=max_tokens,
             max_tool_rounds=max_tool_rounds,

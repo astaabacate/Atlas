@@ -150,6 +150,11 @@ Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
 *"apague todos os canais e deixe só esse"* executa na hora e responde o que apagou. Ligue com
 `CONFIRM_DESTRUCTIVE=true` para o modo cauteloso (2+ canais, categoria ou cargo pedem um "sim" antes).
 
+**Resposta pronta não passa pelo LLM de novo (`DIRECT_TOOL_REPLY`, padrão ligado):** quando o turno
+tem **uma** ferramenta terminal (excluir canal/cargo, limpar conversa) e ela deu certo, o bot responde
+com o próprio resultado em vez de pedir um resumo ao modelo — isso corta quase metade do tempo até a
+mensagem aparecer. Desligue com `DIRECT_TOOL_REPLY=false`.
+
 **Ordem da fila por latência:** o primeiro modelo do corredor é o que responde primeiro no Discord.
 A ordem vem da medição real do CI (`reports/kilo-latencia-modelos.md`), não de chute — hoje:
 `nemotron-3-super-120b` (0,5 s) → `nex-n2.5-pro` (0,9 s) → `nemotron-3.5-lightning` (1,0 s) → reservas.

@@ -271,6 +271,31 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
         self.assertEqual(sorted(self.apagados), ["canal-a", "canal-b"], "modo direto apaga na hora")
         self.assertNotIn("confirm", resposta.lower(), "não pode pedir confirmação no modo direto")
 
+    def test_ferramenta_terminal_responde_sem_segunda_chamada_ao_llm(self) -> None:
+        """Excluir canal: a resposta pronta da ferramenta vale — sem gastar outra ida ao LLM."""
+        agent, llm = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
+                                                         args={"channels": ["11"]})]),
+        ], cauteloso=False)
+
+        resposta = self._turno(agent, "Apague o canal canal-a")
+
+        self.assertEqual(len(llm.call_history), 1, "chamou o LLM de novo só para resumir o que já sabia")
+        self.assertIn("Exclusão concluída", resposta)
+        self.assertEqual(self.apagados, ["canal-a"])
+
+    def test_ferramenta_nao_terminal_ainda_pede_o_resumo(self) -> None:
+        """Criar canal NÃO é terminal: o modelo precisa continuar a conversa."""
+        agent, llm = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="list_roles", args={})]),
+            LLMResponse(content="Você tem 3 cargos.", tool_calls=[]),
+        ], cauteloso=False)
+
+        resposta = self._turno(agent, "Quais cargos existem?")
+
+        self.assertEqual(len(llm.call_history), 2)
+        self.assertIn("3 cargos", resposta)
+
     def test_modelo_nao_se_autoconfirma(self) -> None:
         agent, _ = self._agent_com([
             LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",

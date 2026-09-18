@@ -41,6 +41,12 @@ REGRAS ABSOLUTAS:
 # em que o agente apagou 2 canais de uma vez sem perguntar nada).
 CONFIRMATION_TOOLS = frozenset({"delete_channels", "delete_role"})
 
+# Ferramentas cujo resultado JÁ é a resposta final: quando a única chamada do turno é uma
+# delas e deu certo, responder com o próprio texto evita uma segunda ida ao LLM (o que
+# corta quase metade do tempo até a mensagem aparecer). O resumo do modelo, nesses casos,
+# só repetia o que a ferramenta já disse.
+TERMINAL_TOOLS = frozenset({"delete_channels", "delete_role", "conversation_clear"})
+
 _AFFIRMATIVE_RE = re.compile(
     r"\b(sim|s|ss|confirmo|confirmado|confirma|pode|pode apagar|pode sim|manda|manda ver|claro|"
     r"isso|isso mesmo|beleza|blz|ok|okay|autorizo|autorizado|vai|executa|execute|apaga)\b"
@@ -99,9 +105,11 @@ class Agent:
         llm_timeout: float = 60.0,
         api_registry: Any = None,
         confirm_destructive: bool = False,
+        direct_tool_reply: bool = True,
     ) -> None:
         self.llm = llm_provider
         self.confirm_destructive = confirm_destructive
+        self.direct_tool_reply = direct_tool_reply
         self.memory = memory if memory is not None else ChannelMemory()
         self.max_tool_rounds = max_tool_rounds
         self.llm_timeout = llm_timeout
@@ -263,6 +271,7 @@ class Agent:
 
             # Executar cada ferramenta
             pedindo_confirmacao: set[str] = set()
+            execucoes_finais: list[str] = []
             for call in tool_calls:
                 args = self._authorize_confirmed(channel_id, call.name, dict(call.args or {}), prompt)
                 try:
@@ -273,6 +282,7 @@ class Agent:
                     result_str = f"Erro inesperado: {exc}"
 
                 execucoes.append(call.name)
+                execucoes_finais.append(result_str)
 
                 if call.name in CONFIRMATION_TOOLS and "confirmed=true" in result_str:
                     pedindo_confirmacao.add(call.name)
@@ -291,6 +301,15 @@ class Agent:
             elif any(c.name in CONFIRMATION_TOOLS for c in tool_calls):
                 # a ferramenta destrutiva rodou de verdade (o usuário já havia confirmado)
                 self._aguardando_confirmacao.pop(channel_id, None)
+
+            # Atalho de velocidade: uma única ferramenta terminal que deu certo já produziu
+            # a resposta final — devolvê-la direto evita a segunda chamada ao LLM.
+            if (self.direct_tool_reply and len(tool_calls) == 1 and not pedindo_confirmacao
+                    and tool_calls[0].name in TERMINAL_TOOLS):
+                resultado = execucoes_finais[-1] if execucoes_finais else ""
+                if resultado and not resultado.startswith("Erro"):
+                    self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
+                    return resultado
 
         # Se atingiu o limite de rodadas de ferramentas, pede resumo final
         summary_prompt = {
