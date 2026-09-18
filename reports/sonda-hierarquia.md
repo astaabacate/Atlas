@@ -37,10 +37,10 @@
 
 ### Experimento cru (sem passar pelo produto)
 
-- Criei **🧪 sonda-hierarquia-1789759392** (`1550588018606346332`) → o Discord colocou na **posição 1** (meu cargo está na 27).
+- Criei **🧪 sonda-hierarquia-1789759553** (`1550588695092928666`) → o Discord colocou na **posição 1** (meu cargo está na 27).
 - ✏️ Renomear o cargo recém-criado: o Discord **ACEITOU**.
 - ✏️ Renomear ABAIXO do meu topo: o Discord **ACEITOU**.
-- ⬆️ Pedi para mover o cargo de teste para a posição 27 (a MESMA do meu topo) e conferi na API: o Discord na verdade colocou na posição 26.
-- ✏️ **EMPATE: RENOMEAR foi ACEITO** — o Discord não recusa por posição igual; quem recusava era o NOSSO gate.
-- 🗑️ **EMPATE: APAGAR foi ACEITO** — a regra é estritamente ABAIXO; cargo empatado é apagável, sim.
+- ⬆️ Pedi para mover o cargo de teste para a posição 27 (a MESMA do meu topo) e conferi na API: o Discord NÃO mantém empate: colocou na posição 26, logo abaixo do meu topo — pedir a minha própria posição vira "logo abaixo".
+- ✏️ Depois desse movimento, renomear foi ACEITO (o cargo não estava mais na minha altura — o Discord o colocou logo ABAIXO).
+- 🗑️ Apagar depois do movimento: ACEITO (cargo logo abaixo do meu topo).
 
