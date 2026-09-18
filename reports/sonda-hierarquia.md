@@ -3,7 +3,7 @@
 ## Servidor Pinguim (`1546763083005825084`)
 
 - Meu cargo mais alto: **Atlas** (`1550240596134731888`) na **posição 26** de 27 cargo(s).
-- Tenho a permissão Gerenciar Cargos: **NÃO**.
+- Permissões medidas na API: `8` (Gerenciar Cargos: **sim**, Administrator).
 
 | Posição | Cargo | ID | Gerenciado | Situação para o bot |
 | --- | --- | --- | --- | --- |
@@ -37,7 +37,7 @@
 
 ### Experimento cru (sem passar pelo produto)
 
-- Criei **🧪 sonda-hierarquia-1789758920** (`1550586042573267004`) → o Discord colocou na **posição 1** (meu cargo está na 26).
+- Criei **🧪 sonda-hierarquia-1789759093** (`1550586765373481160`) → o Discord colocou na **posição 1** (meu cargo está na 26).
 - ✏️ **RENOMEAR: o Discord ACEITOU** mesmo na mesma posição.
 - 🗑️ **APAGAR: o Discord ACEITOU** o cargo criado por mim.
 
