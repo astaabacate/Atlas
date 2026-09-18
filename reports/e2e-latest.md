@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 84 · ❌ 0 · ⚠️ 3 · ⏭️ 1
+- **Resumo:** ✅ 83 · ❌ 0 · ⚠️ 4 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 6cdacb6
-- **execução:** 35295797198
+- **commit:** 07a78e4
+- **execução:** 35296518063
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -78,7 +78,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 16ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 69ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -106,14 +106,14 @@
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 4 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`agent` — ✅ 3 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Atlas', 'iTinder'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso realizar ações de moderação como bans, expulsões ou punições, pois meu foco excl' |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso realizar ações de moderação como bans ou expulsões. Meu foco exclu' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Geral, oi) |
-| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
+| WARN | `memória do canal entre turnos` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Os gratuitos compartilham o IP'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 
 ## Mutações reais em objetos de teste (com limpeza)
 `mutate` — ✅ 16 · ❌ 0 · ⚠️ 2 · ⏭️ 1
@@ -122,7 +122,7 @@
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -132,9 +132,9 @@
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais (modo cauteloso)` | 2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true |
 | PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal 🧪-efemero excluído com sucesso.' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto e informou o resultado ('Canais 🧪-lote-1 e 🧪-lote-2 excluídos com sucesso. Restam os ') |
-| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Tem certeza que deseja excluir os canais 🧪-caut-1 e 🧪-caut-2? Responda **sim** para confirmar.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
+| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto e informou o resultado ('🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído') |
+| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Tem certeza de que deseja excluir **os dois canais** 🧪-caut-1 e 🧪-caut-2 de uma vez?  \nResponda com **“sim”** '). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 | PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | não conclusivo por causa do LLM gratuito: o modelo nem tentou excluir os canais |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
@@ -145,7 +145,7 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550319683650195486) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550322397117157449) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
