@@ -28,6 +28,8 @@ class ToolContext:
     # Alvos (nome casefold/id) que a MESMA mensagem vai apagar. Serve para uma recriação
     # ("apague e crie de novo o canal X") NÃO ser tratada como duplicata da que já existe.
     alvos_apagados: set[str] = field(default_factory=set)
+    # Tempo das últimas respostas do agente (só números, nenhum conteúdo de conversa).
+    tempos: Any = None
 
 
 @dataclass
@@ -334,6 +336,13 @@ TOOLS: list[ToolDef] = [
                 "description": {"type": "string", "description": "Nova descrição do servidor (opcional)."},
             },
         },
+    ),
+    ToolDef(
+        name="performance_report",
+        description=("Mostra quanto tempo as últimas respostas do bot levaram (mediana, pior e "
+                     "melhor) e o que pesou: modelo de linguagem ou execução das ações. Use "
+                     "quando pedirem para investigar lentidão/demora do bot."),
+        parameters={"type": "object", "properties": {}},
     ),
     ToolDef(
         name="server_info",

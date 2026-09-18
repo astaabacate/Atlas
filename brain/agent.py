@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
+from collections import deque
 from typing import Any
 
 from brain.executors import execute_tool
@@ -185,28 +187,127 @@ def _alvos_de_exclusao(tool_calls: list[Any]) -> set[str]:
     return alvos
 
 
-def _extract_fallback_tool_calls(text: str) -> list[ToolCall]:
+# O modelo grátis, muitas vezes, responde com PLANO/PROMESSA ("Vou criar o canal agora!",
+# "Deixa comigo, primeiro eu verifico…") sem chamar ferramenta nenhuma. O bot mandava esse texto
+# para o Discord como se fosse resposta e o cliente tinha de pedir DE NOVO — era o "tive que pedir
+# várias vezes". Aqui o pedido de ação sem ação vira uma cobrança ao modelo antes de desistir.
+_VERBO_DE_ACAO_RE = re.compile(
+    r"\b(crie|cria|criar|criem|apague|apaga|apagar|delete|deletar|exclua|excluir|renomeie|renomear|"
+    r"mude|mudar|edite|editar|mova|mover|clone|clonar|recrie|recriar|adicione|adicionar|remova|"
+    r"remover|suba|subir|des[cç]a|descer|ajuste|ajustar|configure|configurar|defina|definir|"
+    r"permita|permitir|negue|negar|sincronize|sincronizar|limpe|limpar|exporte|exportar|importe|"
+    r"importar|liste|listar|mostre|mostrar|atualize|atualizar|troque|trocar|tire|tirar|"
+    r"coloque|colocar|arraste|arrastar|ative|ativar|desative|desativar|monte|montar|organize|"
+    r"organizar|quero|preciso|pode\s+(?:criar|apagar|editar|mover|renomear|excluir))\b"
+)
+_PROMESSA_RE = re.compile(
+    r"\b(vou |vamos |irei |iremos |estou criando|estou apagando|estou editando|estou ajustando|"
+    r"deixa comigo|deixe comigo|primeiro|passo 1|passo a passo|plano|planejando|a seguir|"
+    r"come[çc]ando|vou come[çc]ar|agora vou|em seguida vou|meu plano)\b"
+)
+_IMPEDIMENTO_RE = re.compile(
+    r"\b(n[ãa]o posso|n[ãa]o vou|n[ãa]o consigo|n[ãa]o deu|n[ãa]o tenho permiss|sem permiss|"
+    r"fora do meu escopo|n[ãa]o [ée] minha [áa]rea|meu foco|deu erro|falhou|indispon[íi]vel|"
+    r"fila cheia|tente de novo|limite de uso)\b"
+)
+
+NUDGE_SEM_ACAO = (
+    "Você descreveu o que pretende fazer, mas NÃO chamou nenhuma ferramenta e nada foi feito. "
+    "Se o pedido do usuário exige ação, chame AGORA a ferramenta certa (uma chamada, com os "
+    "argumentos completos). Não escreva plano, passo a passo, promessa nem pedido de desculpas. "
+    "Se faltar alguma informação para executar, faça UMA pergunta curta."
+)
+
+
+def _extract_fallback_tool_calls(text: str, nomes_de_ferramenta: set[str] | None = None) -> list[ToolCall]:
     """
     Fallback para provedores gratuitos anônimos sem suporte nativo a function calling:
     procura blocos markdown do tipo ```tool ... ``` ou ```json ... ``` com {"name": ..., "args": ...}.
     """
     calls: list[ToolCall] = []
-    # Procura por blocos ```tool ou ```json
-    pattern = r"```(?:tool|json)?\s*(\{\s*\"name\"\s*:\s*.*?\})\s*```"
-    matches = re.finditer(pattern, text, re.DOTALL)
-    idx = 0
-    for match in matches:
-        raw_json = match.group(1)
+    conhecidas = nomes_de_ferramenta or set()
+
+    def _aceitar(data: Any) -> None:
+        """Aceita {"name":..,"args"/"arguments":{..}} e a forma nativa {"tool_calls":[..]}."""
+        if isinstance(data, dict) and isinstance(data.get("tool_calls"), list):
+            for bruto in data["tool_calls"]:
+                _aceitar(bruto)
+            return
+        if not isinstance(data, dict):
+            return
+        alvo = data.get("function") if isinstance(data.get("function"), dict) else data
+        name = alvo.get("name") or data.get("tool") or data.get("nome")
+        args = alvo.get("args")
+        if args is None:
+            args = alvo.get("arguments")
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except Exception:  # noqa: BLE001 - argumento em texto solto não serve
+                args = {}
+        if not name or not isinstance(args, dict):
+            return
+        if conhecidas and str(name) not in conhecidas:
+            return
+        calls.append(ToolCall(id=f"fallback_{len(calls)}", name=str(name), args=args))
+
+    # 1. blocos ```tool/```json (formato documentado no prompt do sistema)
+    pattern = r"```(?:tool|json)?\s*(\{.*?\})\s*```"
+    for match in re.finditer(pattern, text, re.DOTALL):
         try:
-            data = json.loads(raw_json)
-            name = data.get("name")
-            args = data.get("args", {})
-            if name and isinstance(args, dict):
-                calls.append(ToolCall(id=f"fallback_{idx}", name=name, args=args))
-                idx += 1
-        except Exception:
+            _aceitar(json.loads(match.group(1)))
+        except Exception:  # noqa: BLE001 - bloco que não é JSON: ignora
             continue
+    if calls:
+        return calls
+
+    # 2. JSON solto no meio do texto (modelos grátis esquecem a cerca de código). O objeto é
+    #    recortado por CONTAGEM de chaves: regex preguiçoso corta no primeiro "}" e perde os
+    #    argumentos aninhados. Só vale se o nome for de uma ferramenta conhecida — sem isso, um
+    #    JSON qualquer seria executado por engano.
+    if conhecidas:
+        for candidato in _objetos_json(text):
+            try:
+                _aceitar(json.loads(candidato))
+            except Exception:  # noqa: BLE001
+                continue
     return calls
+
+
+def _objetos_json(texto: str) -> list[str]:
+    """Recorta objetos `{...}` completos do texto (respeitando strings e aninhamento)."""
+    objetos: list[str] = []
+    i = 0
+    while i < len(texto):
+        ini = texto.find("{", i)
+        if ini == -1:
+            break
+        nivel = 0
+        em_string = False
+        escape = False
+        for j in range(ini, len(texto)):
+            c = texto[j]
+            if em_string:
+                if escape:
+                    escape = False
+                elif c == "\\":
+                    escape = True
+                elif c == '"':
+                    em_string = False
+                continue
+            if c == '"':
+                em_string = True
+            elif c == "{":
+                nivel += 1
+            elif c == "}":
+                nivel -= 1
+                if nivel == 0:
+                    objetos.append(texto[ini:j + 1])
+                    i = j + 1
+                    break
+        else:
+            break
+    return objetos
 
 
 class Agent:
@@ -219,6 +320,7 @@ class Agent:
         api_registry: Any = None,
         confirm_destructive: bool = False,
         direct_tool_reply: bool = True,
+        nudge_promise: bool = True,
     ) -> None:
         self.llm = llm_provider
         self.confirm_destructive = confirm_destructive
@@ -227,7 +329,13 @@ class Agent:
         self.max_tool_rounds = max_tool_rounds
         self.llm_timeout = llm_timeout
         self.api_registry = api_registry
-        self.tools_schema = [t.to_openai() for t in get_tool_definitions()]
+        definicoes = get_tool_definitions()
+        self.tools_schema = [t.to_openai() for t in definicoes]
+        self._nomes_de_ferramenta = {t.name for t in definicoes}
+        # Cobrar a ferramenta quando o modelo só prometeu (desligável por NUDGE_PROMISE=false).
+        self.nudge_promise = nudge_promise
+        # Tempo das últimas respostas (nenhum conteúdo de conversa, só números).
+        self.tempos: deque[dict[str, float]] = deque(maxlen=20)
         # conversa → ferramentas destrutivas que pediram confirmação no último turno
         self._aguardando_confirmacao: dict[Any, set[str]] = {}
         self.max_pending_confirmations: int = 200
@@ -384,6 +492,59 @@ class Agent:
         self.memory.add_message(channel_id, {"role": "assistant", "content": seguro})
         return seguro
 
+    def _registrar_tempo(self, total: float, llm: list[float], ferramentas: list[float]) -> None:
+        """
+        Guarda e LOGA o tempo do turno (nada de conteúdo de conversa): é assim que se mede
+        "demora" de verdade sem ler o chat de ninguém.
+        """
+        registro = {
+            "total": round(total, 3),
+            "llm": round(sum(llm), 3),
+            "ferramentas": round(sum(ferramentas), 3),
+        }
+        self.tempos.append(registro)
+        logger.info(
+            "turno: %.1fs no total (LLM %.1fs em %d chamada(s); ferramentas %.1fs em %d chamada(s))",
+            registro["total"], registro["llm"], len(llm),
+            registro["ferramentas"], len(ferramentas),
+        )
+
+    def resumo_de_tempos(self) -> str:
+        """Resumo (em português) do tempo das últimas respostas — sem nenhum texto de conversa."""
+        from brain.ops import resumo_de_tempos as _formatar
+
+        return _formatar(self.tempos)
+
+    @staticmethod
+    def _pedido_de_acao(prompt: str) -> bool:
+        """True quando a frase PEDE uma ação (criar, apagar, editar, listar, mover...)."""
+        texto = _strip_accents((prompt or "").lower())
+        return bool(_VERBO_DE_ACAO_RE.search(texto))
+
+    @classmethod
+    def _promessa_sem_acao(cls, prompt: str, texto: str) -> bool:
+        """
+        True quando o modelo respondeu com PLANO/PROMESSA (ou "Pronto!" sem nada) em vez de agir.
+
+        É o caso que faz o cliente repetir o pedido: o bot manda "Vou criar o canal agora!" e nada
+        acontece. Pergunta de esclarecimento (com "?") e recusa legítima NÃO entram — são
+        respostas finais válidas.
+        """
+        if not cls._pedido_de_acao(prompt):
+            return False
+        bruto = (texto or "").strip()
+        if not bruto or "?" in bruto or asks_for_confirmation(bruto):
+            return False
+        limpo = _strip_accents(bruto.lower())
+        if _IMPEDIMENTO_RE.search(limpo):
+            return False
+        if _PROMESSA_RE.search(limpo):
+            return True
+        # Sem promessa explícita, ainda vale cobrar quando a resposta não traz NENHUMA evidência
+        # de resultado (sem menção de canal/cargo, sem número): "Certo, feito!" mentiroso.
+        evidencia = re.search(r"<[#@]", bruto) or re.search(r"\d", bruto)
+        return not evidencia and len(bruto) < 400
+
     @staticmethod
     def _pedido_extra(prompt: str) -> bool:
         """True quando a frase pede algo ALÉM do comando (ex.: 'apague X e mande oi')."""
@@ -433,6 +594,7 @@ class Agent:
             memory=self.memory,
             confirm_destructive=self.confirm_destructive,
         )
+        ctx.tempos = self.tempos  # a ferramenta performance_report lê daqui (só números)
 
         snapshot = build_server_snapshot(guild)
         if self.confirm_destructive:
@@ -468,11 +630,20 @@ class Agent:
         final_text = ""
         execucoes: list[str] = []
         execucoes_finais: list[str] = []
+        # Tempo do turno por etapa (medir "demora" sem depender de ler o chat de ninguém)
+        inicio_turno = time.monotonic()
+        segundos_llm: list[float] = []
+        segundos_ferramentas: list[float] = []
+
+        def _fechar_turno(texto: str) -> str:
+            self._registrar_tempo(time.monotonic() - inicio_turno, segundos_llm, segundos_ferramentas)
+            return texto
 
         while rounds < self.max_tool_rounds:
             rounds += 1
 
             response: LLMResponse
+            _t = time.monotonic()
             try:
                 response = await self.llm.chat(
                     messages=messages,
@@ -480,19 +651,31 @@ class Agent:
                     timeout=self.llm_timeout,
                 )
             except Exception as exc:  # noqa: BLE001 - o que já foi executado não pode sumir
+                segundos_llm.append(time.monotonic() - _t)
                 if not execucoes:
                     raise
                 logger.warning(
                     "LLM caiu na rodada %d depois de executar %s (%s); respondendo com o "
                     "resultado real", rounds, execucoes, exc)
-                return self._resumo_do_que_foi_feito(channel_id, execucoes, execucoes_finais)
+                return _fechar_turno(
+                    self._resumo_do_que_foi_feito(channel_id, execucoes, execucoes_finais))
+            segundos_llm.append(time.monotonic() - _t)
 
             tool_calls = response.tool_calls
             # Se não houver tool_calls nativas, verificar fallback em texto
             if not tool_calls and response.content:
-                tool_calls = _extract_fallback_tool_calls(response.content)
+                tool_calls = _extract_fallback_tool_calls(response.content, self._nomes_de_ferramenta)
 
             if not tool_calls:
+                if (self.nudge_promise and not execucoes and rounds < self.max_tool_rounds
+                        and self._promessa_sem_acao(prompt, response.content or "")):
+                    # Cobrar a ação é uma ida a mais ao modelo, mas evita o pior: o cliente ler
+                    # uma promessa, nada acontecer e ter de pedir tudo de novo.
+                    logger.info("O modelo prometeu e não chamou ferramenta; cobrando a ação "
+                                "(rodada %d)", rounds)
+                    messages.append({"role": "assistant", "content": response.content or ""})
+                    messages.append({"role": "user", "content": NUDGE_SEM_ACAO})
+                    continue
                 limpa = await self._garantir_resposta_apresentavel(
                     channel_id, (response.content or "").strip(), execucoes_finais, messages)
                 final_text = self._com_pergunta_de_confirmacao(channel_id, limpa)
@@ -502,7 +685,7 @@ class Agent:
                         # perguntou no TEXTO (sem chamar a ferramenta): o "sim" da próxima
                         # mensagem precisa valer para a ferramenta destrutiva que vier
                         self._marcar_pendencia(channel_id, {"*"})
-                return final_text or "Operação concluída com sucesso."
+                return _fechar_turno(final_text or "Operação concluída com sucesso.")
 
             # O modelo chamou ferramentas
             # Montar mensagem do assistente para o contexto
@@ -526,6 +709,7 @@ class Agent:
 
             # Executar cada ferramenta — na ordem segura, sem repetir a mesma chamada e sem
             # apagar nada quando a criação da mesma mensagem falhou.
+            _t_ferramentas = time.monotonic()
             pedindo_confirmacao: set[str] = set()
             falhou_criacao = False
             # "recrie o canal X" manda apagar X e criar X: a criação não pode ser pulada como
@@ -574,6 +758,8 @@ class Agent:
                 messages.append(tool_result_msg)
                 self.memory.add_message(channel_id, tool_result_msg)
 
+            segundos_ferramentas.append(time.monotonic() - _t_ferramentas)
+
             if pedindo_confirmacao:
                 self._marcar_pendencia(channel_id, pedindo_confirmacao)
             elif any(c.name in CONFIRMATION_TOOLS for c in tool_calls):
@@ -589,7 +775,7 @@ class Agent:
                                   if _resultado_apresentavel(r)), "")
                 if resultado:
                     self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
-                    return resultado
+                    return _fechar_turno(resultado)
 
         # Se atingiu o limite de rodadas de ferramentas, pede resumo final
         summary_prompt = {
@@ -603,10 +789,11 @@ class Agent:
             if not execucoes:
                 raise
             logger.warning("Resumo final falhou (%s); respondendo com o que já foi executado", exc)
-            return self._resumo_do_que_foi_feito(channel_id, execucoes, execucoes_finais)
+            return _fechar_turno(
+                self._resumo_do_que_foi_feito(channel_id, execucoes, execucoes_finais))
         limpa = await self._garantir_resposta_apresentavel(
             channel_id, (final_resp.content or "").strip(), execucoes_finais, messages)
         final_text = self._com_pergunta_de_confirmacao(channel_id, limpa)
         if final_text:
             self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})
-        return final_text or "Operações concluídas."
+        return _fechar_turno(final_text or "Operações concluídas.")

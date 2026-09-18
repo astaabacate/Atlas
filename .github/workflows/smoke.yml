@@ -1,5 +1,12 @@
 name: Smoke LLM Providers
 
+# A cota dos modelos GRÁTIS é a mesma do bot em produção: uma execução antiga na fila
+# gastaria a cota que o bot precisa para responder no Discord. Só a mais nova fica na fila
+# (a que está rodando termina — nada de cancelar no meio de mutação real).
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
   push:

@@ -54,6 +54,9 @@ class Config:
     # Ferramentas "terminais" (excluir/limpar) já devolvem a resposta pronta: responder com ela
     # economiza uma ida ao LLM inteira (~metade do tempo até a mensagem aparecer no Discord).
     direct_tool_reply: bool = True
+    # Quando o modelo só PROMETE a ação (sem chamar ferramenta), cobra a ferramenta uma vez antes
+    # de devolver o texto: era isso que fazia o cliente ter de pedir de novo.
+    nudge_promise: bool = True
     max_tool_rounds: int = 3
     history_len: int = 10
     bulk_concurrency: int = 3
@@ -110,6 +113,7 @@ class Config:
 
         confirm_destructive = _parse_bool(src.get("CONFIRM_DESTRUCTIVE"))
         direct_tool_reply = _parse_bool(src.get("DIRECT_TOOL_REPLY", "true"), default=True)
+        nudge_promise = _parse_bool(src.get("NUDGE_PROMISE", "true"), default=True)
 
         try:
             max_tool_rounds = int(src.get("MAX_TOOL_ROUNDS", "3").strip())
@@ -164,6 +168,7 @@ class Config:
             disable_free_llms=disable_free_llms,
             confirm_destructive=confirm_destructive,
             direct_tool_reply=direct_tool_reply,
+            nudge_promise=nudge_promise,
             llm_timeout=timeout,
             llm_max_tokens=max_tokens,
             max_tool_rounds=max_tool_rounds,

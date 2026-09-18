@@ -1274,6 +1274,43 @@ async def op_edit_server(
     raise ToolError("Servidor não suporta edição.")
 
 
+def resumo_de_tempos(registros: Any) -> str:
+    """
+    Resumo honesto do tempo das últimas respostas — SÓ números, nunca conteúdo de conversa.
+
+    É a resposta para "por que o bot demora?": separa o que foi gasto falando com o modelo do que
+    foi gasto executando as ações no Discord.
+    """
+    amostras = [float(r.get("total", 0.0)) for r in (registros or [])]
+    if not amostras:
+        return ("Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). "
+                "Me peça de novo depois de algumas tarefas.")
+    llm = sorted(float(r.get("llm", 0.0)) for r in registros)
+    ferr = sorted(float(r.get("ferramentas", 0.0)) for r in registros)
+
+    def mediana(valores: list[float]) -> float:
+        if not valores:
+            return 0.0
+        meio = len(valores) // 2
+        if len(valores) % 2:
+            return valores[meio]
+        return (valores[meio - 1] + valores[meio]) / 2
+
+    ordenadas = sorted(amostras)
+    return (
+        f"⏱️ **Tempo das últimas {len(amostras)} respostas**\n"
+        f"• mediana: **{mediana(ordenadas):.1f}s** (melhor {ordenadas[0]:.1f}s, pior {ordenadas[-1]:.1f}s)\n"
+        f"• falando com o modelo: {mediana(llm):.1f}s\n"
+        f"• executando as ações no Discord: {mediana(ferr):.1f}s\n"
+        "Se a mediana estiver alta, o gargalo é o modelo gratuito (fila/limite de uso) e não as "
+        "ações — cadastrar mais chaves de provedores gratuitos deixa a resposta mais rápida."
+    )
+
+
+async def op_performance_report(ctx: ToolContext) -> str:
+    return resumo_de_tempos(getattr(ctx, "tempos", None))
+
+
 async def op_server_info(ctx: ToolContext) -> str:
     g = ctx.guild
     name = getattr(g, "name", "Servidor")

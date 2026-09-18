@@ -74,6 +74,7 @@ def main() -> None:
         api_registry=api_registry,
         confirm_destructive=config.confirm_destructive,
         direct_tool_reply=config.direct_tool_reply,
+        nudge_promise=config.nudge_promise,
     )
 
     bot = FarolBot(config=config, agent=agent)

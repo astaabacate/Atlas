@@ -1791,6 +1791,16 @@ class Harness:
 
         await self.check(phase, "server_info", server_info)
 
+        async def performance_report() -> str:
+            """O relatório de tempo é a resposta para "por que o bot demora?" (só números)."""
+            out = await execute_tool("performance_report", {}, ctx)
+            self.assert_true(bool(out.strip()), "performance_report respondeu vazio")
+            self.assert_true("respostas" in out.lower() or "ainda não respondi" in out.lower(),
+                             f"resposta inesperada: {out[:120]}")
+            return out.replace("\n", " · ")[:200]
+
+        await self.check(phase, "performance_report (tempo das respostas)", performance_report)
+
         async def list_roles() -> str:
             out = await execute_tool("list_roles", {}, ctx)
             faltando = [r.name for r in guild.roles if f"<@&{r.id}>" not in out]

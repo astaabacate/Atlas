@@ -677,6 +677,67 @@ class TestRespostaNuncaVazaRaciocinio(unittest.TestCase):
         self.assertTrue(resposta.startswith("Feito"), resposta)
         self.assertLess(len(resposta), 200)
 
+class TestParserDeTextoEDiagnostico(unittest.TestCase):
+    """Formas alternativas que os modelos grátis usam para "chamar" uma ferramenta, e o relatório
+    de tempo que responde "por que demora?" sem tocar em conteúdo de conversa."""
+
+    def test_json_sem_cerca_de_codigo(self) -> None:
+        from brain.agent import _extract_fallback_tool_calls
+
+        texto = ('Claro! {"name": "create_channels", "args": {"channels": [{"name": "x"}]}} '
+                 "já vou fazer.")
+        calls = _extract_fallback_tool_calls(texto, {"create_channels", "delete_channels"})
+        self.assertEqual([c.name for c in calls], ["create_channels"])
+        self.assertEqual(calls[0].args, {"channels": [{"name": "x"}]})
+
+    def test_formato_nativo_em_texto(self) -> None:
+        from brain.agent import _extract_fallback_tool_calls
+
+        texto = ('```json\n{"tool_calls": [{"function": {"name": "list_roles", "arguments": "{}"}}]}\n```')
+        calls = _extract_fallback_tool_calls(texto, {"list_roles"})
+        self.assertEqual([c.name for c in calls], ["list_roles"])
+        self.assertEqual(calls[0].args, {})
+
+    def test_nome_desconhecido_nao_e_executado(self) -> None:
+        from brain.agent import _extract_fallback_tool_calls
+
+        texto = 'Segue o JSON: {"name": "drop_database", "args": {}}'
+        self.assertEqual(_extract_fallback_tool_calls(texto, {"create_channels"}), [])
+
+    def test_pedido_de_acao_reconhece_verbos(self) -> None:
+        from brain.agent import Agent
+
+        for frase in ("crie um canal", "apague o canal x", "renomeie o cargo", "me liste os cargos",
+                      "quero um cargo VIP", "mova o canal"):
+            self.assertTrue(Agent._pedido_de_acao(frase), frase)
+        for frase in ("oi", "bom dia, tudo bem?", "obrigado!"):
+            self.assertFalse(Agent._pedido_de_acao(frase), frase)
+
+    def test_promessa_detectada_e_recusa_nao(self) -> None:
+        from brain.agent import Agent
+
+        self.assertTrue(Agent._promessa_sem_acao("crie o canal avisos", "Vou criar agora!"))
+        self.assertTrue(Agent._promessa_sem_acao("crie o canal avisos", "Deixa comigo!"))
+        self.assertFalse(Agent._promessa_sem_acao("crie o canal avisos",
+                                                  "Não posso criar: falta permissão."))
+        self.assertFalse(Agent._promessa_sem_acao("crie o canal avisos",
+                                                  "Qual nome você quer?"))
+
+    def test_relatorio_de_tempo_sem_conteudo_de_conversa(self) -> None:
+        from brain.ops import resumo_de_tempos
+
+        vazio = resumo_de_tempos(None)
+        self.assertIn("Ainda não respondi", vazio)
+
+        registros = [{"total": 2.0, "llm": 1.5, "ferramentas": 0.4},
+                     {"total": 4.0, "llm": 3.0, "ferramentas": 0.8}]
+        texto = resumo_de_tempos(registros)
+        self.assertIn("últimas 2 respostas", texto.lower())
+        self.assertIn("3.0s", texto)   # mediana do total
+        self.assertIn("2.2s", texto)   # mediana do tempo de LLM
+        self.assertIn("chaves", texto, "o relatório tem que apontar a saída (mais corredores)")
+
+
 class TestOrdemSeguraEDedupe(unittest.TestCase):
     """
     Os três bugs que o dono do servidor viu usando o bot de verdade:
@@ -842,6 +903,69 @@ class TestOrdemSeguraEDedupe(unittest.TestCase):
                          "a criação tem que vir antes da exclusão")
         self.assertIn("dicas-freefire", self.criados, "a recriação foi pulada como duplicata")
         self.assertEqual(self.apagados, ["dicas-freefire"], "o canal antigo tinha que sair")
+
+    def test_promessa_sem_acao_cobra_a_ferramenta(self) -> None:
+        """
+        O modelo responde "Vou criar o canal agora!" e NÃO chama ferramenta: antes o bot mandava
+        essa promessa como resposta e o cliente tinha de pedir de novo (foi o que o dono viu).
+        Agora o agente cobra a ação uma vez e a ferramenta roda.
+        """
+        agent, llm = self._agent([
+            LLMResponse(content="Vou criar o canal agora mesmo! Deixa comigo.", tool_calls=[]),
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="create_channels",
+                         args={"channels": [{"name": "avisos", "type": "text"}]}),
+            ]),
+        ])
+
+        with self._espiar_execucao():
+            resposta = self._turno(agent, "crie o canal avisos")
+
+        self.assertIn("create_channels", self.ordem_executada, "a ação não foi executada")
+        self.assertEqual(len(llm.call_history), 2, "a cobrança usa uma segunda chamada ao modelo")
+        # (o FakeLLM guarda a MESMA lista de mensagens mutável, então não dá para inspecionar o
+        # conteúdo da 2ª chamada: o que prova a cobrança é a 2ª chamada existir e o resultado real
+        # virar resposta — sem ela, o bot devolveria a promessa e haveria só UMA chamada.)
+        self.assertNotIn("Deixa comigo", resposta, "a promessa não pode ser a resposta final")
+        self.assertIn("Criei 1 canal", resposta)
+
+    def test_pergunta_de_esclarecimento_nao_vira_cobranca(self) -> None:
+        """Modelo pergunta o nome para executar: é resposta válida, não promessa vazia."""
+        agent, llm = self._agent([
+            LLMResponse(content="Qual nome você quer para o canal?", tool_calls=[]),
+        ])
+        resposta = self._turno(agent, "crie um canal")
+        self.assertIn("Qual nome", resposta)
+        self.assertEqual(len(llm.call_history), 1, "não devia gastar outra chamada")
+
+    def test_recusa_de_escopo_nao_vira_cobranca(self) -> None:
+        """Recusa legítima (fora do escopo) é resposta final — não pode virar 'chame a ferramenta'."""
+        agent, llm = self._agent([
+            LLMResponse(content="Não posso aplicar bans; meu foco é a estrutura do servidor.",
+                        tool_calls=[]),
+        ])
+        resposta = self._turno(agent, "bane o fulano")
+        self.assertIn("Não posso aplicar bans", resposta)
+        self.assertEqual(len(llm.call_history), 1, "recusa não pode virar cobrança")
+
+    def test_apos_executar_nao_gasta_cobranca(self) -> None:
+        """
+        Já executou algo nesta mensagem: o texto seguinte é resumo do que foi feito — cobrar outra
+        ferramenta aqui só gastaria uma ida a mais ao modelo (e o dono pagou caro por isso).
+        """
+        agent, llm = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="create_channels",
+                         args={"channels": [{"name": "sala-1", "type": "voice"}]}),
+                ToolCall(id="c2", name="create_channels",
+                         args={"channels": [{"name": "sala-2", "type": "voice"}]}),
+            ]),
+            LLMResponse(content="Pronto! Criei as duas salas.", tool_calls=[]),
+        ])
+        with self._espiar_execucao():
+            resposta = self._turno(agent, "crie as salas")
+        self.assertIn("Pronto!", resposta)
+        self.assertEqual(len(llm.call_history), 2, "não pode haver terceira chamada")
 
     def test_chamada_repetida_nao_cria_duplicado(self) -> None:
         """O modelo repetiu a mesma criação: só pode rodar UMA vez (cargo/canal duplicado era bug)."""

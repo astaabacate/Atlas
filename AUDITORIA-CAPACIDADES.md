@@ -218,6 +218,51 @@ de um **recorte** do JSON: num servidor sem categorias os canais aparecem depois
 harness passou a cobrar o aviso e o balanço do que foi exportado (as chaves do pedaço cortado não
 podem ser exigidas; o JSON completo continua validado quando ele cabe na mensagem).
 
+### Rodada 6 (18/09): "tive que pedir várias vezes" e "demora para agir"
+
+Relato do dono depois de usar o bot no Discord. Duas queixas, duas causas diferentes — e uma
+descoberta que explica as duas.
+
+**1. Tive que pedir várias vezes.** Com os modelos gratuitos, a resposta mais comum a um pedido de
+ação não é o erro: é o **plano**. O modelo escreve *"Vou criar o canal agora mesmo! Deixa comigo"*
+(or *"Primeiro eu verifico…"*) e **não chama ferramenta nenhuma**. O bot mandava esse texto para o
+Discord como se fosse a resposta e nada acontecia — o cliente lia a promessa, esperava, e tinha de
+pedir de novo. Correção: quando o pedido é de AÇÃO e a resposta é promessa/plano (sem pergunta de
+esclarecimento e sem recusa legítima), o agente **cobra a ferramenta uma vez** ("você não chamou
+nenhuma ferramenta; chame AGORA") antes de responder. Também entrou no protocolo de texto dos
+provedores sem function calling: JSON solto no meio da frase (sem cerca de código) e a forma nativa
+`{"tool_calls": …}` agora são reconhecidos — recortando o objeto por contagem de chaves, porque
+recorte por regex cortava no primeiro `}`, perdendo os argumentos aninhados. Regressões:
+`test_promessa_sem_acao_cobra_a_ferramenta`, `test_pergunta_de_esclarecimento_nao_vira_cobranca`,
+`test_recusa_de_escopo_nao_vira_cobranca`, `test_apos_executar_nao_gasta_cobranca` e os testes do
+parser.
+
+**2. "Devia ser instantâneo" — e por que não era.** Ações de uma ferramenta só já respondem sem
+segunda ida ao modelo (`direct_tool_reply`), então o que sobra é a corrida de LLM. Medido: a fila
+do kilo responde em ~1–2,5 s. O problema é a **cota**: o bot 24/7 usa o acesso **anônimo** do kilo
+(~200 req/h) e as execuções de CI (E2E a cada push, sonda de provedores) usam a **MESMA cota** —
+enquanto eu testava, o bot do dono recebia 429 e respondia "os modelos gratuitos estão com a fila
+cheia agora". Ou seja: parte da lentidão que o dono sentiu foi o próprio processo de teste comendo
+a cota do bot. Mitigação nesta rodada: `concurrency` nos workflows (só a execução mais nova fica na
+fila; nada de run velha consumindo cota), e a orientação de cadastrar as **12 chaves gratuitas**
+(cada chave nova é um corredor a mais: a corrida dispara todos em paralelo e o primeiro que
+responde vence).
+
+**3. Medir em vez de adivinhar.** O agente agora mede o próprio tempo por etapa (LLM × execução das
+ações) e loga uma linha por resposta (`turno: 4,1s no total (LLM 3,2s em 2 chamadas…)`) — **sem
+nenhum conteúdo de conversa** (o log do Actions é público, o chat do dono não). E existe uma
+ferramenta nova, `performance_report`: o dono pode perguntar no Discord *"quanto tempo o bot está
+levando?"* e receber mediana/pior/melhor com o que pesou. Isso também é o que permite diagnosticar
+"demora" sem ler o chat de ninguém.
+
+### Nota honesta sobre "entrar no bot e ler o chat"
+
+O `DISCORD_TOKEN` só existe como *secret* do repositório (visível apenas dentro das execuções do
+Actions) e o repositório é **público**: despejar a conversa em log/artefato de CI publicaria o chat
+do dono para qualquer pessoa. Por isso a leitura da conversa real precisa vir do dono (copiar e
+colar aqui) — o que dá para fazer daqui, e foi feito, é medir o tempo e a sequência de ferramentas
+sem o texto, e cobrir cada comportamento com regressão.
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o
