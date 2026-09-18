@@ -155,6 +155,50 @@ class TestMerge(unittest.TestCase):
             self.assertEqual(e2e.merge_parts(Path(tmp) / "vazio", Path(tmp) / "out"), 1)
 
 
+class TestDadosReaisCitados(unittest.TestCase):
+    """O check "o agente conhece a estrutura" aceita o resumo REAL do servidor (server_info)."""
+
+    def setUp(self) -> None:
+        self.harness = _carregar_harness()
+
+    def test_aceita_resumo_do_servidor_conferido_na_api(self) -> None:
+        import asyncio
+
+        class ServidorFalso:
+            name = "Pinguim"
+            owner_id = 42
+
+            async def fetch_channels(self) -> list[Any]:
+                return [1]
+
+            async def fetch_roles(self) -> list[Any]:
+                return [1, 2, 3]
+
+        resposta = ("📊 **Informações de Pinguim:**\n• **ID:** `1`\n• **Dono:** <@42>\n"
+                    "• **Membros:** 4\n• **Canais:** 1\n• **Cargos:** 3")
+        confere = asyncio.run(self.harness.Harness._dados_reais_citados(ServidorFalso(), resposta))
+        self.assertIn("canais=1", " ".join(confere))
+        self.assertIn("cargos=3", " ".join(confere))
+        self.assertTrue(any("Pinguim" in c for c in confere), confere)
+
+    def test_nao_aceita_contagem_errada_nem_invencao(self) -> None:
+        import asyncio
+
+        class ServidorFalso:
+            name = "Pinguim"
+            owner_id = 42
+
+            async def fetch_channels(self) -> list[Any]:
+                return [1]
+
+            async def fetch_roles(self) -> list[Any]:
+                return [1, 2, 3]
+
+        resposta = "Claro! O servidor tem 99 canais e 500 cargos, é bem grande."
+        confere = asyncio.run(self.harness.Harness._dados_reais_citados(ServidorFalso(), resposta))
+        self.assertEqual(confere, [], f"aceitou dados inventados: {confere}")
+
+
 class TestGuardas(unittest.TestCase):
     def test_reporter_nao_duplica_checagem(self) -> None:
         rep = e2e.Reporter(["x"])

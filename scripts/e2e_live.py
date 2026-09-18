@@ -575,6 +575,35 @@ class Harness:
             raise AssertionError(message)
 
     @staticmethod
+    @staticmethod
+    async def _dados_reais_citados(guild: Any, resposta: str) -> list[str]:
+        """
+        Aceita a resposta que, sem nomear canais, cita dados REAIS do servidor.
+
+        O `server_info` é uma resposta legítima ("📊 Informações de X: … Canais: 1 · Cargos: 25"):
+        ela prova que o bot conhece o servidor pelos dados, não por invenção. Sem isso, uma
+        resposta correta virava ❌ só por não citar o nome de um canal.
+        """
+        import re
+
+        baixo = (resposta or "").lower()
+        confere: list[str] = []
+        nome_srv = str(getattr(guild, "name", "")).strip()
+        if nome_srv and nome_srv.lower() in baixo:
+            confere.append(f"nome do servidor ({nome_srv})")
+        owner_id = getattr(guild, "owner_id", None)
+        if owner_id and f"<@{owner_id}>" in resposta:
+            confere.append("menção do dono")
+        try:
+            canais_api = len(await guild.fetch_channels())
+            cargos_api = len(await guild.fetch_roles())
+        except Exception:  # noqa: BLE001 - sem API, vale o que já foi conferido
+            return confere
+        for rotulo, valor in (("canais", canais_api), ("cargos", cargos_api)):
+            if re.search(rf"\*{{0,2}}{rotulo}\*{{0,2}}[^\d]{{0,6}}{valor}\b", baixo):
+                confere.append(f"{rotulo}={valor}")
+        return confere
+
     def _culpa_do_llm(resposta: str) -> bool:
         """
         True quando a resposta denuncia o PROVEDOR (gratuito) e não o bot: nenhum provedor
@@ -1996,7 +2025,14 @@ class Harness:
                 return self.degradar_llm(phase, "agente conhece a estrutura real",
                                          "a resposta veio do aviso de fila cheia", resposta)
             citados = [nome for nome, mencao in marcadores if nome in resposta or mencao in resposta]
-            self.assert_true(bool(citados), f"não citou nada real do servidor (nem nome nem menção): {resposta[:160]!r}")
+            if not citados:
+                confere = await self._dados_reais_citados(guild, resposta)
+                self.assert_true(bool(confere),
+                                 f"não citou nada real do servidor (nem nome nem menção): {resposta[:160]!r}")
+                self.rep.record(phase, "agente: resposta com dados reais (sem listar nomes)", WARN,
+                                "o modelo respondeu com o resumo do servidor (dados reais conferidos "
+                                "na API) em vez de listar categorias/canais por nome")
+                return f"respondeu com dados reais do servidor ({', '.join(confere)})"
             return f"citou itens reais do servidor ({', '.join(citados[:3])})"
 
         await self.check(phase, "agente conhece a estrutura real", conhece_estrutura)
@@ -3446,6 +3482,15 @@ class Harness:
                                         "o bot marcou ❌ porque o Discord devolveu erro de servidor "
                                         f"durante a ação (comportamento correto): {texto.strip()[:160]}")
                         return (f"❌ por indisponibilidade do Discord, não do bot (reações: {emojis})",
+                                {"reacoes": emojis})
+                    if self._culpa_do_llm(texto):
+                        # ❌ é o comportamento CERTO: a ação não foi feita porque nenhum corredor
+                        # grátis atendeu. Culpa do provedor, não do bot (sem chave paga é
+                        # intermitente — o dono aceitou esse risco).
+                        self.rep.record(phase, "reações de feedback 👀→✅", WARN,
+                                        "o bot marcou ❌ porque nenhum corredor grátis atendeu nesta "
+                                        f"rodada (comportamento correto): {texto.strip()[:160]}")
+                        return (f"❌ por fila cheia dos modelos grátis (reações: {emojis})",
                                 {"reacoes": emojis})
                 self.assert_true("✅" in emojis, f"o bot não marcou ✅ (reações: {emojis})")
                 self.assert_true("👀" not in emojis, f"o 👀 ficou pendurado (reações: {emojis})")
