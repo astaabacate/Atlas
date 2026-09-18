@@ -131,7 +131,7 @@ credencial cadastrada fica fora da corrida (o log diz exatamente qual secret fal
 
 | Corredor | Como entra | Contexto | Cota gratuita | Tools |
 | --- | --- | --- | --- | --- |
-| `kilo` | **anônimo** (sem cadastro) | 262K (alguns 1M) | 200 req/h por IP | nativo |
+| `kilo` | **anônimo** (sem cadastro) | **1M** (vários) · 512K · 262K | 200 req/h por IP | nativo |
 | `gemini` | secret `GEMINI_API_KEY` | **1M** | 10–15 RPM · 250–1.500 req/dia (por projeto) | nativo |
 | `groq` | secret `GROQ_API_KEY` | 128K | 30 RPM · 1.000 req/dia · 200K tokens/dia (por organização) | nativo |
 | `mistral` | secret `MISTRAL_API_KEY` | 256K | ~1 bilhão de tokens/mês (~2 RPM) | nativo |
@@ -145,6 +145,11 @@ credencial cadastrada fica fora da corrida (o log diz exatamente qual secret fal
 | `cohere` | secret `COHERE_API_KEY` | 128K | 1.000 chamadas/mês (**só uso não comercial**) | nativo |
 
 Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
+
+**Lista de modelos conferida ao vivo:** a ficha do `kilo` não é chute — cada id sai do catálogo real
+(`GET /api/gateway/models`, 380 modelos, 21 marcados `:free`), publicado pelo CI em
+[`reports/kilo-modelos-free.md`](reports/kilo-modelos-free.md). Modelo que sai do catálogo é
+descartado sozinho pela descoberta automática.
 
 **Como saber quem está realmente respondendo:** a sonda ao vivo roda no CI a cada push em
 `llm/**` (workflow *Smoke LLM Providers*) e grava o resultado em

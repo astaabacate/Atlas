@@ -72,6 +72,22 @@ execuções [`35291065652`](https://github.com/astaabacate/Atlas/actions/runs/35
 > não há como responder 200. Cadastrou o secret → a sonda seguinte promove para 🟢 automaticamente,
 > sem mudar uma linha de código.
 
+## 3.1) Segunda rodada de verificação (18/09) — catálogo e candidatos
+
+- **Catálogo real do Kilo:** `GET /api/gateway/models` sem credencial devolveu **381 modelos**, dos
+  quais **21 marcados `:free`** → publicado em [`reports/kilo-modelos-free.md`](kilo-modelos-free.md).
+  A ficha do `kilo` passou a listar **ids conferidos nessa lista**, do contexto gigante para o pequeno
+  (1M → 65K); três modelos que estavam na ficha (`qwen/qwen3-coder:free`, `z-ai/glm-5:free`,
+  `minimax/minimax-m3:free`) **já não existem** e foram trocados.
+- **Sonda com a lista nova:** o corredor respondeu com
+  `thinkingmachines/inkling-small:free` (**1M de contexto**), tools nativo, 3 consecutivas 200/200/200.
+- **Linha `Authorization` do Kilo:** testado **sem** o header — o POST volta 200 com **corpo vazio**.
+  Com `Bearer anonymous` o modelo responde de verdade → o header fica (evidência, não crença).
+- **`opencode-zen` (candidato trazido pelo dono): 🔴 FORA.** `GET /models` responde 200, mas
+  `POST /chat/completions` deu **400 "Model is unavailable"** (`deepseek-v4-flash-free`) e
+  **403 "OpenCode's free tier can only be used from within…"** (`big-pickle`). Não entra no pool —
+  e não por opinião: está registrado na sonda a cada execução.
+
 ## 4) Realmente gratuitos (sem trial que expira)
 
 Todos os 12 têm camada gratuita descrita na documentação oficial do provedor, com link e data na
@@ -239,6 +255,16 @@ O que a suíte garante (destaques de `tests/test_llm_providers.py`, 37 testes):
 - `supports_models` liga/desliga a descoberta `GET /models`; `cooldown` da ficha chega no corredor;
 - arquitetura preservada: corrida paralela, ondas, retry de 429 com `Retry-After`, castigo, fallback
   de modelo, tools nativo com degradação para texto, timeout e detecção de resposta inválida.
+
+## Pedido de "trocar de IP entre runners" — recusado (e por quê)
+
+Foi sugerido usar os ~20 runners do GitHub Actions em rodízio para "trocar o IP" e multiplicar o
+limite por IP. **Não foi feito:** limite por IP não se multiplica, isso é burlar rate limit — a mesma
+categoria de proxy residencial/rotação de contas que o próprio pedido proíbe. Além de violar o ToS do
+provedor, o padrão é detectável e queima a conta **e** o acesso ao Actions (uso abusivo de runner
+gratuito). O que dá para fazer honestamente, e está feito: dividir trabalho disjunto entre runners,
+respeitar `Retry-After`, cooldown por corredor e cadastrar mais chaves gratuitas (Groq, Gemini…),
+que aí o limite é por organização/conta do dono — legítimo.
 
 ## Segurança e limites (o que **não** foi feito)
 
