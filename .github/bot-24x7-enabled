@@ -154,3 +154,11 @@ exato para resolver (arrastar o cargo do farol para cima); (2) mensagem de hiera
 medidas + passo a passo, também no delete_role individual; (3) empate de posição passa a TENTAR a
 exclusão de verdade (o cache do discord.py pode estar velho); (4) fim da mentira: quando tudo
 falha e o modelo devolve texto vazio, o bot responde o motivo real em vez de "Feito!".
+
+RESTART PEDIDO EM 2026-09-18T11:22Z
+-------------------------------
+Motivo: a instrução de hierarquia passa a dizer o NOME REAL do cargo do farol no servidor
+(em vez de um nome genérico), para o passo a passo do Discord ficar acionável sem adivinhação.
+Esta fatia leva tudo da anterior (delete_roles em lote, motivo por cargo bloqueado, empate de
+posição tenta a exclusão de verdade, fim do "Feito!" quando nada foi feito). Substitui a
+execução ainda pendente.
