@@ -166,6 +166,10 @@ class Servidor:
         self._seq += 1
         return self._seq
 
+    async def fetch_roles(self) -> list[Any]:
+        """Como no Discord: a lista real de cargos do servidor."""
+        return list(self.roles)
+
     async def fetch_member(self, membro_id: int) -> Any:
         """Como no Discord: busca na API quem não está no cache."""
         if membro_id in self.na_api:
@@ -813,6 +817,59 @@ class TestMembroForaDoCache(unittest.TestCase):
         msg = falha("give_role", {"member": "111222333444555666", "role": "geral"}, ctx)
         self.assertIn("não foi encontrado", msg)
 
+
+class TestHierarquiaComCacheQuebrado(unittest.TestCase):
+    """
+    Cache de cargos vazio: `Member.top_role` cai no @everyone (posição 0) e o bot passava a
+    recusar TUDO — inclusive um cargo que ele mesmo tinha acabado de criar. A hierarquia tem
+    que ser conferida na API antes de recusar.
+    """
+
+    def _servidor_com_cache_ruim(self) -> tuple[Any, Servidor]:
+        ctx, servidor = contexto()
+        farol = Entidade("farol", 999, 3)
+        servidor.roles.append(farol)
+        # o cache do membro do bot perdeu os cargos: top_role vira @everyone
+        servidor.me.top_role = types.SimpleNamespace(id=1, name="@everyone", position=0,
+                                                     is_default=lambda: True)
+        servidor.me.roles = []
+        servidor.me._roles = {999}
+        return ctx, servidor
+
+    def test_edita_cargo_abaixo_do_bot_mesmo_com_cache_quebrado(self) -> None:
+        ctx, servidor = self._servidor_com_cache_ruim()
+        criado = Entidade("🧪-novo", 4242, 1)  # nasceu embaixo, como no Discord
+        servidor.roles.append(criado)
+
+        saida = executar("edit_role", {"role": str(criado.id), "name": "🧪-renomeado"}, ctx)
+        self.assertIn("atualizado", saida)
+        self.assertEqual(criado.name, "🧪-renomeado", "o cargo tinha que ter sido renomeado")
+
+    def test_ainda_recusa_cargo_de_verdade_acima_do_bot(self) -> None:
+        ctx, servidor = self._servidor_com_cache_ruim()
+        alto = Entidade("chefe", 4243, 9)
+        servidor.roles.append(alto)
+
+        msg = falha("edit_role", {"role": str(alto.id), "name": "x"}, ctx)
+        self.assertIn("posição 9", msg)
+        self.assertIn("posição 3", msg)
+
+    def test_cargos_do_membro_sem_cache_sao_recuperados(self) -> None:
+        """`Member.roles` vem vazio quando o cache falha — os IDs crus ainda estão no membro."""
+        ctx, servidor = self._servidor_com_cache_ruim()
+        from brain import ops
+
+        self.assertEqual(ops._cargos_do_membro(servidor.me), {999})
+
+    def test_create_roles_avisa_quando_nascem_na_altura_do_bot(self) -> None:
+        ctx, servidor = contexto()
+        servidor.me.top_role.position = 1  # cargo do farol no chão do servidor
+        saida = executar("create_roles", {"roles": [{"name": "🧪-no-chao"}]}, ctx)
+        self.assertIn("Suba o meu cargo", saida)
+
+        servidor.me.top_role.position = 50  # bem acima: nada a avisar
+        saida = executar("create_roles", {"roles": [{"name": "🧪-tranquilo"}]}, ctx)
+        self.assertNotIn("Suba o meu cargo", saida)
 
 class TestRecusaDeHierarquiaComNumeros(unittest.TestCase):
     """A recusa diz AS POSIÇÕES — sem isso a matriz ao vivo não conseguiu diagnosticar nada."""

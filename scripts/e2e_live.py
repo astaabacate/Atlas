@@ -2571,18 +2571,32 @@ class Harness:
             return await guild.fetch_channel(canal.id)
 
         # -------------------------------------------------------------- cargos
-        def gerencia_cargos() -> bool:
+        async def topo_do_bot() -> int:
+            """Posição do cargo mais alto do bot, MEDIDA na API (o cache do discord.py engana)."""
+            ids = {getattr(r, "id", None) for r in (getattr(guild.me, "roles", None) or [])}
+            ids.discard(None)
+            if not ids:
+                ids = {i for i in (getattr(guild.me, "_roles", None) or ()) if isinstance(i, int)}
+            frescos = await guild.fetch_roles()
+            return max((int(r.position) for r in frescos if r.id in ids), default=0)
+
+        async def gerencia_cargos() -> bool:
             """O bot só mexe em cargo abaixo do cargo mais alto dele (regra do Discord)."""
             papel = estado.get("cargo")
-            return papel is not None and papel.position < guild.me.top_role.position
+            if papel is None:
+                return False
+            estado["topo_bot"] = await topo_do_bot()
+            return papel.position < estado["topo_bot"]
 
         def aviso_de_hierarquia(motivo: str) -> str:
             """Registra ⚠️ dizendo o que NÃO foi verificado e por quê — nunca um ✅ de fachada."""
+            topo = estado.get("topo_bot")
+            onde = f" (meu cargo mais alto está na posição {topo})" if topo else ""
             self.rep.record(phase, "cargos: gerenciar o cargo criado", WARN,
-                            f"{motivo} — suba o cargo do farol acima dos cargos de teste para a "
-                            "auditoria de cargos ficar completa ao vivo (as validações de valor, "
-                            "hierarquia e @everyone seguem cobertas por tests/test_capacidades.py)")
-            return f"não verificável neste servidor: {motivo}"
+                            f"{motivo}{onde} — suba o cargo do farol acima dos cargos de teste "
+                            "para a auditoria de cargos ficar completa ao vivo (as validações de "
+                            "valor, hierarquia e @everyone seguem em tests/test_capacidades.py)")
+            return f"não verificável neste servidor: {motivo}{onde}"
 
         async def cargos_criacao_completa() -> str:
             antes = await self._api_state(guild)
@@ -2615,7 +2629,7 @@ class Harness:
             papel = estado.get("cargo")
             if papel is None:
                 self.assert_true(False, "sem cargo criado para editar")
-            if not gerencia_cargos():
+            if not await gerencia_cargos():
                 # A recusa EM SI é verificável (e importante): confere que é clara e que nada mudou.
                 antes_r = next(r for r in await guild.fetch_roles() if r.id == papel.id)
                 try:
@@ -2627,9 +2641,8 @@ class Harness:
                 depois_r = next(r for r in await guild.fetch_roles() if r.id == papel.id)
                 self.assert_true(antes_r.name == depois_r.name, "a recusa mexeu no cargo")
                 return aviso_de_hierarquia(
-                    f"o cargo do farol está na posição {guild.me.top_role.position} e o cargo "
-                    f"criado ficou na {papel.position}: o Discord recusa a edição (recusa conferida "
-                    "como clara, sem alterar nada)")
+                    f"o cargo criado ficou na posição {papel.position}: o Discord recusa a edição "
+                    "(recusa conferida como clara, sem alterar nada)")
             alvo = str(papel.id)
             conferidos: list[str] = []
 
@@ -2676,7 +2689,7 @@ class Harness:
 
         async def cargos_valores_invalidos_e_hierarquia() -> str:
             papel = estado.get("cargo")
-            if not gerencia_cargos():
+            if not await gerencia_cargos():
                 return aviso_de_hierarquia(
                     "com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da "
                     "validação de valor — sem cargo gerenciável não dá para provar valor inválido "
@@ -2727,7 +2740,7 @@ class Harness:
 
         async def cargos_dar_e_tirar_de_membro() -> str:
             papel = estado.get("cargo")
-            if not gerencia_cargos():
+            if not await gerencia_cargos():
                 return aviso_de_hierarquia(
                     "não posso atribuir cargo que ficou na altura do meu topo")
             membro = guild.owner or live.actor

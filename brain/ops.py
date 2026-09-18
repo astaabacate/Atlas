@@ -683,8 +683,8 @@ async def op_create_roles(
     # no chão do servidor, eu crio mas NÃO consigo editar/apagar depois — o dono precisa saber
     # disso na hora (a matriz ao vivo pegou exatamente esse caso).
     aviso = ""
-    posicao_bot = getattr(getattr(getattr(guild, "me", None), "top_role", None), "position", None)
-    if posicao_bot is not None:
+    posicao_bot = await _posicao_do_topo(ctx, getattr(guild, "me", None))
+    if posicao_bot:
         pedidos = {str(r.get("name", "")).strip() for r in roles}
         criados_no_teto = [r for r in getattr(guild, "roles", [])
                            if getattr(r, "name", "") in pedidos
@@ -716,7 +716,9 @@ async def op_edit_role(
 
     # Hierarquia
     require("edit_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj)
+            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
+            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
+            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
 
     kwargs: dict[str, Any] = {}
     if name is not None:
@@ -761,7 +763,9 @@ async def op_delete_role(
     r_obj = resolve_role(ctx.guild, role)
 
     require("delete_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj)
+            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
+            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
+            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
 
     name = getattr(r_obj, "name", str(role))
 
@@ -777,6 +781,50 @@ async def op_delete_role(
 
     await deleter()
     return f"🗑️ Cargo **{name}** excluído com sucesso."
+
+
+def _cargos_do_membro(membro: Any) -> set[int]:
+    """
+    IDs dos cargos de um membro.
+
+    `Member.roles` é montado a partir do cache de cargos do servidor: se o cache estiver vazio,
+    o discord.py simplesmente descarta os cargos e `top_role` cai no @everyone (posição 0).
+    Aí os IDs crus do membro são a única pista — é o que permite conferir a hierarquia na API.
+    """
+    ids = {getattr(r, "id", None) for r in (getattr(membro, "roles", None) or [])}
+    ids.discard(None)
+    if not ids:
+        ids = {i for i in (getattr(membro, "_roles", None) or []) if isinstance(i, int)}
+    return ids
+
+
+async def _posicao_do_topo(ctx: ToolContext, membro: Any) -> int:
+    """
+    Posição do cargo mais alto de um membro, conferida na API quando o cache engana.
+
+    Foi o que a matriz ao vivo pegou: o bot RECUSAVA editar um cargo que ele mesmo tinha
+    acabado de criar, porque o cache de cargos do servidor estava vazio e `Member.top_role`
+    respondia @everyone (posição 0) — "cargo acima ou na mesma posição do meu".
+    """
+    if membro is None:
+        return 0
+    topo = getattr(membro, "top_role", None)
+    pos = getattr(topo, "position", None)
+    resolvido = pos is not None and not getattr(topo, "is_default", lambda: False)()
+    if resolvido and pos:
+        return int(pos)
+
+    busca = getattr(ctx.guild, "fetch_roles", None)
+    if busca is not None:
+        try:
+            frescos = await busca()
+        except Exception:  # noqa: BLE001 - na dúvida, fica com o que o cache disse
+            frescos = []
+        ids = _cargos_do_membro(membro)
+        if frescos and ids:
+            return max((int(getattr(r, "position", 0)) for r in frescos
+                        if getattr(r, "id", None) in ids), default=int(pos or 0))
+    return int(pos or 0)
 
 
 async def _membro_do_servidor(ctx: ToolContext, query: str) -> Any:
@@ -809,7 +857,9 @@ async def op_give_role(ctx: ToolContext, member: str, role: str) -> str:
     r_obj = resolve_role(ctx.guild, role)
 
     require("give_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj)
+            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
+            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
+            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
 
     adder = getattr(m_obj, "add_roles", None)
     if not adder:
@@ -826,7 +876,9 @@ async def op_take_role(ctx: ToolContext, member: str, role: str) -> str:
     r_obj = resolve_role(ctx.guild, role)
 
     require("take_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj)
+            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
+            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
+            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
 
     remover = getattr(m_obj, "remove_roles", None)
     if not remover:

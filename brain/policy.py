@@ -65,7 +65,10 @@ def _has_permission(perms: Any, perm_name: str) -> bool:
     return bool(getattr(perms, perm_name, False))
 
 
-def _get_top_role_position(entity: Any) -> int:
+def _get_top_role_position(entity: Any, override: int | None = None) -> int:
+    """Posição do cargo mais alto. `override` vem de quem já conferiu na API (cache engana)."""
+    if override is not None:
+        return int(override)
     top_role = getattr(entity, "top_role", None)
     if top_role is not None:
         return getattr(top_role, "position", 0)
@@ -83,6 +86,8 @@ def require(
     bot_member: Any = None,
     guild: Any = None,
     target_role: Any = None,
+    bot_top_position: int | None = None,
+    actor_top_position: int | None = None,
 ) -> None:
     """
     Valida as permissões do autor e do bot antes de executar uma ferramenta.
@@ -122,7 +127,7 @@ def require(
 
         # Posição em relação ao bot
         if bot_member is not None:
-            bot_pos = _get_top_role_position(bot_member)
+            bot_pos = _get_top_role_position(bot_member, bot_top_position)
             target_pos = getattr(target_role, "position", 0)
             if target_pos >= bot_pos:
                 raise ToolError(
@@ -138,7 +143,7 @@ def require(
             is_owner = owner_id is not None and actor_id is not None and owner_id == actor_id
 
             if not is_owner:
-                actor_pos = _get_top_role_position(actor)
+                actor_pos = _get_top_role_position(actor, actor_top_position)
                 target_pos = getattr(target_role, "position", 0)
                 if target_pos >= actor_pos:
                     raise ToolError(
