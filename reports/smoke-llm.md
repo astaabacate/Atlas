@@ -1,6 +1,6 @@
 # 🛰️ Sonda ao vivo dos provedores LLM
 
-- executada em: 2026-09-18T10:20:42Z
+- executada em: 2026-09-18T10:41:22Z
 - python: 3.11.16
 
 Pool gratuito ativo: kilo
@@ -21,39 +21,39 @@ Corredores sondados: kilo (AutoProvider.create_default)
 
 | corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
 |---|---:|---|---:|:---:|---|---|---|
-| kilo | 200 | nex-agi/nex-n2.5-pro:free | 6619 ms | sim | 262K nos rápidos · 1M nas reservas · 65… | 200 req/h por IP (anônimo) | - |
+| kilo | - | nex-agi/nex-n2.5-pro:free | 778 ms | não | 262K nos rápidos · 1M nas reservas · 65… | 200 req/h por IP (anônimo) | TypeError: install_openai_compatible_tracker. .tracked_post() takes 5 positional arguments but 6 were given |
 
 Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):
 
 | corredor | GET /models | nº modelos | chat PT | tools nativo | fallback textual | 3 consecutivas | Retry-After |
 |---|---|---:|---|---|---|---|---|
-| kilo | 200 | 380 | 200 | sim | sim | 200/200/200 | - |
+| kilo | 200 | 380 | - | não | não | - | - |
 
 
-Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
-🟢 TESTADOS E FUNCIONANDO AGORA (protocolo completo): kilo (nex-agi/nex-n2.5-pro:free)
+Resumo: 0/1 provedores responderam; 0 com tool_call nativo.
+🔴 não responderam nesta rodada: kilo
 
 ### Latência por modelo do pool `kilo` (uma chamada curta cada)
 
 | modelo | resultado | latência |
 |---|---|---:|
-| `qwen/qwen3.8-27b:free` | HTTP 429 | 0.31s |
-| `poolside/laguna-s-2.1:free` | HTTP 429 | 0.39s |
-| `thinkingmachines/inkling-small:free` | HTTP 429 | 0.40s |
-| `liquid/lfm-2.5-2.6b:free` | 200 | 0.55s |
-| `nex-agi/nex-n2.5-pro:free` | 200 | 0.67s |
-| `nvidia/nemotron-3-super-120b-a12b:free` | 200 | 0.70s |
-| `cohere/north-mini-code:free` | 200 | 0.91s |
-| `kilo-auto/free` | 200 | 1.20s |
-| `dots-studio/dots-3-note-preview:free` | 200 | 1.26s |
-| `stepfun/step-3.7-flash:free` | 200 | 2.01s |
-| `nvidia/nemotron-3-ultra-550b-a55b:free` | 200 | 2.73s |
-| `nvidia/nemotron-3.5-lightning:free` | 200 | 4.17s |
+| `thinkingmachines/inkling-small:free` | HTTP 429 | 0.41s |
+| `liquid/lfm-2.5-2.6b:free` | 200 | 0.61s |
+| `nex-agi/nex-n2.5-pro:free` | 200 | 0.76s |
+| `nvidia/nemotron-3-ultra-550b-a55b:free` | 200 | 0.90s |
+| `kilo-auto/free` | 200 | 1.18s |
+| `dots-studio/dots-3-note-preview:free` | 200 | 1.56s |
+| `nvidia/nemotron-3-super-120b-a12b:free` | 200 | 1.58s |
+| `cohere/north-mini-code:free` | 200 | 2.15s |
+| `nvidia/nemotron-3.5-lightning:free` | 200 | 2.21s |
+| `stepfun/step-3.7-flash:free` | 200 | 2.24s |
+| `poolside/laguna-s-2.1:free` | 200 vazio | 3.76s |
+| `qwen/qwen3.8-27b:free` | 200 vazio | 5.01s |
 
 ### Candidatos sem credencial (entram no pool só com 200 ao vivo)
 
 | candidato | GET /models | POST chat | resposta | erro |
 |---|---|---|---|---|
-| kilo-sem-header | 200 | 200/200 | Here's a thinking process: 1. **Analyze User Input:** The u… | - |
+| kilo-sem-header | 200 | 200 | OK · catálogo em reports/kilo-modelos-free.md | - |
 | opencode-zen | 200 | 400 | - | {"error":{"type":"server_error","message":"Error from provider (Console): Upstream request failed: Model is unavailable."}} |
 | opencode-zen-big-pickle | 200 | 403 | - | {"type":"error","error":{"type":"FreeTierError","message":"Error from provider (Console): OpenCode's free tier can only be used from within… |
