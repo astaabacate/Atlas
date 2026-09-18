@@ -875,6 +875,12 @@ async def op_edit_role(
     return f"Cargo <@&{rid}> atualizado com sucesso ({mudancas})."
 
 
+def _nome_do_meu_cargo(ctx: ToolContext) -> str:
+    """Nome do cargo mais alto do bot — é ele que o dono precisa arrastar para cima."""
+    topo = getattr(getattr(ctx.guild, "me", None), "top_role", None)
+    return str(getattr(topo, "name", "") or "farol")
+
+
 def _instrucao_hierarquia(pos_alvo: int | None, pos_bot: int, bot_name: str = "farol") -> str:
     """
     O QUE fazer para o bot poder gerenciar o cargo — em português e com o caminho exato.
@@ -922,7 +928,8 @@ async def op_delete_role(
             raise
         pos_alvo = getattr(r_obj, "position", 0)
         if _e_bloqueio_do_bot(mensagem) and pos_alvo > (pos_bot or 0):
-            raise ToolError(f"{mensagem} {_instrucao_hierarquia(pos_alvo, pos_bot or 0)}")
+            raise ToolError(f"{mensagem} "
+                             f"{_instrucao_hierarquia(pos_alvo, pos_bot or 0, _nome_do_meu_cargo(ctx))}")
         # Mesma posição: o cache do discord.py pode estar velho (já aconteceu). Tenta de verdade.
         empatado = True
 
@@ -944,7 +951,7 @@ async def op_delete_role(
         if empatado:
             raise ToolError(
                 f"O Discord recusou apagar **{name}** ({exc}). "
-                f"{_instrucao_hierarquia(getattr(r_obj, 'position', 0), pos_bot or 0)}"
+                f"{_instrucao_hierarquia(getattr(r_obj, 'position', 0), pos_bot or 0, _nome_do_meu_cargo(ctx))}"
             ) from exc
         raise
     return f"🗑️ Cargo **{name}** excluído com sucesso."
@@ -1003,7 +1010,7 @@ async def op_delete_roles(
             pos_alvo = getattr(r_obj, "position", 0)
             if _e_bloqueio_do_bot(mensagem) and pos_alvo > (pos_bot or 0):
                 bloqueados.append((nome, f"{mensagem} "
-                                         f"{_instrucao_hierarquia(pos_alvo, pos_bot or 0)}"))
+                                         f"{_instrucao_hierarquia(pos_alvo, pos_bot or 0, _nome_do_meu_cargo(ctx))}"))
                 continue
             if not _e_bloqueio_de_hierarquia(mensagem):
                 bloqueados.append((nome, mensagem))
@@ -1020,7 +1027,8 @@ async def op_delete_roles(
         except Exception as exc:  # noqa: BLE001 - recusa do Discord
             if _e_bloqueio_de_hierarquia(str(exc)) or "Missing Permissions" in str(exc) or empatado:
                 bloqueados.append((nome, _instrucao_hierarquia(getattr(r_obj, "position", 0),
-                                                               pos_bot or 0)))
+                                                               pos_bot or 0,
+                                                               _nome_do_meu_cargo(ctx))))
             else:
                 bloqueados.append((nome, f"o Discord recusou: {exc}"))
 
@@ -1041,7 +1049,7 @@ async def op_delete_roles(
                   + (" …" if len(bloqueados) > 6 else ""))
         partes.append(resumo)
         if so_instrucao:
-            partes.append(_instrucao_hierarquia(None, pos_bot or 0))
+            partes.append(_instrucao_hierarquia(None, pos_bot or 0, _nome_do_meu_cargo(ctx)))
     if not apagados:
         partes.append("Nada foi apagado nesta rodada.")
 
