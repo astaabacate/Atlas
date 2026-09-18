@@ -1,16 +1,16 @@
 {
-  "gerado_em": "2026-09-18T19:20:30Z",
+  "gerado_em": "2026-09-18T19:23:10Z",
   "guilds": [
     {
       "id": "1546763083005825084",
       "nome": "Pinguim",
       "cargos": 27,
-      "pos_bot": 26,
+      "pos_bot": 27,
       "cargo_do_bot": "Atlas",
       "pos_dono": null,
       "experimento": {
         "criado": {
-          "id": "1550587344472776856",
+          "id": "1550588018606346332",
           "posicao": 1
         },
         "editar": {
@@ -25,6 +25,7 @@
           "status": 200,
           "corpo": "ok"
         },
+        "posicao_depois_do_empate": 26,
         "editar_empatado": {
           "status": 200,
           "corpo": "ok"
