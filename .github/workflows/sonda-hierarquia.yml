@@ -47,25 +47,6 @@ jobs:
       - name: Instalar dependências
         run: pip install aiohttp
 
-      - name: Publicar a cor medida do avatar (arquivo separado)
-        if: always()
-        run: |
-          set -uo pipefail
-          for caminho in reports/cor-do-avatar.txt; do
-            [ -f "$caminho" ] || continue
-            conteudo=$(base64 -w0 "$caminho")
-            sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
-            if [ -n "$sha" ]; then
-              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
-                -f message="chore(sonda): cor do avatar [skip ci]" -f content="$conteudo" \
-                -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null || echo "::warning title=sonda::falha ao publicar ${caminho}"
-            else
-              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
-                -f message="chore(sonda): cor do avatar [skip ci]" -f content="$conteudo" \
-                -f branch="${GITHUB_REF_NAME}" >/dev/null || echo "::warning title=sonda::falha ao publicar ${caminho}"
-            fi
-          done
-
       - name: Rodar a sonda (API crua do Discord)
         run: python scripts/sonda_hierarquia.py --outdir reports
 
@@ -90,5 +71,6 @@ jobs:
             fi
             echo "::notice title=sonda::${caminho} publicado"
           }
+          publicar "reports/cor-do-avatar.txt" "chore(sonda): cor do avatar do bot [skip ci]" || true
           publicar "reports/sonda-hierarquia.md" "chore(sonda): resultado ao vivo da hierarquia ${GITHUB_RUN_ID} [skip ci]" || true
           publicar "reports/sonda-hierarquia.json" "chore(sonda): resultado JSON da hierarquia ${GITHUB_RUN_ID} [skip ci]" || true
