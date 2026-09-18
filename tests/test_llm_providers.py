@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import unittest
+from pathlib import Path
 from typing import Any
 
 from llm.auto import LLMUnavailableError, AutoProvider
@@ -637,6 +638,35 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
         resposta = asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}], timeout=5, max_tokens=100))
         self.assertEqual(resposta.content, "achei o caminho")
         self.assertEqual(tentativas["n"], 2)
+
+
+class TestModelosConferidosAoVivo(unittest.TestCase):
+    """A lista do kilo sai do catálogo publicado pelo CI, não de listinha de terceiro."""
+
+    RELATORIO = Path(__file__).resolve().parents[1] / "reports" / "kilo-modelos-free.md"
+
+    def test_ficha_do_kilo_confere_com_o_catalogo_publicado(self) -> None:
+        if not self.RELATORIO.exists():
+            self.skipTest("reports/kilo-modelos-free.md ainda não foi publicado pelo CI")
+        catalogo = self.RELATORIO.read_text(encoding="utf-8")
+        livres = set()
+        for linha in catalogo.splitlines():
+            if "| sim |" not in linha:
+                continue
+            for pedaco in linha.split("`")[1::2]:
+                livres.add(pedaco.strip())
+
+        ficha = next(spec for spec in FREE_PROVIDERS if spec.nome == "kilo")
+        presentes = [m for m in ficha.modelos if m in livres]
+        self.assertGreaterEqual(
+            len(presentes), 3,
+            "o catálogo do Kilo mudou: atualize a ficha com o que reports/kilo-modelos-free.md traz",
+        )
+
+    def test_ordem_do_kilo_comeca_pelo_contexto_gigante(self) -> None:
+        ficha = next(spec for spec in FREE_PROVIDERS if spec.nome == "kilo")
+        self.assertTrue(ficha.modelos[0].startswith("thinkingmachines/"), "1M vem primeiro")
+        self.assertTrue(ficha.modelos[-1].endswith("kilo-auto/free"), "roteador vai por último")
 
 
 class TestFreePool(unittest.TestCase):

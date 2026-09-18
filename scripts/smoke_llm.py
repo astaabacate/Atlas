@@ -461,8 +461,10 @@ CANDIDATOS_SEM_CREDENCIAL: list[dict[str, Any]] = [
         "nome": "kilo-sem-header",
         "base_url": "https://api.kilo.ai/api/gateway",
         "modelo": "kilo-auto/free",
+        "fallback_modelo": "nvidia/nemotron-3.5-lightning:free",
         "header": False,
-        "nota": "mesmo gateway do pool, sem a linha Authorization (o pool manda 'Bearer anonymous')",
+        "nota": ("isola duas dúvidas: se a linha Authorization é necessária e se o roteador "
+                 "kilo-auto/free é quem devolve vazio"),
     },
     {
         "nome": "opencode-zen",
@@ -518,6 +520,22 @@ async def sondar_candidato(cand: dict[str, Any], timeout: float, secrets: list[s
                         linha["texto"] = compact_error_text(conteudo, 60) or "(vazio)"
                     except Exception:  # noqa: BLE001
                         linha["texto"] = "(resposta não-JSON)"
+
+                    # 200 com corpo vazio: separa "roteador devolve nada" de "faltou credencial".
+                    if linha["texto"] in {"(vazio)", "(resposta não-JSON)"} and cand.get("fallback_modelo"):
+                        payload["model"] = cand["fallback_modelo"]
+                        async with sess.post(f"{base}/chat/completions", json=payload, headers=headers,
+                                             timeout=aiohttp.ClientTimeout(total=timeout)) as retry:
+                            linha["chat"] += f"/{retry.status}"
+                            if retry.status == 200:
+                                try:
+                                    rdata = json.loads(await retry.text())
+                                    rmsg = ((rdata.get("choices") or [{}])[0].get("message") or {})
+                                    texto_retry = compact_error_text(
+                                        (rmsg.get("content") or "").strip(), 60) or "(vazio)"
+                                    linha["texto"] = f"{texto_retry} [{cand['fallback_modelo']}]"
+                                except Exception:  # noqa: BLE001
+                                    pass
                 else:
                     linha["erro"] = compact_error_text(redact(corpo_txt, secrets), 140)
     except Exception as exc:  # noqa: BLE001 - sonda de candidato nunca derruba o relatório

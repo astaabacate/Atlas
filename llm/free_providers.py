@@ -505,14 +505,30 @@ FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
     FreeProviderSpec(
         nome="kilo",
         base_url="https://api.kilo.ai/api/gateway",
-        modelos=("qwen/qwen3-coder:free", "z-ai/glm-5:free", "kilo-auto/free",
-                 "minimax/minimax-m3:free", "nvidia/nemotron-3-super-120b-a12b:free"),
+        # Lista conferida no catálogo AO VIVO (GET /api/gateway/models, sem credencial):
+        # reports/kilo-modelos-free.md — 21 modelos ":free" de 380. Ordem: contexto gigante
+        # primeiro, modelos pequenos por último (emergência), roteador por último de propósito
+        # (ele às vezes devolve vazio; com os explícitos na frente isso quase não acontece).
+        modelos=(
+            "thinkingmachines/inkling-small:free",        # 1.048.576
+            "nvidia/nemotron-3.5-lightning:free",         # 1.000.000
+            "nvidia/nemotron-3-ultra-550b-a55b:free",     # 1.000.000
+            "dots-studio/dots-3-note-preview:free",       # 512.000
+            "stepfun/step-3.7-flash:free",                # 262.144
+            "qwen/qwen3.8-27b:free",                      # 262.144
+            "poolside/laguna-s-2.1:free",                 # 262.144
+            "nvidia/nemotron-3-super-120b-a12b:free",     # 262.144
+            "nex-agi/nex-n2.5-pro:free",                  # 262.144
+            "cohere/north-mini-code:free",                # 256.000
+            "liquid/lfm-2.5-2.6b:free",                   # 65.536 (emergência)
+            "kilo-auto/free",                             # roteador do gateway
+        ),
         headers=(("Authorization", "Bearer anonymous"),),
-        contexto="262K (alguns 1M)",
+        contexto="1M (vários) · 512K · 262K · 65K mínimo",
         cota="200 req/h por IP (anônimo)",
         supports_tools=True,
-        # 200 confirmado na sonda ao vivo de 18/09/2026 (reports/smoke-llm.md):
-        # GET /models 200 (380 modelos), chat PT + tools nativo + fallback textual OK.
+        # 200 confirmado na sonda ao vivo (reports/smoke-llm.md): GET /models 200 (380 modelos),
+        # chat PT + tools nativo + fallback textual + 3 chamadas consecutivas OK.
         validado=True,
         observacao="único corredor do pool sem chave; catálogo público em /models (isFree)",
     ),
