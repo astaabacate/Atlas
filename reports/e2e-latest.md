@@ -1,37 +1,41 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 45 · ❌ 9 · ⚠️ 0 · ⏭️ 7
+- **Resumo:** ✅ 67 · ❌ 0 · ⚠️ 7 · ⏭️ 6
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 1e78d0d
-- **execução:** 35343000591
+- **commit:** 3ae66cc
+- **execução:** 35391125443
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
+
+## Anotações
+- conectado como Atlas#1985 em 1 servidor(es)
 
 ## Checagens estáticas (schemas ↔ executores)
 `static` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `27 ferramentas ↔ 27 executores` | 31 ferramentas e 31 executores casados |
+| PASS | `31 ferramentas ↔ 31 executores` | 31 ferramentas e 31 executores casados |
 | PASS | `assinaturas ↔ schemas` | 31 assinaturas conferem com os schemas |
 | PASS | `toda ferramenta tem política` | as 31 ferramentas têm política declarada |
 | PASS | `qualidade dos schemas enviados ao LLM` | descrições e schemas bem formados para function calling |
 | PASS | `prompt de sistema completo` | prompt com os 7 blocos obrigatórios (regra de confirmação dinâmica) |
-| PASS | `tamanho do payload enviado ao LLM` | schema com 15015 chars + prompt de 2038 chars |
+| PASS | `tamanho do payload enviado ao LLM` | schema com 15123 chars + prompt de 2322 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
-`spy` — ✅ 22 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`spy` — ✅ 23 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `create_channels cria na raiz de verdade` | chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#1009> <#1010> <#1011> 🎉 (✅ 3/3 ' |
-| PASS | `create_channels cria DENTRO de categoria` | chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#1012> <#1013> 🎉 (✅ 2/2 concluíd' |
+| PASS | `create_channels cria na raiz de verdade` | chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#1010> <#1011> <#1012> 🎉 (✅ 3/3 ' |
+| PASS | `create_channels cria DENTRO de categoria` | chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#1013> <#1014> 🎉 (✅ 2/2 concluíd' |
 | PASS | `edit_channel edita de verdade` | chamou edit() e respondeu 'Canal <#1008> atualizado com sucesso (name, nsfw, slowmode_d' |
 | PASS | `move_channel move de verdade` | chamou edit() e respondeu 'Canal <#1008> movido com sucesso (categoria: sem categoria, ' |
-| PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado: <#1014> 🎉 (copiei tópico, NSFW, modo lento, c' |
-| PASS | `delete_channels apaga de verdade (1 canal)` | chamou delete() e respondeu '🗑️ Exclusão concluída: #canal-renomeado (✅ 1/1 concluídos co' |
+| PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado: <#1015> 🎉 (copiei tópico, NSFW, modo lento, c' |
+| PASS | `delete_channels apaga de verdade (1 canal)` | chamou delete() e respondeu '🗑️ Exclusão concluída: #descartavel-spy (✅ 1/1 concluídos co' |
+| PASS | `delete_channels NUNCA apaga o canal da conversa` | canal da conversa preservado no lote, com aviso na resposta; pedido só dele é recusado explicando o caminho (clear_messages) |
 | PASS | `delete_channels em lote: modo direto apaga na hora` | 2 canais apagados direto, com o resultado na resposta |
 | PASS | `delete_channels em lote: modo cauteloso pede confirmação` | 2 canais: exige confirmação e só apaga com confirmed=true |
 | PASS | `edit_server altera de verdade` | chamou edit() e respondeu 'Informações do servidor atualizadas com sucesso!' |
@@ -70,68 +74,92 @@
 | PASS | `argumentos inválidos são rejeitados` | lista vazia rejeitada com ToolError: Nenhum canal foi informado para exclusão. |
 
 ## Conexão ao gateway do Discord
-`connect` — ✅ 3 · ❌ 2 · ⚠️ 0 · ⏭️ 0
+`connect` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `corredores de LLM na corrida` | kilo/tools |
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
-| FAIL | `login e gateway` | LoginFailure: Improper token has been passed. |
-| FAIL | `servidor e autor do teste` | sem servidor para escolher autor |
+| PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 45ms |
+| PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
-`audit` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
+`audit` — ✅ 5 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
-| SKIP | `diagnóstico` | sem conexão ao Discord |
+| PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
+| WARN | `cargos que o bot não consegue gerenciar` | 1 cargo(s) no nível ou acima do bot (Atlas): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
+| PASS | `hierarquia de cargos` | cargo do bot na posição 27 |
+| PASS | `estrutura do servidor` | 5 categorias · 0 texto · 0 voz · 27 cargos · 4 membros |
+| PASS | `snapshot do servidor` | snapshot com 35 linhas alimenta o prompt |
+| PASS | `estado local bate com a API` | cache local bate com a API REST (5 canais, 27 cargos) |
 
 ## Ferramentas somente-leitura em servidor real
-`tools` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
+`tools` — ✅ 7 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
-| SKIP | `ferramentas de leitura` | sem conexão ao Discord |
+| PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** <@1521612392105250836> · • **Membros:** 4 · • **Canais:** 5 · • **Cargos:** 27 · • **Criado em:** 2026-09-08 06:04:16.4570 |
+| PASS | `performance_report (tempo das respostas)` | Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). Me peça de novo depois de algumas tarefas. |
+| PASS | `list_roles` | listou os 27 cargos reais com menção e posição |
+| PASS | `export_structure (JSON válido e completo)` | servidor grande: JSON completo com 2366 chars no recorte AVISADO (aviso + balanço de canais/categorias/cargos exportados) |
+| PASS | `show_permissions` | O canal <#1550466167800598580> não possui permissões personalizadas configuradas. |
+| PASS | `resolve por ID e por menção` | 5 canais e 6 cargos resolvidos por ID e por menção |
+| PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
+`agent` — ✅ 5 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
-| SKIP | `agente` | sem conexão ao Discord |
+| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', '🧪-caps-import-cargo', '🧪-caps-cargo'] |
+| PASS | `tempo de cada ida ao modelo` | 1 chamada(s) ao modelo: mediana **2.6s** (2.6s) · corredores que responderam: kilo |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso aplicar banimentos ou punições; meu foco exclusivo é montar e organizar a estrut' |
+| WARN | `agente: resposta com dados reais (sem listar nomes)` | o modelo respondeu com o resumo do servidor (dados reais conferidos na API) em vez de listar categorias/canais por nome |
+| PASS | `agente conhece a estrutura real` | respondeu com dados reais do servidor (nome do servidor (Pinguim), menção do dono, canais=5, cargos=27) |
+| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
+`mutate` — ✅ 0 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
-| SKIP | `mutações reais` | sem conexão ao Discord |
+| WARN | `fase interrompida por tempo` | passou de 900.0s e foi interrompida — o que aparece abaixo é o que terminou; onde estava pendurada: client.py:731:connect, e2e_live.py:3942:run |
 
 ## Matriz de capacidades: cada parâmetro, valor e combinação no Discord real
-`caps` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
+`caps` — ✅ 0 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
-| SKIP | `matriz de capacidades` | sem conexão ao Discord |
+| WARN | `fase interrompida por tempo` | passou de 900.0s e foi interrompida — o que aparece abaixo é o que terminou; onde estava pendurada: client.py:731:connect, e2e_live.py:3942:run |
 
 ## core.bot.FarolBot: on_message → resposta real no Discord
-`botloop` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
+`botloop` — ✅ 0 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
-| SKIP | `loop do bot` | sem conexão ao Discord |
+| WARN | `fase interrompida por tempo` | passou de 420.0s e foi interrompida — o que aparece abaixo é o que terminou; onde estava pendurada: client.py:731:connect, e2e_live.py:3942:run |
 
 ## Varredura de sobras de teste
-`sweep` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
+`sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
-| SKIP | `varredura` | sem conexão ao Discord |
+| PASS | `varredura de sobras` | 7 objeto(s) de teste removidos (#🧪 caps, #🧪-tipo-category, #🧪 caps-destino, #🧪 caps-sync, #🧪 caps-import, @🧪-caps-cargo, @🧪-caps-import-cargo) |
+
+## Cobertura: quais ferramentas foram exercitadas nesta execução
+`cobertura` — ✅ 0 · ❌ 0 · ⚠️ 2 · ⏭️ 6
+
+| Status | Verificação | Detalhe |
+| --- | --- | --- |
+| WARN | `ferramentas exercitadas nesta execução` | 29/31 ferramentas — não exercitadas: delete_roles, diagnostic_report, performance_report (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar) |
+| SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
+| WARN | `ferramentas exercitadas nesta execução` | 10/31 ferramentas — não exercitadas: apply_template, clear_messages, clear_permissions, clone_channel, conversation_clear, create_channels, create_roles, delete_channels, delete_role, delete_roles, diagnostic_report, edit_channel, edit_role, edit_server, give_role, import_structure, move_channel, set_icon, set_permissions, sync_permissions, take_role (de propósito nesta suíte: set_icon, que mexe … |
+| SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
+| SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
+| SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
+| SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
+| SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
