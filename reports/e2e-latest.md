@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 110 · ❌ 3 · ⚠️ 7 · ⏭️ 4
+- **Resumo:** ✅ 110 · ❌ 3 · ⚠️ 8 · ⏭️ 4
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 9b3dc04
-- **execução:** 35405179754
+- **commit:** 1a130aa
+- **execução:** 35406358575
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
@@ -82,7 +82,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 34ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 69ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -116,20 +116,20 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'iTinder', 'Cupido'] |
-| PASS | `tempo de cada ida ao modelo` | 1 chamada(s) ao modelo: mediana **2.9s** (2.9s) · corredores que responderam: kilo |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso banir usuários; meu foco exclusivo é montar e organizar a estrutura do servidor.' |
+| PASS | `tempo de cada ida ao modelo` | 1 chamada(s) ao modelo: mediana **2.7s** (2.7s) · corredores que responderam: kilo |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, permissõe' |
 | WARN | `agente: resposta com dados reais (sem listar nomes)` | o modelo respondeu com o resumo do servidor (dados reais conferidos na API) em vez de listar categorias/canais por nome |
 | PASS | `agente conhece a estrutura real` | respondeu com dados reais do servidor (nome do servidor (Pinguim), menção do dono, canais=1, cargos=4) |
 | PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 17 · ❌ 0 · ⚠️ 0 · ⏭️ 1
+`mutate` — ✅ 17 · ❌ 0 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
-| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-categoria', '🧪-raiz-texto', '🧪-raiz-voz']) |
+| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -139,9 +139,10 @@
 | PASS | `fluxo de confirmação em canais reais (modo cauteloso)` | 2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true |
 | PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
 | PASS | `clear_messages apaga mensagens reais do canal` | apagou 3 mensagem(ns) reais e o canal ficou vazio |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 5.3s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.).' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 45.5s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído' |
-| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | pediu confirmação e apagou depois do 'sim' ('Confirme a exclusão dos canais #🧪-caut-1 e #🧪-caut-2 com “si') |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 3.4s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.).' |
+| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 45.9s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído' |
+| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Envie **sim** para confirmar a exclusão de #🧪-caut-1 e #🧪-caut-2.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | não conclusivo por causa do LLM gratuito: o modelo nem tentou excluir os canais |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -178,13 +179,13 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550649182602403941) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550653671984078931) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
 | FAIL | `menção dispara o agente e responde` | o bot não respondeu à menção |
 | FAIL | `resposta em Components V2 com a cor do farol` | a resposta não veio em Components V2 (container) |
-| PASS | `tempo até responder (mensagem → resposta)` | o cliente espera **3.8s** (mediana de 3) entre mandar e receber: 2.9s, 3.8s, 11.7s |
+| PASS | `tempo até responder (mensagem → resposta)` | o cliente espera **3.7s** (mediana de 3) entre mandar e receber: 3.0s, 3.7s, 6.4s |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
 | PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
 
