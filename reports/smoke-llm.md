@@ -1,6 +1,6 @@
 # 🛰️ Sonda ao vivo dos provedores LLM
 
-- executada em: 2026-09-18T00:52:35Z
+- executada em: 2026-09-18T01:05:12Z
 - python: 3.11.16
 
 Pool gratuito ativo: kilo
@@ -21,7 +21,7 @@ Corredores sondados: kilo (AutoProvider.create_default)
 
 | corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
 |---|---:|---|---:|:---:|---|---|---|
-| kilo | 200 | kilo-auto/free | 16393 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
+| kilo | 200 | kilo-auto/free | 11070 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
 
 Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):
 
@@ -32,3 +32,11 @@ Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → co
 
 Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
 🟢 TESTADOS E FUNCIONANDO AGORA (protocolo completo): kilo (kilo-auto/free)
+
+### Candidatos sem credencial (entram no pool só com 200 ao vivo)
+
+| candidato | GET /models | POST chat | resposta | erro |
+|---|---|---|---|---|
+| kilo-sem-header | 200 | 200 | corpo vazio · catálogo em reports/kilo-modelos-free.md | - |
+| opencode-zen | 200 | 400 | - | {"error":{"type":"server_error","message":"Error from provider (Console): Upstream request failed: Model is unavailable."}} |
+| opencode-zen-big-pickle | 200 | 403 | - | {"type":"error","error":{"type":"FreeTierError","message":"Error from provider (Console): OpenCode's free tier can only be used from within… |
