@@ -827,3 +827,58 @@ class TestAgentWithPlainTextProvider(unittest.TestCase):
         self.assertNotIn("tool", roles)
         joined = "\n".join(m["content"] for m in second_payload["messages"])
         self.assertIn("[Resultado da ferramenta create_channels]", joined)
+
+
+class TestRaciocinioVazado(unittest.TestCase):
+    """Modelos grátis às vezes mandam o rascunho interno no content — em inglês e enorme."""
+
+    def _provider(self) -> OpenAICompatibleHttpProvider:
+        return OpenAICompatibleHttpProvider(
+            name="corredor-pensador",
+            endpoint_url="https://exemplo.invalido/v1/chat/completions",
+            models=["modelo-que-pensa"],
+            session_factory=lambda: None,
+        )
+
+    def test_rascunho_e_cortado_e_resposta_final_fica(self) -> None:
+        resposta = {
+            "choices": [{"message": {
+                "content": ("Here's a thinking process:\n\n1. **Analyze User Input:** "
+                            "The user wants the server renamed.\n\nLet me think...\n\n"
+                            "Final answer: Não posso mudar o nome do servidor agora."),
+            }, "finish_reason": "stop"}]
+        }
+        provider = self._provider()
+        provider._session = FakeSession([FakeResponse(payload=resposta)])
+
+        resultado = asyncio.run(provider.chat(
+            messages=[{"role": "user", "content": "mude o nome do server pra pretinho"}], timeout=5))
+
+        self.assertEqual(resultado.content, "Não posso mudar o nome do servidor agora.")
+        self.assertNotIn("thinking", resultado.content.lower())
+
+    def test_so_rascunho_vira_resposta_vazia_transitoria(self) -> None:
+        """Sem resposta de verdade, o corredor tem que sair da frente — não mandar o rascunho."""
+        resposta = {"choices": [{"message": {
+            "content": "Let me think about it. The user said oi and I need to figure out what to do.",
+        }, "finish_reason": "stop"}]}
+        provider = self._provider()
+        provider._session = FakeSession([FakeResponse(payload=resposta)])
+
+        with self.assertRaises(ProviderError) as ctx:
+            asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}], timeout=5))
+
+        self.assertTrue(ctx.exception.is_empty_response)
+        self.assertTrue(ctx.exception.is_transient, "vazio tem que permitir nova onda/outro modelo")
+
+    def test_raciocinio_em_campo_separado_nao_entra_na_resposta(self) -> None:
+        resposta = {"choices": [{"message": {
+            "content": "Pronto, apaguei os 10 canais. 🗑️",
+            "reasoning_content": "The user asked to delete channels. I should call the tool...",
+        }, "finish_reason": "stop"}]}
+        provider = self._provider()
+        provider._session = FakeSession([FakeResponse(payload=resposta)])
+
+        resultado = asyncio.run(provider.chat(messages=[{"role": "user", "content": "apague"}], timeout=5))
+
+        self.assertEqual(resultado.content, "Pronto, apaguei os 10 canais. 🗑️")

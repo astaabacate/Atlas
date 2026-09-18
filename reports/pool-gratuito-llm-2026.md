@@ -146,6 +146,30 @@ Cobertura: 4 testes unitários novos (mensagem honesta, bulk delete, permissão,
 1 teste de agente (pedido extra) e 3 checagens novas no E2E (spy de bulk delete, política de
 permissão e **apagar mensagens reais** num canal temporário).
 
+## 3.4) Bug relatado: o bot mandou um textão em inglês (18/09)
+
+O dono recebeu o rascunho interno de um modelo grátis no Discord: *"Here's a thinking process: 1.
+Analyze User Input: …"* — em inglês, com a análise da própria conversa. Nada disso é resposta.
+
+**Causa:** alguns modelos do gateway devolvem o *reasoning* dentro do campo `content` (ou num campo
+separado, `reasoning_content`), e o bot repassava aquilo como se fosse a resposta.
+
+**Correção em duas camadas:**
+
+1. **No provedor (`llm/base.py` + `llm/free_providers.py`):** `separar_raciocinio()` corta o rascunho e
+   mantém só o trecho após `final answer:`/`resposta final:`; campo `reasoning_content` é ignorado.
+   Se sobrar **só** rascunho, a resposta conta como vazia (`empty_response`, transitória) e a corrida
+   passa para o próximo modelo — o rascunho nunca vira mensagem.
+2. **No agente (`brain/agent.py`):** barreira final antes do Discord — `resposta_ruim()` reprova
+   resposta com mais de **1.000 caracteres**, em inglês (heurística de marcadores) ou com cara de
+   rascunho. Reprovação → **uma** reescrita pedindo PT-BR em até 3 linhas; se o modelo insistir, o bot
+   responde com o **resultado real da ferramenta** (já em português) ou um `Feito! ✅` honesto.
+   O prompt do sistema ganhou regra dura: *sempre PT-BR, no máximo 4 linhas, nunca mostrar raciocínio*.
+
+**Cobertura:** 3 testes de provedor (corte do rascunho, rascunho puro → vazio, campo separado),
+4 testes de agente (inglês reescrito, textão reescrito, fallback com resultado da ferramenta,
+fallback curto) e 1 checagem de E2E que reproduz exatamente o caso relatado.
+
 ## 4) Realmente gratuitos (sem trial que expira)
 
 Todos os 12 têm camada gratuita descrita na documentação oficial do provedor, com link e data na

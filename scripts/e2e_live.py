@@ -895,7 +895,58 @@ class Harness:
                          skip_when=None)
         await self.check(phase, "clear_messages apaga o chat de vero (bulk delete)",
                          self._spy_clear_messages, skip_when=None)
+        await self.check(phase, "textão em inglês do modelo nunca chega ao usuário",
+                         self._spy_resposta_ingles, skip_when=None)
         await self.check(phase, "agente não se auto-confirma (offline)", self._spy_agente_confirmacao, skip_when=None)
+
+    async def _spy_resposta_ingles(self) -> str:
+        """Bug relatado: o modelo devolveu o rascunho em inglês e o bot mandou isso no Discord."""
+        from brain.agent import MAX_RESPOSTA_CHARS, Agent
+        from brain.memory import ChannelMemory
+        from llm.base import ChatProvider, LLMResponse
+
+        rascunho = (
+            "- User: oi  ← This is the last user message before my current turn\n"
+            "But in the current turn showing in the assistant's view, it says: 'mude o nome do "
+            "server pra pretinho'. There's inconsistency here. Looking at the very end of the "
+            "user's message history in the problem: the user said oi. Let me think about what "
+            "the correct answer should be and whether anything already happened."
+        )
+
+        class LLMRascunho(ChatProvider):
+            def __init__(self, roteiro: list[LLMResponse]) -> None:
+                self.roteiro = roteiro
+                self.chamadas = 0
+
+            async def chat(self, messages: list[dict[str, Any]], tools: Any = None,
+                           timeout: float = 60.0, max_tokens: int = 1024) -> LLMResponse:
+                self.chamadas += 1
+                return self.roteiro.pop(0) if self.roteiro else LLMResponse(content="Feito!")
+
+        ctx, guild, _, canal = await self._spy_ctx()
+
+        # 1) o modelo devolve rascunho em inglês e depois obedece a reescrita
+        llm = LLMRascunho([LLMResponse(content=rascunho, tool_calls=[]),
+                           LLMResponse(content="Não posso mudar o nome do servidor agora.", tool_calls=[])])
+        agente = Agent(llm_provider=llm, memory=ChannelMemory())
+        resposta = await agente.process_turn(guild=guild, channel=canal, actor=guild.members[0],
+                                             prompt="mude o nome do server pra pretinho")
+        self.assert_true(resposta == "Não posso mudar o nome do servidor agora.",
+                         f"resposta não foi reescrita em PT-BR: {resposta[:120]!r}")
+
+        # 2) o modelo insiste no inglês: o bot responde curto em português, nunca o rascunho
+        teimoso = LLMRascunho([LLMResponse(content=rascunho, tool_calls=[]),
+                               LLMResponse(content=rascunho, tool_calls=[])])
+        agente2 = Agent(llm_provider=teimoso, memory=ChannelMemory())
+        resposta2 = await agente2.process_turn(guild=guild, channel=canal, actor=guild.members[0],
+                                               prompt="oi")
+        self.assert_true("thinking" not in resposta2.lower() and "user:" not in resposta2.lower(),
+                         f"o rascunho vazou para o usuário: {resposta2[:120]!r}")
+        self.assert_true(len(resposta2) < MAX_RESPOSTA_CHARS,
+                         f"resposta maior que o teto: {len(resposta2)} chars")
+        self.assert_true(any(p in resposta2.lower() for p in ("feito", "não", "nao", "não posso")),
+                         f"resposta não está em PT-BR: {resposta2[:120]!r}")
+        return f"rascunho em inglês barrado ({teimoso.chamadas} chamadas) e resposta curta em PT-BR"
 
     async def _spy_clear_messages(self) -> str:
         """'exclua esse chat' precisa apagar MENSAGENS — e relatar quantas apagou."""

@@ -150,6 +150,14 @@ Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
 *"apague todos os canais e deixe só esse"* executa na hora e responde o que apagou. Ligue com
 `CONFIRM_DESTRUCTIVE=true` para o modo cauteloso (2+ canais, categoria ou cargo pedem um "sim" antes).
 
+**Nunca vaza raciocínio nem responde em inglês:** modelos grátis às vezes devolvem o rascunho
+interno ("Here's a thinking process…") dentro do `content`. O provedor corta o rascunho e mantém só o
+que vier após o `final answer:`; se sobrar apenas rascunho, a resposta conta como vazia e o corredor
+passa para o próximo modelo. No agente há a última barreira (`MAX_RESPOSTA_CHARS`, heurística de
+idioma): resposta com mais de 1.000 caracteres, em inglês ou com cara de rascunho é **reescrita uma
+vez** em PT-BR curto; se o modelo insistir, o bot entrega o resultado real da ferramenta (já em PT-BR)
+ou um "Feito! ✅" honesto — nunca o texto ruim.
+
 **Limpar conversa ≠ apagar mensagens:** `conversation_clear` limpa só a memória do bot (o histórico
 interno), `clear_messages` apaga as mensagens do canal de verdade (exige "Gerenciar mensagens" e relata
 quantas apagou). Pedido do tipo *"exclua esse chat"* cai em `clear_messages`; *"esqueça o que eu falei"*

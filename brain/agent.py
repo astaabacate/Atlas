@@ -15,7 +15,7 @@ from brain.executors import execute_tool
 from brain.memory import ChannelMemory, memory_key
 from brain.snapshot import build_server_snapshot
 from brain.tools import ToolContext, ToolDef, ToolError, get_tool_definitions
-from llm.base import ChatProvider, LLMResponse, ToolCall
+from llm.base import ChatProvider, parece_raciocinio, separar_raciocinio, LLMResponse, ToolCall
 
 logger = logging.getLogger("farol.brain.agent")
 
@@ -35,7 +35,10 @@ REGRAS ABSOLUTAS:
      `conversation_clear` (limpa só a MEMÓRIA do bot; as mensagens do canal continuam).
    Na dúvida entre as duas, use `clear_messages`.
 5. Prefira UMA chamada com listas a várias chamadas repetidas (ex: use create_channels com a lista completa).
-6. Responda em português (PT-BR), de forma curta, direta e amigável, incluindo os links dos itens criados ou alterados (<#id>, <@&id>).
+6. IDIOMA E TAMANHO (regra dura): responda SEMPRE em português do Brasil, de forma curta, direta e
+   amigável (no máximo 4 linhas), incluindo os links dos itens criados ou alterados (<#id>, <@&id>).
+   NUNCA responda em inglês. NUNCA mostre seu raciocínio, plano, análise ou "thinking process":
+   o usuário só quer o resultado. Se não houver nada a dizer, responda "Feito!".
 7. Ações destrutivas e confirmação: {confirmacao}
 8. FORA DE ESCOPO: moderação, punições, bans, expulsões, matchmaking, sorteios, jogos, enquetes. Quando pedirem isso, responda educadamente que seu foco exclusivo é montar e organizar a estrutura do servidor.
 
@@ -47,6 +50,25 @@ REGRAS ABSOLUTAS:
 # O modelo não pode se auto-confirmar: quem confirma é a pessoa (bug pego no teste ao vivo,
 # em que o agente apagou 2 canais de uma vez sem perguntar nada).
 CONFIRMATION_TOOLS = frozenset({"delete_channels", "delete_role"})
+
+# Teto de tamanho da mensagem final. Acima disso não é resposta: é despejo de texto
+# (rascunho de modelo grátis, lista imensa, etc.) — o Farol responde curto.
+MAX_RESPOSTA_CHARS = 1000
+
+# Palavras que aparecem MUITO em inglês e quase nunca em português (com espaço em volta,
+# para não confundir com nomes de comando tipo "embed" ou "clear_messages").
+_MARCADORES_INGLES = (
+    " the ", " and ", " with ", " your ", " you ", " this ", " that ", " does ", " is ",
+    " are ", " was ", " will ", " would ", " i'll ", " i will ", " let me ", " okay,",
+    " first,", " then,", " here's ", " here is ", " about ", " because ", " should ",
+    " user ", " request ", " need to ", " make sure ", " so the ", " if the ",
+)
+
+_MARCADORES_PORTUGUES = (
+    " não ", " nao ", " você ", " voce ", " para ", " com ", " que ", " está ", " esta ",
+    " canais ", " canal ", " cargos ", " cargo ", " servidor ", " mensagens ", " apaguei ",
+    " criei ", " pronto", " feito", " tudo ", " agora ", " aqui ", " seu ", " sua ",
+)
 
 # Ferramentas cujo resultado JÁ é a resposta final: quando a única chamada do turno é uma
 # delas e deu certo, responder com o próprio texto evita uma segunda ida ao LLM (o que
@@ -163,6 +185,80 @@ class Agent:
         return f"{texto}\n\n{pergunta}".strip() if texto else pergunta
 
     @staticmethod
+    def _parece_ingles(texto: str) -> bool:
+        """Heurística conservadora: só acusa inglês quando ele domina o texto."""
+        baixo = f" {texto.lower()} "
+        pontos_en = sum(1 for marca in _MARCADORES_INGLES if marca in baixo)
+        pontos_pt = sum(1 for marca in _MARCADORES_PORTUGUES if marca in baixo)
+        if pontos_en < 2:
+            return False
+        # Texto curto com 2+ marcadores fortes já é suspeito; em texto longo exige domínio.
+        if len(baixo) < 200:
+            return pontos_en >= 2 and pontos_pt == 0
+        return pontos_en > pontos_pt
+
+    @classmethod
+    def resposta_ruim(cls, texto: str) -> str | None:
+        """Motivo pelo qual a resposta não pode ir pro Discord (ou None se está boa)."""
+        if not texto or not texto.strip():
+            return "vazia"
+        if parece_raciocinio(texto):
+            return "rascunho do modelo"
+        if len(texto) > MAX_RESPOSTA_CHARS:
+            return f"texto gigante ({len(texto)} chars)"
+        if cls._parece_ingles(texto):
+            return "inglês"
+        return None
+
+    async def _garantir_resposta_apresentavel(
+        self,
+        channel_id: Any,
+        texto: str,
+        execucoes_finais: list[str],
+        messages: list[dict[str, Any]],
+    ) -> str:
+        """
+        Última barreira antes do Discord: nada de rascunho, textão ou inglês.
+
+        1. tira rascunho que o provedor tenha deixado passar;
+        2. se a resposta está ruim, pede UMA reescrita curta em português;
+        3. se nem isso deu certo, responde com o resultado real da ferramenta (já em PT) —
+           nunca com o texto ruim.
+        """
+        _, limpo = separar_raciocinio(texto or "")
+        motivo = self.resposta_ruim(limpo)
+        if motivo is None:
+            return limpo
+
+        logger.info("resposta descartada (%s); pedindo reescrita em PT-BR", motivo)
+        reescrita = list(messages) + [{
+            "role": "user",
+            "content": (
+                "Reescreva em português do Brasil, em NO MÁXIMO 3 linhas, apenas o resultado "
+                f"para o usuário (motivo do descarte: {motivo}). Não mostre raciocínio, não "
+                "responda em inglês, não repita instruções. Se não houver nada a dizer, "
+                'responda apenas "Feito!".'
+            ),
+        }]
+        try:
+            resposta = await self.llm.chat(messages=reescrita, tools=None, timeout=self.llm_timeout)
+            _, candidata = separar_raciocinio((resposta.content or "").strip())
+            if self.resposta_ruim(candidata) is None:
+                self.memory.add_message(channel_id, {"role": "assistant", "content": candidata})
+                return candidata
+        except Exception as exc:  # noqa: BLE001 - se o conserto falhar, cai no fallback
+            logger.warning("reescrita em PT-BR falhou (%s)", exc)
+
+        for resultado in reversed(execucoes_finais):
+            if resultado and not resultado.startswith("Erro") and self.resposta_ruim(resultado) is None:
+                self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
+                return resultado
+
+        seguro = "Feito! ✅ Confira no servidor e me diga se falta algo."
+        self.memory.add_message(channel_id, {"role": "assistant", "content": seguro})
+        return seguro
+
+    @staticmethod
     def _pedido_extra(prompt: str) -> bool:
         """True quando a frase pede algo ALÉM do comando (ex.: 'apague X e mande oi')."""
         return bool(_PEDIDO_EXTRA_RE.search(_strip_accents(prompt.lower())))
@@ -245,6 +341,7 @@ class Agent:
         rounds = 0
         final_text = ""
         execucoes: list[str] = []
+        execucoes_finais: list[str] = []
 
         while rounds < self.max_tool_rounds:
             rounds += 1
@@ -261,7 +358,9 @@ class Agent:
                 tool_calls = _extract_fallback_tool_calls(response.content)
 
             if not tool_calls:
-                final_text = self._com_pergunta_de_confirmacao(channel_id, response.content.strip())
+                limpa = await self._garantir_resposta_apresentavel(
+                    channel_id, (response.content or "").strip(), execucoes_finais, messages)
+                final_text = self._com_pergunta_de_confirmacao(channel_id, limpa)
                 if final_text:
                     self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})
                     if asks_for_confirmation(final_text):
@@ -292,7 +391,6 @@ class Agent:
 
             # Executar cada ferramenta
             pedindo_confirmacao: set[str] = set()
-            execucoes_finais: list[str] = []
             for call in tool_calls:
                 args = self._authorize_confirmed(channel_id, call.name, dict(call.args or {}), prompt)
                 try:
@@ -349,7 +447,9 @@ class Agent:
             return (f"✅ Fiz o que você pediu ({acoes}), mas os modelos gratuitos ficaram instáveis "
                     "agora e eu não consegui escrever o resumo. Confira no servidor e me diga se "
                     "falta algo.")
-        final_text = self._com_pergunta_de_confirmacao(channel_id, final_resp.content.strip())
+        limpa = await self._garantir_resposta_apresentavel(
+            channel_id, (final_resp.content or "").strip(), execucoes_finais, messages)
+        final_text = self._com_pergunta_de_confirmacao(channel_id, limpa)
         if final_text:
             self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})
         return final_text or "Operações concluídas."

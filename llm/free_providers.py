@@ -36,6 +36,7 @@ from typing import Any, Callable
 import aiohttp
 
 from llm.base import (
+    separar_raciocinio,
     ChatProvider,
     LLMResponse,
     ProviderError,
@@ -441,6 +442,16 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         if msg.get("tool_calls"):
             tool_calls = parse_openai_tool_calls(msg["tool_calls"])
         concluiu_por_limite = str(choices[0].get("finish_reason") or "").lower() == "length"
+
+        # Gateways grátis às vezes devolvem o rascunho interno no content (ou num campo
+        # separado). Rascunho não é resposta: vale o que vier depois do "final answer".
+        if msg.get("reasoning_content") or msg.get("reasoning"):
+            logger.debug("[%s] %s devolveu raciocínio em campo separado", self.name, model)
+        rascunho, resposta = separar_raciocinio(content)
+        if rascunho:
+            logger.info("[%s] %s mandou rascunho interno (%d chars); resposta útil: %d chars",
+                        self.name, model, len(rascunho), len(resposta))
+            content = resposta
 
         if not content and not tool_calls:
             # Modelos de raciocínio (grátis, via gateway) gastam o teto inteiro "pensando" e

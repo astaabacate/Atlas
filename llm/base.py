@@ -113,6 +113,74 @@ class ProviderError(RuntimeError):
         )
 
 
+# Marcadores de "pensamento" que alguns modelos grátis jogam DENTRO do campo content
+# (em vez de um campo separado). Isso não é resposta: é rascunho interno, quase sempre
+# em inglês — e era o que fazia o bot mandar textão em inglês no Discord.
+_MARCADORES_RACIOCINIO = (
+    "thinking process",
+    "let me think",
+    "let me analyze",
+    "analyze the user",
+    "analyzing the request",
+    "here's my thinking",
+    "here is my thinking",
+    "i need to figure out",
+    "first, i'll",
+    "okay, so the user",
+    "chain of thought",
+    "raciocínio:",
+    "pensando:",
+)
+
+# Onde o modelo costuma separar o rascunho da resposta de verdade.
+_MARCADORES_RESPOSTA = (
+    "final answer:",
+    "resposta final:",
+    "**final answer**",
+    "**resposta:**",
+    "**resposta final**",
+    "### resposta",
+    "## resposta",
+    "answer:",
+    "resposta:",
+)
+
+
+def parece_raciocinio(texto: str) -> bool:
+    """True quando o texto tem cara de rascunho interno do modelo (não de resposta)."""
+    if not texto:
+        return False
+    amostra = texto[:1200].lower()
+    return any(marcador in amostra for marcador in _MARCADORES_RACIOCINIO)
+
+
+def separar_raciocinio(texto: str) -> tuple[str, str]:
+    """
+    Devolve `(raciocinio, resposta)` para o que o provedor mandou no `content`.
+
+    Casos tratados:
+    - resposta limpa → ("", texto);
+    - rascunho + resposta ("... final answer: ...") → (rascunho, resposta);
+    - só rascunho → (rascunho, "") — quem chama decide (aqui vira resposta vazia).
+    """
+    if not texto:
+        return "", ""
+    if not parece_raciocinio(texto):
+        return "", texto
+
+    baixo = texto.lower()
+    melhor = -1
+    tamanho = 0
+    for marcador in _MARCADORES_RESPOSTA:
+        idx = baixo.rfind(marcador)
+        if idx > melhor:
+            melhor = idx
+            tamanho = len(marcador)
+    if melhor != -1:
+        return texto[:melhor], texto[melhor + tamanho:].strip()
+    return texto, ""
+
+
 def compact_error_text(text: str, limit: int = 160) -> str:
     """Reduz um corpo de erro (às vezes HTML puro) a uma linha curta e legível."""
     if not text:

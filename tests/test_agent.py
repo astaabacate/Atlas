@@ -448,3 +448,95 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRespostaNuncaVazaRaciocinio(unittest.TestCase):
+    """O dono recebeu um textão em inglês (rascunho do modelo). Nunca mais."""
+
+    def setUp(self) -> None:
+        self.actor = SimpleNamespace(id=1, guild_permissions=SimpleNamespace(administrator=True))
+        self.bot_member = SimpleNamespace(id=2, guild_permissions=SimpleNamespace(administrator=True),
+                                          top_role=SimpleNamespace(position=100))
+        self.canais = []
+        self.guild = SimpleNamespace(
+            name="Servidor Teste", id=12345, channels=self.canais, categories=[], roles=[],
+            members=[], me=self.bot_member, owner_id=1, get_channel=lambda cid: None,
+        )
+        self.channel = SimpleNamespace(id=555, name="geral")
+
+    def _turno(self, agent: Agent, prompt: str) -> str:
+        return asyncio.run(agent.process_turn(guild=self.guild, channel=self.channel,
+                                              actor=self.actor, prompt=prompt))
+
+    TEXTao_EN = (
+        "- User: oi  ← This is the last user message before my current turn\n"
+        "But in the current turn showing in the assistant's view, it says: 'mude o nome do server'.\n"
+        "There's inconsistency here. Looking at the very end of the user's message history: the "
+        "user said oi. I should figure out what the user wants and then answer properly. Let me "
+        "think about whether the name change already happened and what the correct answer is."
+    )
+
+    def test_textao_em_ingles_e_reescrito_em_portugues(self) -> None:
+        llm = FakeLLM([
+            LLMResponse(content=self.TEXTao_EN, tool_calls=[]),
+            LLMResponse(content="Não posso mudar o nome do servidor agora.", tool_calls=[]),
+        ])
+        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+
+        resposta = self._turno(agent, "mude o nome do server pra pretinho")
+
+        self.assertEqual(resposta, "Não posso mudar o nome do servidor agora.")
+        self.assertNotIn("thinking", resposta.lower())
+
+    def test_resposta_gigante_em_portugues_tambem_e_reescrita(self) -> None:
+        llm = FakeLLM([
+            LLMResponse(content="Feito! " + ("detalhe importante " * 200), tool_calls=[]),
+            LLMResponse(content="Pronto, canais criados.", tool_calls=[]),
+        ])
+        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+
+        resposta = self._turno(agent, "crie uns canais")
+
+        self.assertEqual(resposta, "Pronto, canais criados.")
+        self.assertLess(len(resposta), 1000)
+
+    def test_quando_o_modelo_insiste_no_ingles_a_resposta_e_o_resultado_da_ferramenta(self) -> None:
+        """Nem a reescrita deu certo: o bot entrega o que a ferramenta respondeu (em PT)."""
+        apagados: list[str] = []
+
+        def canal(cid: int, nome: str) -> SimpleNamespace:
+            ch = SimpleNamespace(id=cid, name=nome, mentions=[], channels=None)
+            async def delete(_n=nome):
+                apagados.append(_n)
+            ch.delete = delete
+            return ch
+
+        self.canais.extend([canal(11, "canal-a"), canal(12, "canal-b")])
+        self.guild.get_channel = lambda cid: next((c for c in self.canais if c.id == cid), None)
+
+        llm = FakeLLM([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
+                                                         args={"channels": ["11", "12"]})]),
+            LLMResponse(content=self.TEXTao_EN, tool_calls=[]),
+            LLMResponse(content=self.TEXTao_EN, tool_calls=[]),  # reescrita também falhou
+        ])
+        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+
+        resposta = self._turno(agent, "apague os canais canal-a e canal-b e me diga se deu certo")
+
+        self.assertEqual(sorted(apagados), ["canal-a", "canal-b"], "a ação em si precisa ter acontecido")
+        self.assertIn("Exclusão concluída", resposta)
+        self.assertNotIn("thinking", resposta.lower())
+        self.assertLess(len(resposta), 1000)
+
+    def test_sem_nada_para_dizer_o_fallback_e_curto_e_em_portugues(self) -> None:
+        llm = FakeLLM([
+            LLMResponse(content=self.TEXTao_EN, tool_calls=[]),
+            LLMResponse(content="Let me think again about the user's request.", tool_calls=[]),
+        ])
+        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+
+        resposta = self._turno(agent, "oi")
+
+        self.assertTrue(resposta.startswith("Feito"), resposta)
+        self.assertLess(len(resposta), 200)
