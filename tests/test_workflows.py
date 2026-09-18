@@ -103,6 +103,34 @@ class TestBotWorkflow(unittest.TestCase):
                          "sem actions: write o vigia não consegue acordar o bot")
 
 
+class TestVigiaDoE2E(unittest.TestCase):
+    """Execução do E2E travada não pode bloquear a fila — e o vigia não pode tocar no bot."""
+
+    def setUp(self) -> None:
+        self.documento = _carregar("vigia-e2e.yml")
+
+    def test_pode_cancelar_execucoes(self) -> None:
+        self.assertEqual(self.documento["permissions"].get("actions"), "write",
+                         "sem actions: write o vigia não consegue derrubar a execução presa")
+
+    def test_so_mexe_no_e2e(self) -> None:
+        comandos = " ".join(str(p.get("run", "")) for p in _passos(self.documento))
+        self.assertIn("--workflow=e2e.yml", comandos)
+        self.assertNotIn("bot.yml", comandos, "o bot 24/7 é produção: só o dono derruba a fatia")
+        self.assertEqual(comandos.count("gh run cancel"), 1, "um único ponto de cancelamento")
+        self.assertIn('gh run cancel "$id"', comandos,
+                      "o cancelamento tem que ser do id que veio da listagem")
+
+    def test_limites_e_aviso_ao_dono(self) -> None:
+        documento = self.documento["jobs"]["vigia"]
+        self.assertIn("LIMITE_DO_PASSO_MIN", documento["env"])
+        self.assertIn("LIMITE_DA_EXECUCAO_MIN", documento["env"])
+        comandos = " ".join(str(p.get("run", "")) for p in _passos(self.documento))
+        self.assertIn("::warning title=vigia e2e::", comandos,
+                      "derrubar uma execução tem que aparecer no resumo do Actions")
+        self.assertIn("in_progress", comandos, "o vigia olha o passo que ESTÁ rodando")
+
+
 class TestSondaPublicaDepoisDeMedir(unittest.TestCase):
     def setUp(self) -> None:
         self.documento = _carregar("sonda-hierarquia.yml")
