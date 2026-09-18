@@ -75,3 +75,16 @@ membro buscado na API quando o cache está vazio, e as respostas honestas de ser
 color_name, translate_text, emoji_search e topic_suggest. O reinício entra na fila e assume
 quando a fatia atual terminar.
 
+RESTART PEDIDO EM 2026-09-18T06:23Z
+-------------------------------
+Motivo: o bot online ainda estava no código ANTIGO — foi ele que mandou o planejamento em
+inglês ("[Ação solicitada: edit_channel(...)] Let's start by editing categories...") quando
+alguém só disse "oi", e ele dava "Não consegui falar com nenhum modelo de linguagem" em
+tarefas específicas. Este reinício leva tudo: (1) a barreira de resposta (sem rascunho, sem
+inglês, sem eco do contexto interno, no máximo ~1000 caracteres); (2) a corrida de LLM com 3
+ondas e repetição com histórico cortado quando o pedido não cabe no modelo — com mensagem
+honesta ("a conversa ficou comprida demais") em vez do genérico; (3) o resultado real da
+ferramenta quando o LLM cai depois de a ação já ter rodado; e (4) as correções da matriz de
+capacidades (hierarquia medida na API, retentativa em 5xx, bitrate pelo teto do servidor,
+export com aviso de recorte).
+
