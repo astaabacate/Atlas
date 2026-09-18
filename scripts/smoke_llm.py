@@ -333,32 +333,60 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
     )
 
 
-async def run(timeout: float, concurrency: int) -> int:
+class Relatorio:
+    """Coleta o que é impresso para também gravar o relatório em arquivo/CI."""
+
+    def __init__(self) -> None:
+        self.linhas: list[str] = []
+
+    def print(self, *partes: Any, **kwargs: Any) -> None:
+        texto = " ".join(str(p) for p in partes)
+        self.linhas.append(texto)
+        print(*partes, **kwargs)
+
+    def salvar(self, destino: str) -> None:
+        if not destino:
+            return
+        path = Path(destino)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        cabecalho = [
+            "# 🛰️ Sonda ao vivo dos provedores LLM",
+            "",
+            f"- executada em: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+            f"- python: {sys.version.split()[0]}",
+            "",
+        ]
+        path.write_text("\n".join(cabecalho + self.linhas) + "\n", encoding="utf-8")
+
+
+async def run(timeout: float, concurrency: int, out: str = "") -> int:
+    relatorio = Relatorio()
     env = dict(os.environ)
     secrets = known_secret_values(env)
     maybe_mask_in_actions(secrets)
 
     entries, setup_errors = build_entries(env)
     if setup_errors:
-        print("Erros de montagem de provedores:")
+        relatorio.print("Erros de montagem de provedores:")
         for err in setup_errors:
-            print(f"- {short_cell(redact(err, secrets), 260)}")
-        print()
+            relatorio.print(f"- {short_cell(redact(err, secrets), 260)}")
+        relatorio.print()
 
     ativos, faltando = descrever_pool(env)
-    print(f"Pool gratuito ativo: {ativos or '(nenhum)'}")
+    relatorio.print(f"Pool gratuito ativo: {ativos or '(nenhum)'}")
     if faltando:
-        print("Fora do pool por falta de credencial (cadastre como secret para ativar):")
+        relatorio.print("Fora do pool por falta de credencial (cadastre como secret para ativar):")
         for item in faltando:
-            print(f"- {item}")
-    print()
+            relatorio.print(f"- {item}")
+    relatorio.print()
 
     if not entries:
-        print("Nenhum provedor configurado para a smoke.")
+        relatorio.print("Nenhum provedor configurado para a smoke.")
+        relatorio.salvar(out)
         return 1
 
-    print("Corredores sondados: " + ", ".join(f"{getattr(e.provider, 'name', '?')} ({e.origin})" for e in entries))
-    print()
+    relatorio.print("Corredores sondados: " + ", ".join(f"{getattr(e.provider, 'name', '?')} ({e.origin})" for e in entries))
+    relatorio.print()
 
     sem = asyncio.Semaphore(max(1, concurrency))
 
@@ -368,10 +396,10 @@ async def run(timeout: float, concurrency: int) -> int:
 
     results = await asyncio.gather(*(guarded(entry) for entry in entries))
 
-    print("| corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |")
-    print("|---|---:|---|---:|:---:|---|---|---|")
+    relatorio.print("| corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |")
+    relatorio.print("|---|---:|---|---:|:---:|---|---|---|")
     for result in results:
-        print(
+        relatorio.print(
             "| "
             + " | ".join(
                 [
@@ -390,14 +418,15 @@ async def run(timeout: float, concurrency: int) -> int:
 
     successes = [r for r in results if r.status == "200" and not r.error]
     native_successes = [r for r in successes if r.native_tool_call]
-    print()
-    print(f"Resumo: {len(successes)}/{len(results)} provedores responderam; {len(native_successes)} com tool_call nativo.")
+    relatorio.print()
+    relatorio.print(f"Resumo: {len(successes)}/{len(results)} provedores responderam; {len(native_successes)} com tool_call nativo.")
     if successes:
-        print("🟢 TESTADOS E FUNCIONANDO AGORA: "
+        relatorio.print("🟢 TESTADOS E FUNCIONANDO AGORA: "
               + ", ".join(f"{r.name} ({r.model})" for r in successes))
     falharam = [r for r in results if r not in successes]
     if falharam:
-        print("🔴 não responderam nesta rodada: " + ", ".join(f"{r.name}" for r in falharam))
+        relatorio.print("🔴 não responderam nesta rodada: " + ", ".join(f"{r.name}" for r in falharam))
+    relatorio.salvar(out)
     return 0 if successes else 2
 
 
@@ -405,8 +434,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Sonda live dos provedores LLM do Farol")
     parser.add_argument("--timeout", type=float, default=float(os.environ.get("SMOKE_TIMEOUT", "30")))
     parser.add_argument("--concurrency", type=int, default=int(os.environ.get("SMOKE_CONCURRENCY", "4")))
+    parser.add_argument("--out", default=os.environ.get("SMOKE_OUT", ""),
+                        help="grava o relatório em markdown neste caminho (usado no CI)")
     args = parser.parse_args()
-    return asyncio.run(run(timeout=args.timeout, concurrency=args.concurrency))
+    return asyncio.run(run(timeout=args.timeout, concurrency=args.concurrency, out=args.out))
 
 
 if __name__ == "__main__":

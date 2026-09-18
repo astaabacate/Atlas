@@ -12,7 +12,8 @@ on:
       - ".github/workflows/smoke.yml"
 
 permissions:
-  contents: read
+  # contents: write para publicar reports/smoke-llm.md (a prova ao vivo de quem respondeu)
+  contents: write
 
 jobs:
   smoke:
@@ -61,4 +62,53 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Sondar provedores LLM ao vivo
-        run: python scripts/smoke_llm.py --timeout "$SMOKE_TIMEOUT" --concurrency "$SMOKE_CONCURRENCY"
+        id: sonda
+        run: |
+          set -o pipefail
+          python scripts/smoke_llm.py --timeout "$SMOKE_TIMEOUT" --concurrency "$SMOKE_CONCURRENCY" \
+            --out reports/smoke-llm.md | tee /tmp/sonda.txt
+          status=${PIPESTATUS[0]}
+          {
+            echo "## Sonda de provedores LLM — \`${{ github.sha }}\`"
+            echo
+            sed -n '1,80p' reports/smoke-llm.md
+          } > /tmp/resumo.md
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then cat /tmp/resumo.md >> "$GITHUB_STEP_SUMMARY"; fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publicar resultado no branch (prova ao vivo)
+        # Publica mesmo quando nenhum provedor respondeu: 🔴 também é resultado.
+        run: |
+          set -uo pipefail
+          if [ ! -f reports/smoke-llm.md ]; then echo "::warning title=smoke::relatório não foi gerado"; exit 0; fi
+          conteudo=$(base64 -w0 reports/smoke-llm.md)
+          sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/reports/smoke-llm.md?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+          if [ -n "$sha" ]; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/reports/smoke-llm.md" \
+              -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
+              -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+              && echo "::notice title=smoke::reports/smoke-llm.md atualizado"
+          else
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/reports/smoke-llm.md" \
+              -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
+              -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+              && echo "::notice title=smoke::reports/smoke-llm.md criado"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Falhar se nenhum provedor respondeu
+        run: |
+          if [ "${{ steps.sonda.outputs.status }}" != "0" ]; then
+            echo "::error title=smoke::nenhum provedor respondeu nesta rodada (veja reports/smoke-llm.md)"
+            exit 1
+          fi
+
+      - name: Guardar o relatório como artefato
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-llm
+          path: reports/smoke-llm.md
+          if-no-files-found: warn
