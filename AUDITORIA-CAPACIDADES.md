@@ -239,14 +239,17 @@ parser.
 
 **2. "Devia ser instantâneo" — e por que não era.** Ações de uma ferramenta só já respondem sem
 segunda ida ao modelo (`direct_tool_reply`), então o que sobra é a corrida de LLM. Medido: a fila
-do kilo responde em ~1–2,5 s. O problema é a **cota**: o bot 24/7 usa o acesso **anônimo** do kilo
-(~200 req/h) e as execuções de CI (E2E a cada push, sonda de provedores) usam a **MESMA cota** —
-enquanto eu testava, o bot do dono recebia 429 e respondia "os modelos gratuitos estão com a fila
-cheia agora". Ou seja: parte da lentidão que o dono sentiu foi o próprio processo de teste comendo
-a cota do bot. Mitigação nesta rodada: `concurrency` nos workflows (só a execução mais nova fica na
-fila; nada de run velha consumindo cota), e a orientação de cadastrar as **12 chaves gratuitas**
-(cada chave nova é um corredor a mais: a corrida dispara todos em paralelo e o primeiro que
-responde vence).
+do kilo responde em ~1–2,5 s. O problema é a **cota do acesso anônimo** (o kilo limita ~200 req/h) e
+o fato de o bot ter **um corredor só**: qualquer 429 dele é falha ou espera para o cliente — foi
+assim que apareceu "os modelos gratuitos estão com a fila cheia agora", tanto no bot quanto no CI.
+Observação honesta: o limite do acesso anônimo é por IP/janela, e o CI roda em outra máquina — não
+dá para afirmar daqui que o CI "rouba" a cota do bot; o que se pode afirmar é que **o projeto testa
+e roda no mesmo provedor gratuito**, então a disputa existe e o risco de 429 é maior enquanto
+existe só ele. Mitigação nesta rodada: `concurrency` nos workflows (só a execução mais nova fica na
+fila, nada de run velha consumindo cota) e a orientação de cadastrar as **12 chaves gratuitas** —
+cada chave nova é um corredor a mais na corrida paralela, e o primeiro que responde vence. Com um
+corredor, o pool de castigo também faz o bot ESPERAR (até 10 s) quando o único modelo acabou de
+estourar limite: é melhor que falhar na hora, mas é tempo que o cliente sente.
 
 **3. Medir em vez de adivinhar.** O agente agora mede o próprio tempo por etapa (LLM × execução das
 ações) e loga uma linha por resposta (`turno: 4,1s no total (LLM 3,2s em 2 chamadas…)`) — **sem
