@@ -104,3 +104,16 @@ histórico quando o pedido não cabe, o motivo certo na mensagem ("conversa comp
 a barreira contra eco do contexto (o textão em inglês que começava com "[Ação solicitada: ...]"),
 e a fila do kilo medida na 8ª rodada. Esta execução substitui a pendente anterior.
 
+
+RESTART PEDIDO EM 2026-09-18T09:10Z
+-------------------------------
+Motivo: os 3 bugs que o dono viu AO VIVO usando o bot: (1) "recrie o canal" devolvia o canal como
+estava — a ordem crua do modelo (delete antes do clone) era executada como veio e, se a criação
+falhasse, o canal sumia; agora quem CRIA roda antes de quem APAGA, a exclusão da mesma mensagem é
+bloqueada quando a criação falhou e a retentativa só repete com 5xx confirmado; o clone passa a
+copiar também a POSIÇÃO. (2) cargos/canais duplicados — chamada idêntica repetida pelo modelo era
+executada de novo (dedupe por nome+args agora) e create_roles/create_channels não criam o que já
+existe com o mesmo nome (recriação do que a mesma mensagem vai apagar continua valendo).
+(3) demora para agir — o atalho de resposta direta só valia para ferramentas "terminais": as
+outras obrigavam uma SEGUNDA ida ao modelo só para resumir o que já estava pronto (era o delay do
+lote de 5 canais); agora vale para qualquer ferramenta única. Esta execução substitui a pendente.
