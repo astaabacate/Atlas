@@ -194,6 +194,30 @@ permissões, posição) — **overwrites de canal não entram no JSON**; para is
 (capacidade verificada ao vivo na fase `caps`). Num servidor grande o backup "de uma vez" não cabe
 numa mensagem do Discord por limite da própria plataforma.
 
+### Rodada 5: o E2E ao vivo pegou uma duplicata que o teste offline não pegava
+
+A execução `35327334718` (commit `c4d151e`, já com o dedupe por assinatura) fechou em
+✅ 103 · ❌ 2 · ⚠️ 7 · ⏭️ 1, e o segundo ❌ foi **novo e real**: `caps/repetição` →
+*"o lote com o mesmo nome criou 2 canais (esperado 1)"*.
+
+Causa: o lote (`create_channels`/`create_roles`) roda com **concorrência 3** (`run_bulk`). A
+conferência de "esse nome já existe?" era feita antes do `await` da criação, mas o NOME só era
+marcado como usado DEPOIS que a criação voltava. Dois itens iguais na mesma chamada passavam
+juntos pela conferência e os dois criavam — a duplicata que o dono viu nascer com uma ordem só.
+Nos testes offline isso não aparecia porque os objetos falsos criam sem esperar pela rede (sem
+ponto de suspensão, os itens rodavam praticamente em sequência).
+
+Correção: o nome é **reservado antes do `await`** (`_NomeReservado`) e a reserva vira o objeto
+criado quando ele nasce (ou é liberada se a criação falhar). Regressão nova:
+`ServidorRedeLenta` (cada criação espera como na rede) + `test_lote_repetido_com_rede_lenta_cria_um_canal_so`
+e `test_lote_repetido_de_cargos_com_rede_lenta_cria_um_cargo_so` — **provado que falham sem a
+correção** (3 canais em vez de 1) e passam com ela.
+
+O outro ❌ (`tools/export_structure`) era o harness cobrando as chaves `"permissions"`/`"channels"`
+de um **recorte** do JSON: num servidor sem categorias os canais aparecem depois do corte. O
+harness passou a cobrar o aviso e o balanço do que foi exportado (as chaves do pedaço cortado não
+podem ser exigidas; o JSON completo continua validado quando ele cabe na mensagem).
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o

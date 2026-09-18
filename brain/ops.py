@@ -493,9 +493,19 @@ async def op_create_channels(ctx: ToolContext, channels: list[dict[str, Any]]) -
         if nome and ja_existe is not None and not _vai_ser_apagado(nome, ja_existe):
             pulados.append(nome)
             return f"#{nome} (já existia — não dupliquei)"
-        created = await _criar_canal_do_item(guild, item)
-        if nome:  # o lote não repete este nome, e a próxima ordem também não
-            por_nome.setdefault(nome.strip().casefold(), []).append(created)
+
+        chave = nome.strip().casefold()
+        reserva = _NomeReservado(parent)
+        if nome:
+            por_nome.setdefault(chave, []).append(reserva)
+        try:
+            created = await _criar_canal_do_item(guild, item)
+        except BaseException:
+            if nome and reserva in por_nome.get(chave, []):
+                por_nome[chave].remove(reserva)  # a criação falhou: libera o nome
+            raise
+        if nome:
+            por_nome[chave] = [created if c is reserva else c for c in por_nome.get(chave, [])]
         cid = getattr(created, "id", "")
         cname = getattr(created, "name", item.get("name", ""))
         return f"<#{cid}>" if cid else f"#{cname}"
@@ -737,9 +747,11 @@ async def op_create_roles(
         chave = name.casefold()
         ja_existe = existentes.get(chave)
         if ja_existe is not None and not _vai_ser_apagado(name, ja_existe):
-            # marca na hora (antes de qualquer await) para o LOTE não criar duas vezes o mesmo
             pulados.append(name)
             return f"@{name} (já existia — não dupliquei)"
+        # reserva ANTES do await: o lote é concorrente (3 por vez) e dois itens com o mesmo nome
+        # passariam juntos pela conferência acima (era assim que nascia cargo duplicado)
+        existentes[chave] = _NomeReservado()
         color_val = _parse_color(item.get("color"))
         hoist = bool(item.get("hoist", False))
         mentionable = bool(item.get("mentionable", False))
@@ -761,8 +773,12 @@ async def op_create_roles(
         if not creator:
             raise ToolError("Servidor não suporta criação de cargos.")
 
-        role_obj = await _criar_com_retentativa(creator, **kwargs)
-        existentes[name.casefold()] = role_obj  # o lote não repete este nome nem que ele seja apagado
+        try:
+            role_obj = await _criar_com_retentativa(creator, **kwargs)
+        except BaseException:
+            existentes.pop(chave, None)  # a criação falhou: libera o nome
+            raise
+        existentes[chave] = role_obj  # o lote não repete este nome nem que ele seja apagado
         rid = getattr(role_obj, "id", "")
         return f"<@&{rid}>" if rid else f"@{name}"
 
@@ -1561,6 +1577,21 @@ async def op_apply_template(ctx: ToolContext, template: str) -> str:
 
 
 # --- 6. Backup (2) ---
+
+class _NomeReservado:
+    """
+    Marca um nome que JÁ está sendo criado neste lote.
+
+    O lote roda com concorrência 3 (`run_bulk`), então dois itens com o mesmo nome chegam juntos
+    na criação: quem confere duplicata DEPOIS do `await` deixa os dois passarem (aconteceu no
+    servidor do dono: uma chamada só criou 2 canais iguais). A reserva entra na lista ANTES do
+    `await` e é trocada pelo objeto criado quando ele nasce.
+    """
+
+    def __init__(self, categoria: Any = None) -> None:
+        self.id = None
+        self.category = categoria
+
 
 def _exportar_canal(ch: Any) -> dict[str, Any]:
     """Campos do canal que o import sabe recriar (tipo, tópico, nsfw, slowmode, bitrate...)."""

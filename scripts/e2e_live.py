@@ -1778,10 +1778,15 @@ class Harness:
                 # cortado em silêncio e este check morria com JSONDecodeError — bug do harness.)
                 self.assert_true("não cabe" in out, "recorte sem explicação do tamanho")
                 self.assert_true("daria" in out, "recorte sem dizer em quantas mensagens caberia")
-                for campo in ('"categories"', '"roles"', '"channels"', '"permissions"'):
-                    self.assert_true(campo in out, f"export não mostrou o campo {campo}")
+                # As chaves do JSON são cortadas no meio do texto: cobrar '"permissions"' ou
+                # '"channels"' de um PEDAÇO é bug do harness (num servidor sem categorias, os
+                # canais aparecem só depois do corte). O que o recorte tem que trazer é o aviso e
+                # o balanço de tudo que foi exportado — o JSON completo é validado quando cabe.
+                self.assert_true("NÃO serve para importar" in out, "recorte sem o aviso")
+                for info in ("canal(is)", "categoria(s)", "cargo(s)", "permissões", "por partes"):
+                    self.assert_true(info in out, f"o aviso do recorte não diz o que ficou fora ({info})")
                 return (f"servidor grande: JSON completo com {len(out)} chars no recorte AVISADO "
-                        f"(categorias, cargos e canais presentes)"), {"truncado": True}
+                        f"(aviso + balanço de canais/categorias/cargos exportados)"), {"truncado": True}
             bruto = out[out.find("{"): out.rfind("}") + 1] if "{" in out else out
             data = json.loads(bruto)
             self.assert_true("categories" in data and "roles" in data, "JSON sem categories/roles")

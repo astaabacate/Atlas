@@ -232,6 +232,31 @@ class Servidor:
         return next((c for c in self.channels if c.id == cid), None)
 
 
+class ServidorRedeLenta(Servidor):
+    """
+    Igual ao `Servidor`, mas cada criação espera a rede (como o Discord de verdade).
+
+    O lote roda com concorrência 3: sem essa espera os objetos falsos nascem antes de qualquer
+    outro item ser conferido, e a corrida que criou canais/cargos duplicados NO SERVIDOR do dono
+    (uma chamada só, dois itens com o mesmo nome) não apareceria nos testes.
+    """
+
+    async def _espera_da_rede(self) -> None:
+        await asyncio.sleep(0.01)
+
+    async def create_text_channel(self, name: str, **kwargs: Any) -> Canal:
+        await self._espera_da_rede()
+        return await super().create_text_channel(name, **kwargs)
+
+    async def create_voice_channel(self, name: str, **kwargs: Any) -> Canal:
+        await self._espera_da_rede()
+        return await super().create_voice_channel(name, **kwargs)
+
+    async def create_role(self, name: str, **kwargs: Any) -> Entidade:
+        await self._espera_da_rede()
+        return await super().create_role(name, **kwargs)
+
+
 def contexto(servidor: Servidor | None = None) -> tuple[ToolContext, Servidor]:
     servidor = servidor or Servidor()
     servidor.owner_id = None
@@ -435,6 +460,30 @@ class TestCapacidadesDeCanal(unittest.TestCase):
                                        {"name": "duplicado", "type": "text"}]}, ctx)
         self.assertIn("Criei 1 canal", saida)
         self.assertEqual([c.name.lower() for c in servidor.channels].count("duplicado"), 1)
+
+    def test_lote_repetido_com_rede_lenta_cria_um_canal_so(self) -> None:
+        """
+        Regressão do que o E2E pegou AO VIVO no servidor do dono: o lote é concorrente (3 por
+        vez) e a conferência de nome feita DEPOIS do await deixava os dois itens passarem —
+        "crie 5 canais" com nomes repetidos criava canais iguais.
+        """
+        ctx, servidor = contexto(ServidorRedeLenta())
+        saida = executar("create_channels",
+                         {"channels": [{"name": "Corrida", "type": "text"},
+                                       {"name": "Corrida", "type": "text"},
+                                       {"name": "Corrida", "type": "text"}]}, ctx)
+        criados = [c.name for c in servidor.channels].count("Corrida")
+        self.assertEqual(criados, 1, f"a corrida criou {criados} canais iguais")
+        self.assertIn("Criei 1 canal", saida)
+
+    def test_lote_repetido_de_cargos_com_rede_lenta_cria_um_cargo_so(self) -> None:
+        """Mesma corrida do lado dos cargos."""
+        ctx, servidor = contexto(ServidorRedeLenta())
+        saida = executar("create_roles",
+                         {"roles": [{"name": "Corrida"}, {"name": "corrida"}, {"name": "CORRIDA"}]}, ctx)
+        criados = [r.name for r in servidor.roles if r.name.lower() == "corrida"]
+        self.assertEqual(len(criados), 1, f"a corrida criou {len(criados)} cargos iguais")
+        self.assertIn("Criei 1 cargo", saida)
 
 
     def test_todos_os_tipos_suportados(self) -> None:
