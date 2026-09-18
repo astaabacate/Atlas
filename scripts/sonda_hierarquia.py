@@ -39,6 +39,12 @@ from typing import Any
 
 import aiohttp
 
+# Rodando como `python scripts/sonda_hierarquia.py`, o diretório do script entra no sys.path —
+# e o medidor de cor (core/look.py) ficaria invisível. A raiz do repositório entra na frente.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from core.look import cor_de_destaque, hex_da_cor, pixels_do_png  # noqa: E402
+
 API = "https://discord.com/api/v10"
 MARCA = "🧪 sonda-hierarquia"
 
@@ -182,8 +188,7 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
         # pelo produto — assim o dono sabe a cor exata, sem precisar subir o bot.
         cor_medida = await _cor_do_avatar(api, eu, outdir)
         if cor_medida is not None:
-            from core.look import hex_da_cor
-            linhas.append(f"- Cor de destaque medida no avatar do bot: **{hex_da_cor(cor_medida)}** "
+            linhas.append(f"- Cor de destaque medida na foto do bot: **{hex_da_cor(cor_medida)}** "
                           f"(usada nas respostas em Components V2; para fixar outra, defina "
                           f"`ACCENT_COLOR`).")
             linhas.append("")
@@ -287,11 +292,6 @@ async def _cor_do_avatar(api: "Sondagem", eu: dict[str, Any], outdir: Path) -> i
             "(e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).\n", encoding="utf-8")
         print(f"::warning title=sonda::cor do avatar não medida ({motivo})")
 
-    try:
-        from core.look import cor_de_destaque, hex_da_cor, pixels_do_png
-    except Exception as exc:  # noqa: BLE001 - sonda segue sem a cor
-        registrar(f"não consegui importar o medidor de cor ({exc})")
-        return None
     avatar = eu.get("avatar")
     if not avatar:
         # Sem foto própria: o Discord usa o avatar padrão (imagem neutra, sem cor viva).
