@@ -2144,6 +2144,7 @@ class Harness:
             alvo = next((c for c in novos if c.type.name == "text"), None)
             self.assert_true(alvo is not None, "não consegui criar o canal efêmero do teste do agente")
             registro_llm.clear()
+            _t_nominal = time.perf_counter()
             try:
                 resposta = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
                                                          prompt=f"Apague o canal {TEMP_MARK}-efemero agora.")
@@ -2159,7 +2160,8 @@ class Harness:
                                          "o agente não pediu a exclusão do canal efêmero", resposta)
             self.assert_true(not existe, f"o agente não apagou um canal nominal único: {resposta[:150]!r}")
             self.owned_channels.discard(alvo.id)
-            return f"agente apagou o canal nominal direto: {resposta[:80]!r}"
+            return (f"agente apagou o canal nominal direto em {time.perf_counter() - _t_nominal:.1f}s: "
+                    f"{resposta[:80]!r}")
 
         await self.check(phase, "agente apaga canal nominal sem travar", agente_apaga_nominal)
 
@@ -2173,6 +2175,7 @@ class Harness:
             ids = {c.id for c in novos}
             self.assert_true(len(ids) == 2, "não consegui criar os 2 canais do lote")
             registro_llm.clear()
+            _t0 = time.perf_counter()
             try:
                 resposta = await live.agent.process_turn(
                     guild=guild, channel=ctx.channel, actor=live.actor,
@@ -2192,9 +2195,12 @@ class Harness:
                              f"modo direto não apagou os 2 canais: {resposta[:150]!r}")
             self.assert_true(not any(t in resposta.lower() for t in ("confirm", "posso apagar", "certeza")),
                              f"modo direto não pode pedir confirmação: {resposta[:150]!r}")
+            segundos = time.perf_counter() - _t0
+            chamadas = len(registro_llm)
             for i in ids:
                 self.owned_channels.discard(i)
-            return f"apagou os 2 canais direto e informou o resultado ({resposta[:60]!r})"
+            return (f"apagou os 2 canais direto em {segundos:.1f}s "
+                    f"({chamadas} ida(s) ao LLM): {resposta[:60]!r}")
 
         await self.check(phase, "agente apaga lote direto, sem perguntar (padrão)", agente_apaga_lote_direto)
 

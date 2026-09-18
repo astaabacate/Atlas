@@ -43,3 +43,8 @@ RESTART PEDIDO EM 2026-09-18T02:20Z
 -------------------------------
 Motivo: subir o bot no código com o pool gratuito (llm7/OVH/Pollinations fora) e a
 repetição de resposta vazia do roteador. Este é o reinício que deve sobreviver na fila.
+
+RESTART PEDIDO EM 2026-09-18T02:05Z
+-------------------------------
+Motivo: levar ao bot vivo o MODO DIRETO (não pergunta antes de apagar: o pedido já é a
+autorização) e o atalho de velocidade (resposta pronta da ferramenta não volta ao LLM).
