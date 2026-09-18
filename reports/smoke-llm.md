@@ -1,6 +1,6 @@
 # 🛰️ Sonda ao vivo dos provedores LLM
 
-- executada em: 2026-09-18T01:40:20Z
+- executada em: 2026-09-18T02:53:29Z
 - python: 3.11.16
 
 Pool gratuito ativo: kilo
@@ -21,7 +21,7 @@ Corredores sondados: kilo (AutoProvider.create_default)
 
 | corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
 |---|---:|---|---:|:---:|---|---|---|
-| kilo | 200 | nvidia/nemotron-3-super-120b-a12b:free | 9729 ms | sim | 262K nos rápidos · 1M nas reservas · 65… | 200 req/h por IP (anônimo) | - |
+| kilo | 200 | nvidia/nemotron-3-super-120b-a12b:free | 6105 ms | sim | 262K nos rápidos · 1M nas reservas · 65… | 200 req/h por IP (anônimo) | - |
 
 Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):
 
@@ -37,18 +37,18 @@ Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
 
 | modelo | resultado | latência |
 |---|---|---:|
-| `thinkingmachines/inkling-small:free` | 200 vazio | 0.60s |
-| `liquid/lfm-2.5-2.6b:free` | 200 vazio | 0.77s |
-| `cohere/north-mini-code:free` | 200 vazio | 0.80s |
-| `poolside/laguna-s-2.1:free` | 200 vazio | 1.20s |
-| `kilo-auto/free` | 200 vazio | 1.30s |
-| `dots-studio/dots-3-note-preview:free` | 200 vazio | 1.45s |
-| `qwen/qwen3.8-27b:free` | HTTP 429 | 1.49s |
-| `nvidia/nemotron-3-super-120b-a12b:free` | 200 | 1.89s |
-| `stepfun/step-3.7-flash:free` | 200 vazio | 1.91s |
-| `nex-agi/nex-n2.5-pro:free` | 200 | 2.23s |
-| `nvidia/nemotron-3.5-lightning:free` | 200 | 3.10s |
-| `nvidia/nemotron-3-ultra-550b-a55b:free` | 200 | 6.66s |
+| `thinkingmachines/inkling-small:free` | HTTP 429 | 0.35s |
+| `qwen/qwen3.8-27b:free` | HTTP 429 | 0.46s |
+| `poolside/laguna-s-2.1:free` | HTTP 429 | 0.49s |
+| `liquid/lfm-2.5-2.6b:free` | 200 vazio | 0.55s |
+| `nex-agi/nex-n2.5-pro:free` | 200 | 0.66s |
+| `nvidia/nemotron-3-ultra-550b-a55b:free` | 200 | 0.69s |
+| `cohere/north-mini-code:free` | 200 vazio | 0.85s |
+| `nvidia/nemotron-3-super-120b-a12b:free` | 200 vazio | 1.10s |
+| `dots-studio/dots-3-note-preview:free` | 200 | 1.18s |
+| `kilo-auto/free` | 200 vazio | 1.43s |
+| `nvidia/nemotron-3.5-lightning:free` | 200 | 1.58s |
+| `stepfun/step-3.7-flash:free` | 200 vazio | 1.98s |
 
 ### Candidatos sem credencial (entram no pool só com 200 ao vivo)
 
