@@ -1,0 +1,5 @@
+# Cor do avatar do farol: NÃO MEDIDA
+
+Motivo: não consegui importar o medidor de cor (No module named 'core')
+
+O farol segue respondendo com a cor de reserva (e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).
