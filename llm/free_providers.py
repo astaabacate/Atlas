@@ -2,8 +2,12 @@
 Provedores LLM via HTTP no padrão OpenAI Chat Completions.
 
 Dois grupos vivem aqui:
-1. Corredores anônimos (sem chave): llm7, OVH AI Endpoints e Pollinations.
-2. Gateways com chave (OpenRouter, Groq, DeepSeek, Cerebras, Mistral, custom).
+1. POOL DE CAPACIDADE GRATUITA (`FREE_PROVIDERS`): provedores com free tier real, sem cartão —
+   o corredor anônimo `kilo` (sem cadastro) e os que entram quando a chave gratuita é cadastrada
+   (Gemini, Groq, Mistral, NVIDIA, Z.ai, Cloudflare, Ollama, OpenRouter, ModelScope, SiliconFlow,
+   Cohere). O pool é o único caminho sem chave paga.
+2. Gateways (mesmos do pool para uso direto via LLM_PROVIDER, mais os pagos: OpenAI, DeepSeek,
+   Anthropic, OpenCode Zen, e qualquer endpoint OpenAI-compatível via LLM_BASE_URL).
 
 Histórico importante (o motivo de vários corredores antigos terem sumido):
 - GitHub Models: endpoint Azure (models.inference.ai.azure.com) desligado em 17/10/2025 e o
@@ -11,8 +15,12 @@ Histórico importante (o motivo de vários corredores antigos terem sumido):
   gratuita com GITHUB_TOKEN, por isso o corredor foi removido.
 - OpenCode Zen: passou a exigir login + cartão + chave paga (401 "Invalid API key" com
   "Bearer opencode"). Saiu da lista de anônimos; funciona como gateway com chave via LLM_*.
-- Kilo (api.kilo.ai) e Blackbox (api.blackbox.ai): os endpoints /v1/chat/completions
-  respondem 404 (HTML) — caminhos inexistentes. Removidos para não gastar tempo de corrida.
+- Blackbox (api.blackbox.ai/chat/completions): 404 (HTML) — caminho inexistente.
+- Kilo: o gateway NÃO fica em /v1 (dava 404) e sim em **api.kilo.ai/api/gateway** — com acesso
+  anônimo oficial (200 req/h por IP). É o corredor sem chave do pool atual.
+- llm7, OVH (kepler) e Pollinations: REMOVIDOS do código em 17/09/2026. Os três falhavam juntos
+  (429 "queue full"/"rate limit" e modelo aposentado) e derrubavam a corrida inteira; não são mais
+  classe, corredor, fallback nem config.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ import logging
 import os
 import re
 import time
+from dataclasses import dataclass
 from typing import Any, Callable
 
 import aiohttp
@@ -414,98 +423,230 @@ class OpenAICompatibleHttpProvider(ChatProvider):
 
 
 # ---------------------------------------------------------------------------
-# Corredores anônimos (sem chave). Melhor esforço: serviços gratuitos mudam
-# modelos/limites com frequência, por isso cada um carrega uma lista de fallback.
+# POOL DE CAPACIDADE GRATUITA (FREE_PROVIDERS)
+#
+# Cada ficha diz onde o provedor fica, como entrar (anônimo ou chave gratuita),
+# quanto oferece de contexto/cota e se já respondeu na sonda ao vivo.
+#
+# REGRAS DO POOL (decididas com o dono do bot):
+#   1. Só entra provedor com free tier REAL: sem cartão de crédito, sem trial que
+#      expira, sem "créditos" que acabam.
+#   2. Nada de burlar limite, CAPTCHA, IP ou criar conta falsa — se o provedor
+#      limita por organização, aceitamos o limite.
+#   3. `llm7`, `ovh` e `pollinations` foram REMOVIDOS do código (falhavam juntos
+#      com 429/modelo aposentado e derrubavam a corrida).
+#   4. `validado=True` só depois de o corredor responder 200 na sonda real
+#      (`scripts/smoke_llm.py`); o resto aparece como ⚠️ e não conta como ativo.
 # ---------------------------------------------------------------------------
-class LLM7Provider(OpenAICompatibleHttpProvider):
+@dataclass(frozen=True)
+class FreeProviderSpec:
+    """Ficha de um provedor gratuito do pool."""
+
+    nome: str
+    base_url: str
+    modelos: tuple[str, ...]
+    key_env: str = ""              # "" = acesso anônimo (sem cadastro)
+    contexto: str = ""
+    cota: str = ""
+    supports_tools: bool = False
+    conta_id_env: str = ""         # provedores que exigem ID da conta na URL
+    headers: tuple[tuple[str, str], ...] = ()
+    cooldown: float = 45.0
+    validado: bool = False         # 200 confirmado na sonda ao vivo
+    observacao: str = ""
+
+
+FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
+    # -- sem cadastro nenhum -------------------------------------------------
+    FreeProviderSpec(
+        nome="kilo",
+        base_url="https://api.kilo.ai/api/gateway",
+        modelos=("qwen/qwen3-coder:free", "z-ai/glm-5:free", "kilo-auto/free",
+                 "minimax/minimax-m3:free", "nvidia/nemotron-3-super-120b-a12b:free"),
+        headers=(("Authorization", "Bearer anonymous"),),
+        contexto="262K (alguns 1M)",
+        cota="200 req/h por IP (anônimo)",
+        supports_tools=True,
+        observacao="único corredor do pool sem chave; catálogo público em /models (isFree)",
+    ),
+    # -- chave gratuita no GitHub Actions (secret) ---------------------------
+    FreeProviderSpec(
+        nome="gemini",
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        modelos=("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"),
+        key_env="GEMINI_API_KEY",
+        contexto="1M",
+        cota="10-15 RPM / 250-1.500 req por dia (por projeto)",
+        supports_tools=True,
+        observacao="chave em aistudio.google.com/apikey; dados do tier gratis podem treinar",
+    ),
+    FreeProviderSpec(
+        nome="groq",
+        base_url="https://api.groq.com/openai/v1",
+        modelos=("openai/gpt-oss-120b", "openai/gpt-oss-20b",
+                 "llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
+        key_env="GROQ_API_KEY",
+        contexto="128K",
+        cota="30 RPM / 1.000 req por dia / 200K tokens por dia (por organização)",
+        supports_tools=True,
+        observacao="chave em console.groq.com/keys; cota por organização (chaves extras nao somam)",
+    ),
+    FreeProviderSpec(
+        nome="mistral",
+        base_url="https://api.mistral.ai/v1",
+        modelos=("mistral-small-latest", "mistral-large-latest", "codestral-latest"),
+        key_env="MISTRAL_API_KEY",
+        contexto="256K",
+        cota="~1 bilhao de tokens por mes (~2 RPM)",
+        supports_tools=True,
+        observacao="plano Experiment: telefone, sem cartao; dados podem treinar",
+    ),
+    FreeProviderSpec(
+        nome="nvidia",
+        base_url="https://integrate.api.nvidia.com/v1",
+        modelos=("meta/llama-3.3-70b-instruct", "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+                 "qwen/qwen3-235b-a22b"),
+        key_env="NVIDIA_API_KEY",
+        contexto="128K-262K",
+        cota="1.000-5.000 creditos + 40 RPM",
+        supports_tools=True,
+        observacao="chave nvapi- em build.nvidia.com; catalogo com 100+ modelos",
+    ),
+    FreeProviderSpec(
+        nome="zai",
+        base_url="https://api.z.ai/api/paas/v4",
+        modelos=("glm-4.7-flash", "glm-4.5-flash"),
+        key_env="ZAI_API_KEY",
+        contexto="131K",
+        cota="~1.000 req por dia (Flash, ~1 req/s)",
+        supports_tools=True,
+        observacao="modelos Flash custam US$0/token; limites nao publicados oficialmente",
+    ),
+    FreeProviderSpec(
+        nome="cloudflare",
+        base_url="https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
+        modelos=("@cf/zai-org/glm-5.3-flash", "@cf/google/gemma-4-26b-a4b-it",
+                 "@cf/meta/llama-3.1-8b-instruct"),
+        key_env="CLOUDFLARE_API_TOKEN",
+        conta_id_env="CLOUDFLARE_ACCOUNT_ID",
+        contexto="256K-1.3M",
+        cota="10.000 neuronios por dia (conta)",
+        supports_tools=False,
+        observacao="precisa do Account ID na URL; neurônios acabam rápido em modelo grande",
+    ),
+    FreeProviderSpec(
+        nome="ollama",
+        base_url="https://api.ollama.com/v1",
+        modelos=("gpt-oss:120b", "gpt-oss:20b", "qwen3.5:397b"),
+        key_env="OLLAMA_API_KEY",
+        contexto="128K-1M",
+        cota="creditos mensais gratuitos, 1 requisicao concorrente",
+        supports_tools=True,
+        observacao="mesmos nomes de modelo do Ollama local; limites nao publicados",
+    ),
+    FreeProviderSpec(
+        nome="openrouter",
+        base_url="https://openrouter.ai/api/v1",
+        modelos=("meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen3-coder:free",
+                 "z-ai/glm-4.5-air:free", "deepseek/deepseek-r1-0528:free"),
+        key_env="OPENROUTER_API_KEY",
+        contexto="ate 1M",
+        cota="20 RPM / 50 req por dia (1.000/dia so pagando US$10 uma vez -> fora do pool)",
+        supports_tools=True,
+        observacao="só as variantes :free entram; modelo free pode dar 429 no upstream",
+    ),
+    FreeProviderSpec(
+        nome="modelscope",
+        base_url="https://api-inference.modelscope.cn/v1",
+        modelos=("Qwen/Qwen3.5-35B-A3B", "Qwen/Qwen3.5-27B"),
+        key_env="MODELSCOPE_API_KEY",
+        contexto="131K-1M",
+        cota="2.000 req por dia na conta (<=200-500 por modelo)",
+        supports_tools=True,
+        observacao="cadastro pede telefone (na pratica chines) - pode ser inviavel",
+    ),
+    FreeProviderSpec(
+        nome="siliconflow",
+        base_url="https://api.siliconflow.cn/v1",
+        modelos=("Qwen/Qwen3-8B", "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"),
+        key_env="SILICONFLOW_API_KEY",
+        contexto="131K",
+        cota="modelos a US$0 (~1.000 RPM); credito inicial de US$1",
+        supports_tools=True,
+        observacao="tier gratuito excluido na UE/UK/CH; catalogo $0 muda",
+    ),
+    FreeProviderSpec(
+        nome="cohere",
+        base_url="https://api.cohere.ai/compatibility/v1",
+        modelos=("command-a-03-2025", "command-r-plus-08-2024"),
+        key_env="COHERE_API_KEY",
+        contexto="128K",
+        cota="1.000 chamadas por mes (trial key)",
+        supports_tools=True,
+        observacao="trial aceita apenas uso de desenvolvimento/avaliacao (nao comercial)",
+    ),
+)
+
+
+def _ficha_pronta(spec: FreeProviderSpec, src: dict[str, str]) -> tuple[bool, str]:
+    """Diz se o corredor pode entrar agora e, quando não, o que falta cadastrar."""
+    if spec.key_env and not (src.get(spec.key_env, "") or "").strip():
+        return False, f"falta o secret {spec.key_env}"
+    if spec.conta_id_env and not (src.get(spec.conta_id_env, "") or "").strip():
+        return False, f"falta a variavel {spec.conta_id_env}"
+    return True, ""
+
+
+def build_free_runners(env: dict[str, str] | None = None) -> list[ChatProvider]:
     """
-    llm7.io — OpenAI-compatível, sem chave (limite por hora no anônimo).
+    Monta o pool de capacidade gratuita.
 
-    O catálogo desse provedor muda sem aviso (o slug `qwen2.5-coder-32b`, por exemplo, foi
-    aposentado e derrubava a corrida inteira com HTTP 400). Por isso a lista configurada é só
-    um ponto de partida: `refresh_models()` descobre os modelos atuais no /v1/models.
+    Entram: os corredores anônimos (sempre) e os que têm a chave gratuita cadastrada.
+    Ficam de fora (e aparecem no relatório) os que ainda não têm credencial — assim
+    o bot nunca gasta uma requisição num corredor que vai devolver 401.
     """
-
-    def __init__(
-        self,
-        models: list[str] | None = None,
-        api_key: str = "",
-        session_factory: SessionFactory | None = None,
-    ) -> None:
-        super().__init__(
-            name="llm7",
-            endpoint_url="https://api.llm7.io/v1/chat/completions",
-            models=models or [
-                "gpt-4o-mini",
-                "gpt-oss-120b",
-                "deepseek-v3-0324",
-                "mistral-small-3.1-24b",
-            ],
-            headers={"Authorization": f"Bearer {api_key or 'unused'}"},
-            supports_tools=True,
-            session_factory=session_factory,
-        )
-
-
-class OVHProvider(OpenAICompatibleHttpProvider):
-    """OVHcloud AI Endpoints — anônimo com limite baixo de requisições."""
-
-    def __init__(
-        self,
-        models: list[str] | None = None,
-        session_factory: SessionFactory | None = None,
-    ) -> None:
-        super().__init__(
-            name="ovh",
-            endpoint_url="https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions",
-            models=models or [
-                "Meta-Llama-3_3-70B-Instruct",
-                "Qwen3-Coder-30B-A3B-Instruct",
-                "Llama-3.1-8B-Instruct",
-            ],
-            headers={},
-            supports_tools=False,
-            session_factory=session_factory,
-        )
-
-
-class PollinationsProvider(OpenAICompatibleHttpProvider):
-    """
-    Pollinations — API legada anônima. Só os aliases `openai`/`openai-fast` seguem
-    liberados sem token; os demais retornam 404 "Model not found".
-    """
-
-    def __init__(
-        self,
-        models: list[str] | None = None,
-        token: str = "",
-        session_factory: SessionFactory | None = None,
-    ) -> None:
-        url = "https://text.pollinations.ai/openai"
-        headers: dict[str, str] = {}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-        super().__init__(
-            name="pollinations",
-            endpoint_url=url,
-            models=models or ["openai", "openai-fast"],
-            headers=headers,
-            supports_tools=False,
-            session_factory=session_factory,
-            models_url="https://text.pollinations.ai/models",
-            discovery_can_replace=False,
-        )
-
-
-def build_anonymous_runners(env: dict[str, str] | None = None) -> list[ChatProvider]:
-    """Corredores gratuitos ativados por padrão (podem ser desligados com DISABLE_FREE_LLMS)."""
     src = env if env is not None else os.environ
-    runners: list[ChatProvider] = [
-        LLM7Provider(api_key=src.get("LLM7_API_KEY", "").strip()),
-        OVHProvider(),
-        PollinationsProvider(token=src.get("POLLINATIONS_TOKEN", "").strip()),
-    ]
+    runners: list[ChatProvider] = []
+
+    for spec in FREE_PROVIDERS:
+        pronto, _ = _ficha_pronta(spec, src)
+        if not pronto:
+            continue
+
+        base = spec.base_url
+        if spec.conta_id_env:
+            base = base.format(account_id=src.get(spec.conta_id_env, "").strip())
+
+        headers = dict(spec.headers)
+        chave = (src.get(spec.key_env, "") or "").strip() if spec.key_env else ""
+        if chave:
+            headers["Authorization"] = f"Bearer {chave}"
+
+        runners.append(
+            OpenAICompatibleHttpProvider(
+                name=spec.nome,
+                endpoint_url=f"{base}/chat/completions",
+                models=list(spec.modelos),
+                headers=headers,
+                supports_tools=spec.supports_tools,
+                models_url=f"{base}/models",
+            )
+        )
     return runners
+
+
+def relatorio_do_pool(env: dict[str, str] | None = None) -> list[tuple[FreeProviderSpec, str]]:
+    """(ficha, motivo) por provedor: motivo vazio = pronto para entrar na corrida."""
+    src = env if env is not None else os.environ
+    return [(spec, _ficha_pronta(spec, src)[1]) for spec in FREE_PROVIDERS]
+
+
+def descrever_pool(env: dict[str, str] | None = None) -> tuple[str, list[str]]:
+    """Texto curto dos corredores ativos + lista do que falta cadastrar (para logs)."""
+    relatorio = relatorio_do_pool(env)
+    ativos = [spec.nome for spec, motivo in relatorio if not motivo]
+    faltando = [f"{spec.nome} ({motivo})" for spec, motivo in relatorio if motivo]
+    return ", ".join(ativos), faltando
 
 
 # ---------------------------------------------------------------------------
@@ -524,6 +665,20 @@ KNOWN_GATEWAYS: dict[str, dict[str, Any]] = {
         "model": "gemini-2.5-flash",
         "key_env": "GEMINI_API_KEY",
     },
+    # Gateways gratuitos do pool (sem cartão). "anon_key" = funciona sem cadastro.
+    "kilo": {
+        "base_url": "https://api.kilo.ai/api/gateway",
+        "model": "qwen/qwen3-coder:free",
+        "key_env": "KILOCODE_API_KEY",
+        "anon_key": "anonymous",
+    },
+    "nvidia": {"base_url": "https://integrate.api.nvidia.com/v1", "model": "meta/llama-3.3-70b-instruct", "key_env": "NVIDIA_API_KEY"},
+    "zai": {"base_url": "https://api.z.ai/api/paas/v4", "model": "glm-4.7-flash", "key_env": "ZAI_API_KEY"},
+    "ollama": {"base_url": "https://api.ollama.com/v1", "model": "gpt-oss:120b", "key_env": "OLLAMA_API_KEY"},
+    "zenmux": {"base_url": "https://zenmux.ai/api/v1", "model": "z-ai/glm-5.2-free", "key_env": "ZENMUX_API_KEY"},
+    "siliconflow": {"base_url": "https://api.siliconflow.cn/v1", "model": "Qwen/Qwen3-8B", "key_env": "SILICONFLOW_API_KEY"},
+    "modelscope": {"base_url": "https://api-inference.modelscope.cn/v1", "model": "Qwen/Qwen3.5-35B-A3B", "key_env": "MODELSCOPE_API_KEY"},
+    "cohere": {"base_url": "https://api.cohere.ai/compatibility/v1", "model": "command-a-03-2025", "key_env": "COHERE_API_KEY"},
 }
 
 
@@ -535,7 +690,11 @@ def resolve_gateway_key(provider: str, explicit_key: str, env: dict[str, str]) -
     key_env = meta.get("key_env", "")
     if key_env and env.get(key_env, "").strip():
         return env[key_env].strip()
-    return env.get(f"{provider.upper().replace('-', '_')}_API_KEY", "").strip()
+    generic = env.get(f"{provider.upper().replace('-', '_')}_API_KEY", "").strip()
+    if generic:
+        return generic
+    # Provedores com acesso anônimo oficial (ex.: Kilo) usam uma chave literal.
+    return str(meta.get("anon_key", "") or "")
 
 
 def build_gateway_provider(
@@ -561,7 +720,7 @@ def build_gateway_provider(
             f"Opções conhecidas: {', '.join(sorted(KNOWN_GATEWAYS))}."
         )
 
-    resolved_key = resolve_gateway_key(provider, api_key, src)
+    resolved_key = resolve_gateway_key(provider, api_key, src) or str(meta.get("anon_key", "") or "")
     if not resolved_key:
         expected = meta.get("key_env", f"{provider.upper().replace('-', '_')}_API_KEY")
         raise ValueError(

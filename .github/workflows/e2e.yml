@@ -63,8 +63,16 @@ jobs:
       CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY || '' }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY || '' }}
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY || '' }}
-      LLM7_API_KEY: ${{ secrets.LLM7_API_KEY || '' }}
-      POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN || '' }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY || '' }}
+      ZAI_API_KEY: ${{ secrets.ZAI_API_KEY || '' }}
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY || '' }}
+      ZENMUX_API_KEY: ${{ secrets.ZENMUX_API_KEY || '' }}
+      MODELSCOPE_API_KEY: ${{ secrets.MODELSCOPE_API_KEY || '' }}
+      SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY || '' }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY || '' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || '' }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '' }}
+      KILOCODE_API_KEY: ${{ secrets.KILOCODE_API_KEY || '' }}
       LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '60' }}
       MAX_TOOL_ROUNDS: ${{ vars.MAX_TOOL_ROUNDS || '3' }}
       HISTORY_LEN: ${{ vars.HISTORY_LEN || '10' }}

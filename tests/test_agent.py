@@ -367,8 +367,8 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
             async def chat(self, messages, tools=None, timeout=60.0, max_tokens=1024):
                 if self.call_history and len(self.call_history) >= 1:
                     self.call_history.append({"messages": messages, "tools": tools})
-                    raise LLMUnavailableError("Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, "
-                                              "pollinations)", transient=True)
+                    raise LLMUnavailableError("Nenhum dos 2 provedores de LLM respondeu (kilo/tools, groq)",
+                                              transient=True)
                 return await super().chat(messages, tools, timeout, max_tokens)
 
         llm = LLMQueMorreNoResumo([

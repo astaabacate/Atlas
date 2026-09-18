@@ -5,13 +5,13 @@ Módulo de provedores LLM.
 from llm.auto import AutoProvider
 from llm.base import ChatProvider, LLMResponse, ProviderError, ToolCall
 from llm.free_providers import (
+    FREE_PROVIDERS,
     KNOWN_GATEWAYS,
-    LLM7Provider,
-    OVHProvider,
     OpenAICompatibleHttpProvider,
-    PollinationsProvider,
-    build_anonymous_runners,
+    build_free_runners,
     build_gateway_provider,
+    descrever_pool,
+    relatorio_do_pool,
 )
 from llm.key_providers import AnthropicProvider, GeminiProvider, OpenAIProvider
 
@@ -22,10 +22,10 @@ __all__ = [
     "ToolCall",
     "AutoProvider",
     "OpenAICompatibleHttpProvider",
-    "LLM7Provider",
-    "OVHProvider",
-    "PollinationsProvider",
-    "build_anonymous_runners",
+    "FREE_PROVIDERS",
+    "build_free_runners",
+    "relatorio_do_pool",
+    "descrever_pool",
     "build_gateway_provider",
     "KNOWN_GATEWAYS",
     "OpenAIProvider",

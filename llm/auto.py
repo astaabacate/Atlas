@@ -20,8 +20,9 @@ from typing import Any
 from llm.base import ChatProvider, LLMResponse, ProviderError, compact_error_text
 from llm.free_providers import (
     KNOWN_GATEWAYS,
-    build_anonymous_runners,
+    build_free_runners,
     build_gateway_provider,
+    descrever_pool,
 )
 from llm.key_providers import AnthropicProvider
 
@@ -106,10 +107,12 @@ class AutoProvider(ChatProvider):
         """
         Monta a corrida:
         1. provedor com chave (LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL/LLM_API_KEY), se configurado;
-        2. corredores anônimos (llm7, OVH, Pollinations), salvo DISABLE_FREE_LLMS=1.
+        2. POOL DE CAPACIDADE GRATUITA (`FREE_PROVIDERS`): anônimos sempre + os que têm a
+           chave gratuita cadastrada, salvo DISABLE_FREE_LLMS=1.
 
-        Nota: GitHub Models foi aposentado em 30/07/2026, então GITHUB_TOKEN não gera mais
-        corredor LLM. OpenCode Zen virou pago. Ambos saíram da corrida padrão.
+        O pool é o único caminho sem chave paga. Os corredores antigos (llm7, OVH,
+        Pollinations) foram REMOVIDOS do código: falhavam juntos (429/modelo aposentado)
+        e derrubavam o bot. GitHub Models aposentado e OpenCode Zen pago também ficaram de fora.
         """
         runners: list[ChatProvider] = []
         provider_name = (custom_provider or "auto").strip().lower()
@@ -145,13 +148,21 @@ class AutoProvider(ChatProvider):
                 )
 
         if not disable_free:
-            runners.extend(build_anonymous_runners(env=env))
+            runners.extend(build_free_runners(env=env))
+            ativos, faltando = descrever_pool(env=env)
+            logger.info("Pool gratuito ativo: %s", ativos or "(nenhum)")
+            if faltando:
+                logger.warning(
+                    "Fora do pool por falta de credencial: %s. Cadastre o secret no GitHub "
+                    "Actions (Settings -> Secrets and variables -> Actions) para ampliar a corrida.",
+                    "; ".join(faltando),
+                )
 
         if not runners:
             raise ValueError(
-                "Nenhum provedor de LLM configurado. Defina LLM_PROVIDER + LLM_API_KEY "
-                f"(opções: {', '.join(sorted(KNOWN_GATEWAYS))}) ou libere os corredores "
-                "gratuitos removendo DISABLE_FREE_LLMS."
+                "Nenhum provedor de LLM configurado. Cadastre uma chave gratuita no GitHub "
+                f"Actions (opções: {', '.join(sorted(KNOWN_GATEWAYS))}) ou libere o pool "
+                "gratuito removendo DISABLE_FREE_LLMS."
             )
 
         return cls(providers=runners)

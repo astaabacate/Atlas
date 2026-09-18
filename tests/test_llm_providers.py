@@ -15,13 +15,13 @@ from typing import Any
 from llm.auto import LLMUnavailableError, AutoProvider
 from llm.base import ChatProvider, LLMResponse, ProviderError, sanitize_messages_for_plain_text
 from llm.free_providers import (
-    LLM7Provider,
-    OVHProvider,
+    FREE_PROVIDERS,
     OpenAICompatibleHttpProvider,
-    PollinationsProvider,
     _parse_retry_after,
-    build_anonymous_runners,
+    build_free_runners,
     build_gateway_provider,
+    descrever_pool,
+    relatorio_do_pool,
 )
 
 FAKE_TOOL_SCHEMA = [
@@ -113,6 +113,18 @@ HISTORY_WITH_TOOL_ROUND = [
 ]
 
 
+def provider_de_teste(session: FakeSession, **extra: Any) -> OpenAICompatibleHttpProvider:
+    """Provedor neutro para os testes de HTTP (os provedores reais mudam de nome)."""
+    kwargs: dict[str, Any] = {
+        "name": "provedor-de-teste",
+        "endpoint_url": "https://provedor.inválido/v1/chat/completions",
+        "models": ["modelo-a", "modelo-b"],
+        "session_factory": lambda: session,
+    }
+    kwargs.update(extra)
+    return OpenAICompatibleHttpProvider(**kwargs)
+
+
 class TestHttpProvider(unittest.TestCase):
     def _provider(self, responses: list[FakeResponse], **kwargs: Any) -> tuple[OpenAICompatibleHttpProvider, FakeSession]:
         session = FakeSession(responses)
@@ -188,7 +200,7 @@ class TestHttpProvider(unittest.TestCase):
             FakeResponse(429, {"error": "Queue full for IP"}, headers={"Retry-After": "0.05"}),
             FakeResponse(200, ok_payload("consegui depois da fila")),
         ])
-        provider = OVHProvider(models=["Meta-Llama-3_3-70B-Instruct"], session_factory=lambda: session)
+        provider = provider_de_teste(session)
 
         resp = asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}]))
 
@@ -201,7 +213,7 @@ class TestHttpProvider(unittest.TestCase):
             FakeResponse(429, {"error": "rate limit exceeded"}),
             FakeResponse(429, {"error": "rate limit exceeded"}),
         ])
-        provider = OVHProvider(models=["Meta-Llama-3_3-70B-Instruct"], session_factory=lambda: session)
+        provider = provider_de_teste(session)
 
         with self.assertRaises(ProviderError) as ctx:
             asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}]))
@@ -210,17 +222,17 @@ class TestHttpProvider(unittest.TestCase):
         self.assertTrue(provider.cooling_down, "quem estoura o limite fica de castigo")
 
     def test_dead_model_triggers_catalog_discovery_and_fallback(self) -> None:
-        """O llm7 aposentou 'qwen2.5-coder-32b': em vez de insistir, descobre os atuais."""
+        """Modelo aposentado no provedor: em vez de insistir, descobre os atuais."""
         session = FakeSession([
-            FakeResponse(400, {"error": "Model qwen2.5-coder-32b is currently unavailable"}),
+            FakeResponse(400, {"error": "Model modelo-aposentado-32b is currently unavailable"}),
             FakeResponse(200, ok_payload("respondi com o modelo novo")),
         ])
         session.get_responses.append(
-            FakeResponse(200, {"data": [{"id": "qwen2.5-coder-32b"}, {"id": "gpt-oss-120b"}]}))
+            FakeResponse(200, {"data": [{"id": "modelo-aposentado-32b"}, {"id": "gpt-oss-120b"}]}))
         provider = OpenAICompatibleHttpProvider(
-            name="llm7",
-            endpoint_url="https://api.llm7.io/v1/chat/completions",
-            models=["qwen2.5-coder-32b", "deepseek-v3-0324"],
+            name="provedor-de-teste",
+            endpoint_url="https://provedor.inválido/v1/chat/completions",
+            models=["modelo-aposentado-32b", "modelo-de-reserva"],
             supports_tools=True,
             session_factory=lambda: session,
         )
@@ -230,17 +242,22 @@ class TestHttpProvider(unittest.TestCase):
         self.assertEqual(resp.content, "respondi com o modelo novo")
         self.assertIn("gpt-oss-120b", provider.models, "o catálogo descoberto entra na lista")
         self.assertEqual(provider.models[0], "gpt-oss-120b", "e o modelo morto sai da frente")
-        self.assertTrue(all(g["url"] == "https://api.llm7.io/v1/models" for g in session.gets))
+        self.assertTrue(all(g["url"] == "https://provedor.inválido/v1/models" for g in session.gets))
         self.assertGreaterEqual(len(session.gets), 1)
         self.assertEqual([c["payload"]["model"] for c in session.calls],
-                         ["qwen2.5-coder-32b", "gpt-oss-120b"],
+                         ["modelo-aposentado-32b", "gpt-oss-120b"],
                          "o slug morto é tentado uma vez e o catálogo descoberto assume")
 
-    def test_discovery_keeps_working_list_when_catalog_is_a_different_namespace(self) -> None:
-        """Pollinations responde por aliases ('openai'); o /models não pode sobrescrever isso."""
-        provider = PollinationsProvider()
+    def test_discovery_does_not_replace_a_curated_list_with_unknown_ids(self) -> None:
+        """Catálogo em outro namespace não pode sobrescrever a lista que funciona."""
+        provider = OpenAICompatibleHttpProvider(
+            name="teste",
+            endpoint_url="https://exemplo.inválido/v1/chat/completions",
+            models=["alias-bom", "alias-bom-fast"],
+            discovery_can_replace=False,
+        )
         self.assertFalse(provider.discovery_can_replace)
-        self.assertEqual(provider.models, ["openai", "openai-fast"])
+        self.assertEqual(provider.models, ["alias-bom", "alias-bom-fast"])
 
     def test_retry_after_parsing_is_sane(self) -> None:
         self.assertEqual(_parse_retry_after({"Retry-After": "12"}), 12.0)
@@ -369,8 +386,8 @@ class TestAutoProvider(unittest.TestCase):
 
     def test_benched_runner_is_not_called_again_while_another_answers(self) -> None:
         """Quem estourou o limite (429) sai da frente: não pode ser martelado a cada mensagem."""
-        morto = AlwaysFailingProvider("llm7", 429, retry_after=30.0)
-        vivo = SlowProvider("ovh", 0.0, "respondi")
+        morto = AlwaysFailingProvider("corredor-alfa", 429, retry_after=30.0)
+        vivo = SlowProvider("corredor-beta", 0.0, "respondi")
         auto = corrida(morto, vivo)
 
         asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
@@ -378,11 +395,11 @@ class TestAutoProvider(unittest.TestCase):
 
         self.assertEqual(vivo.delay, 0.0)
         self.assertEqual(morto.chamadas, 1, "o corredor de castigo não é chamado de novo à toa")
-        self.assertIn("llm7", auto.castigados())
+        self.assertIn("corredor-alfa", auto.castigados())
 
     def test_second_wave_saves_the_turn_when_everyone_fails_at_first(self) -> None:
-        """OvH 429 + llm7 modelo morto + pollinations fila cheia: uma segunda onda resolve."""
-        teimoso = FlakyProvider("pollinations", "segunda tentativa", falhas=1, retry_after=5.0)
+        """Todos os corredores com 429/fila cheia na primeira onda: a segunda resolve."""
+        teimoso = FlakyProvider("corredor-gama", "segunda tentativa", falhas=1, retry_after=5.0)
         auto = corrida(teimoso, waves=2)
 
         resp = asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
@@ -392,7 +409,7 @@ class TestAutoProvider(unittest.TestCase):
         self.assertEqual(auto.last_failure_transient, False)
 
     def test_single_wave_still_works_when_configured(self) -> None:
-        teimoso = FlakyProvider("pollinations", "nunca chego", falhas=1)
+        teimoso = FlakyProvider("corredor-gama", "nunca chego", falhas=1)
         auto = corrida(teimoso, waves=1)
         with self.assertRaises(LLMUnavailableError):
             asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
@@ -400,9 +417,9 @@ class TestAutoProvider(unittest.TestCase):
 
     def test_total_failure_is_flagged_transient_with_a_friendly_message(self) -> None:
         auto = corrida(
-            AlwaysFailingProvider("llm7", 400, "Model qwen2.5-coder-32b is currently unavailable"),
-            AlwaysFailingProvider("ovh", 429, "API rate limit exceeded"),
-            AlwaysFailingProvider("pollinations", 429, "Queue full for IP"),
+            AlwaysFailingProvider("corredor-alfa", 400, "Model modelo-aposentado is currently unavailable"),
+            AlwaysFailingProvider("corredor-beta", 429, "API rate limit exceeded"),
+            AlwaysFailingProvider("corredor-gama", 429, "Queue full for IP"),
         )
 
         with self.assertRaises(LLMUnavailableError) as ctx:
@@ -410,7 +427,7 @@ class TestAutoProvider(unittest.TestCase):
 
         erro = ctx.exception
         self.assertTrue(erro.transient, "429/fila cheia é falha passageira")
-        self.assertIn("ovh", str(erro))
+        self.assertIn("corredor-beta", str(erro))
         self.assertIn("LLM_API_KEY", str(erro))
 
         from core.bot import FarolBot
@@ -426,16 +443,23 @@ class TestAutoProvider(unittest.TestCase):
         self.assertFalse(ctx.exception.transient)
 
     def test_describe_lists_runners(self) -> None:
+        """Sem chave nenhuma, o pool entrega o corredor anônimo (Kilo)."""
         auto = AutoProvider.create_default(env={})
         names = [p.name for p in auto.providers]
-        self.assertEqual(names, ["llm7", "ovh", "pollinations"])
-        self.assertIn("llm7/tools", auto.describe())
+        self.assertEqual(names, ["kilo"])
+        self.assertIn("kilo/tools", auto.describe())
 
-    def test_dead_providers_are_gone(self) -> None:
-        auto = AutoProvider.create_default(env={})
+    def test_pool_cresce_conforme_as_chaves_gratuitas_aparecem(self) -> None:
+        auto = AutoProvider.create_default(env={"GROQ_API_KEY": "gsk", "GEMINI_API_KEY": "gk"})
+        names = [p.name for p in auto.providers]
+        self.assertEqual(names, ["kilo", "gemini", "groq"])
+
+    def test_provedores_mortos_e_removidos_ficam_fora(self) -> None:
+        auto = AutoProvider.create_default(env={"LLM7_API_KEY": "x", "POLLINATIONS_TOKEN": "y"})
         names = {p.name for p in auto.providers}
-        for dead in ("github_models", "zen", "kilo", "blackbox"):
-            self.assertNotIn(dead, names)
+        # aposentados/pagos que já saíram da lista e os 3 removidos nesta limpeza
+        for morto in ("github_models", "zen", "blackbox", "llm7", "ovh", "pollinations", "cerebras"):
+            self.assertNotIn(morto, names, f"{morto} não pode voltar para a corrida")
 
     def test_disable_free_with_no_provider_raises(self) -> None:
         with self.assertRaises(ValueError):
@@ -471,25 +495,83 @@ class TestAutoProvider(unittest.TestCase):
         self.assertIn("LLM_BASE_URL", str(ctx.exception))
 
 
-class TestAnonymousRunners(unittest.TestCase):
-    def test_llm7_default_models_do_not_use_the_dead_pinned_version(self) -> None:
-        provider = LLM7Provider()
-        self.assertNotIn("gpt-4o-mini-2024-07-18", provider.models)
-        self.assertIn("gpt-4o-mini", provider.models)
-        self.assertTrue(provider.supports_tools)
+class TestFreePool(unittest.TestCase):
+    """O pool só é o que a documentação confirma: nada de provedor morto na lista."""
 
-    def test_pollinations_uses_free_legacy_aliases(self) -> None:
-        provider = PollinationsProvider()
-        self.assertEqual(provider.models, ["openai", "openai-fast"])
-        self.assertEqual(provider.endpoint_url, "https://text.pollinations.ai/openai")
+    def test_provedores_removidos_nao_existem_mais_no_pool(self) -> None:
+        """llm7, OVH e Pollinations saíram de vez: nem classe, nem ficha, nem corredor."""
+        nomes = {spec.nome for spec in FREE_PROVIDERS}
+        for morto in ("llm7", "ovh", "pollinations"):
+            self.assertNotIn(morto, nomes)
 
-    def test_build_anonymous_runners(self) -> None:
-        runners = build_anonymous_runners(env={"LLM7_API_KEY": " k "})
-        self.assertEqual([r.name for r in runners], ["llm7", "ovh", "pollinations"])
-        self.assertEqual(runners[0].headers["Authorization"], "Bearer k")
+        import llm.free_providers as mod
 
-    def test_ovh_has_fallback_models(self) -> None:
-        self.assertGreater(len(OVHProvider().models), 1)
+        for antigo in ("LLM7Provider", "OVHProvider", "PollinationsProvider"):
+            self.assertFalse(hasattr(mod, antigo), f"{antigo} devia ter sido removido do código")
+
+    def test_sem_chave_so_entra_o_corredor_anonimo(self) -> None:
+        runners = build_free_runners(env={})
+        self.assertEqual([r.name for r in runners], ["kilo"], "só o Kilo é anônimo")
+        self.assertEqual(runners[0].headers["Authorization"], "Bearer anonymous")
+        self.assertTrue(runners[0].supports_tools)
+
+    def test_chaves_gratuitas_acionam_corredores_automaticamente(self) -> None:
+        runners = build_free_runners(env={
+            "GROQ_API_KEY": " gsk_x ",
+            "GEMINI_API_KEY": "gk",
+            "MISTRAL_API_KEY": "mk",
+            "ZAI_API_KEY": "zk",
+        })
+        self.assertEqual([r.name for r in runners], ["kilo", "gemini", "groq", "mistral", "zai"])
+        por_nome = {r.name: r for r in runners}
+        self.assertEqual(por_nome["groq"].headers["Authorization"], "Bearer gsk_x")
+        self.assertEqual(por_nome["gemini"].models[0], "gemini-2.5-flash")
+        self.assertIn("generativelanguage.googleapis.com", por_nome["gemini"].endpoint_url)
+
+    def test_provedor_com_conta_id_monta_a_url_com_o_id(self) -> None:
+        runners = build_free_runners(env={
+            "CLOUDFLARE_API_TOKEN": "ct",
+            "CLOUDFLARE_ACCOUNT_ID": "acc123",
+        })
+        cloudflare = next(r for r in runners if r.name == "cloudflare")
+        self.assertEqual(
+            cloudflare.endpoint_url,
+            "https://api.cloudflare.com/client/v4/accounts/acc123/ai/v1/chat/completions",
+        )
+
+    def test_provedor_sem_credencial_fica_fora_e_aparece_no_relatorio(self) -> None:
+        relatorio = {spec.nome: motivo for spec, motivo in relatorio_do_pool(env={})}
+        self.assertIn("groq", relatorio)
+        self.assertIn("GROQ_API_KEY", relatorio["groq"])
+        self.assertEqual(relatorio["kilo"], "", "o anônimo está sempre pronto")
+
+        ativos, faltando = descrever_pool(env={})
+        self.assertEqual(ativos, "kilo")
+        self.assertTrue(any("GEMINI_API_KEY" in item for item in faltando))
+
+    def test_pool_inteiro_com_todas_as_chaves(self) -> None:
+        env = {
+            "GROQ_API_KEY": "a",
+            "GEMINI_API_KEY": "b",
+            "MISTRAL_API_KEY": "c",
+            "NVIDIA_API_KEY": "d",
+            "ZAI_API_KEY": "e",
+            "CLOUDFLARE_API_TOKEN": "f",
+            "CLOUDFLARE_ACCOUNT_ID": "g",
+            "OLLAMA_API_KEY": "h",
+            "OPENROUTER_API_KEY": "i",
+            "MODELSCOPE_API_KEY": "j",
+            "SILICONFLOW_API_KEY": "k",
+            "COHERE_API_KEY": "l",
+        }
+        nomes = [r.name for r in build_free_runners(env=env)]
+        self.assertEqual(len(nomes), len(FREE_PROVIDERS))
+        self.assertEqual(nomes[0], "kilo")
+
+    def test_gateway_kilo_funciona_sem_chave(self) -> None:
+        provider = build_gateway_provider("kilo", api_key="", env={})
+        self.assertEqual(provider.endpoint_url, "https://api.kilo.ai/api/gateway/chat/completions")
+        self.assertEqual(provider.headers["Authorization"], "Bearer anonymous")
 
 
 if __name__ == "__main__":
@@ -539,7 +621,7 @@ class TestAgentWithPlainTextProvider(unittest.TestCase):
             FakeResponse(200, ok_payload(tool_block)),
             FakeResponse(200, ok_payload("Pronto! Criei <#999>.")),
         ])
-        provider = OVHProvider(models=["Meta-Llama-3_3-70B-Instruct"], session_factory=lambda: session)
+        provider = provider_de_teste(session)
         agent = Agent(llm_provider=provider, memory=ChannelMemory())
 
         result = asyncio.run(

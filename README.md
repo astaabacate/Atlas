@@ -123,32 +123,40 @@ O Farol utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
 4. No fim, se ninguém respondeu, o bot tenta **uma segunda onda** de corrida (os gratuitos oscilam muito) antes de desistir.
 5. Se **todos** falharem de verdade, o cliente recebe uma frase curta e útil ("os modelos gratuitos estão com a fila cheia, tente de novo") — o relatório técnico completo (uma linha por corredor, sem HTML) fica no log da run.
 
-### Corredores anônimos (sem chave, ligados por padrão)
+### Pool de capacidade gratuita (`FREE_PROVIDERS`)
 
-| Corredor | Endpoint | Cadeia de modelos | Function calling |
-| --- | --- | --- | --- |
-| `llm7` | `api.llm7.io/v1` | `gpt-4o-mini` → `gpt-oss-120b` → `deepseek-v3-0324` → `mistral-small-3.1-24b` (catálogo redescoberto no `/v1/models`) | nativo (degrada sozinho se o modelo recusar o schema) |
-| `ovh` | `oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `Meta-Llama-3_3-70B-Instruct` → `Qwen3-Coder-30B-A3B-Instruct` → `Llama-3.1-8B-Instruct` | protocolo de texto |
-| `pollinations` | `text.pollinations.ai/openai` | `openai` → `openai-fast` | protocolo de texto |
+O pool é o único caminho sem chave paga. Cada ficha carrega base, modelos, contexto, cota e se já
+foi validada ao vivo. **Só entra corredor que responde de verdade** — e o que ainda não tem
+credencial cadastrada fica fora da corrida (o log diz exatamente qual secret falta).
 
-Desligue todos com `DISABLE_FREE_LLMS=true`.
+| Corredor | Como entra | Contexto | Cota gratuita | Tools |
+| --- | --- | --- | --- | --- |
+| `kilo` | **anônimo** (sem cadastro) | 262K (alguns 1M) | 200 req/h por IP | nativo |
+| `gemini` | secret `GEMINI_API_KEY` | **1M** | 10–15 RPM · 250–1.500 req/dia (por projeto) | nativo |
+| `groq` | secret `GROQ_API_KEY` | 128K | 30 RPM · 1.000 req/dia · 200K tokens/dia (por organização) | nativo |
+| `mistral` | secret `MISTRAL_API_KEY` | 256K | ~1 bilhão de tokens/mês (~2 RPM) | nativo |
+| `nvidia` | secret `NVIDIA_API_KEY` | 128K–262K | 1.000–5.000 créditos · 40 RPM | nativo |
+| `zai` | secret `ZAI_API_KEY` | 131K | ~1.000 req/dia (GLM Flash custa US$0/token) | nativo |
+| `cloudflare` | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` | 256K–1.3M | 10.000 neurônios/dia | protocolo de texto |
+| `ollama` | secret `OLLAMA_API_KEY` | 128K–1M | créditos mensais, 1 requisição concorrente | nativo |
+| `openrouter` | secret `OPENROUTER_API_KEY` | até 1M | 20 RPM · **50 req/dia** (variantes `:free`) | nativo |
+| `modelscope` | secret `MODELSCOPE_API_KEY` | 131K–1M | 2.000 req/dia (cadastro pede telefone) | nativo |
+| `siliconflow` | secret `SILICONFLOW_API_KEY` | 131K | modelos a US$0 (~1.000 RPM) | nativo |
+| `cohere` | secret `COHERE_API_KEY` | 128K | 1.000 chamadas/mês (**só uso não comercial**) | nativo |
 
-> ⚠️ **Serviços gratuitos mudam modelos e limites sem aviso.** Por isso o Farol se defende
-> sozinho, sem chave nenhuma:
->
-> - **Catálogo redescoberto:** ao receber "model unavailable" (o `qwen2.5-coder-32b` do llm7
->   foi aposentado assim), o corredor consulta o `/v1/models` do provedor, atualiza a lista e
->   recomeça a varredura — em vez de queimar as tentativas num slug morto. A descoberta é
->   refeita no máximo a cada 30 min.
-> - **`429` tem segunda chance:** fila cheia ("Queue full for IP") ou limite estourado ganham
->   uma repetição rápida (respeitando o header `Retry-After`).
-> - **Castigo temporário:** quem estourou o limite sai da frente por ~30 s, então o mesmo
->   provedor não é martelado a cada mensagem enquanto outro responde.
-> - **Segunda onda:** se a corrida inteira falhar, o bot tenta tudo de novo antes de devolver
->   erro ao cliente (ajustável com `LLM_RACE_WAVES` e `LLM_RACE_DELAY`).
->
-> Para o bot ficar estável 24/7, ainda assim o recomendado é configurar um provedor com chave
-> (a seguir) — os gratuitos compartilham o IP do runner e estouram limite em dia de pico.
+Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
+
+> 🧹 **Corredores removidos (17/09/2026):** `llm7`, `ovh` e `pollinations` **saíram do código** —
+> não são mais classe, corredor, fallback, segunda/terceira onda nem config. Eles falhavam juntos
+> (HTTP 429 "queue full/rate limit" e modelo aposentado) e derrubavam a corrida inteira.
+> Também continuam fora: GitHub Models (aposentado), OpenCode Zen (pago) e Cerebras (exige cartão).
+
+> ⚠️ **Cadastre as chaves gratuitas para o pool crescer:** o bot ativa automaticamente todo corredor
+> cuja chave existir. Sem nenhuma chave, sobra só o `kilo` (anônimo, 200 req/h por IP). O log da run
+> mostra a linha `Pool gratuito ativo: ...` e, logo abaixo,
+> `Fora do pool por falta de credencial: ...`.
+> Chaves: `aistudio.google.com/apikey` (Gemini) · `console.groq.com/keys` (Groq) ·
+> `console.mistral.ai` (Mistral) · `build.nvidia.com` (NVIDIA) · `docs.z.ai` (GLM).
 
 ### Corredores com chave (recomendado para uso contínuo)
 

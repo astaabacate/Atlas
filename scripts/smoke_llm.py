@@ -24,16 +24,19 @@ if str(REPO_ROOT) not in sys.path:
 
 from llm.auto import AutoProvider
 from llm.base import ProviderError, compact_error_text
-from llm.free_providers import KNOWN_GATEWAYS, OpenAICompatibleHttpProvider, build_gateway_provider
+from llm.free_providers import (
+    KNOWN_GATEWAYS,
+    OpenAICompatibleHttpProvider,
+    build_gateway_provider,
+    descrever_pool,
+    relatorio_do_pool,
+)
 from llm.key_providers import AnthropicProvider
 
+# Gateways que NÃO fazem parte do pool gratuito (pagos ou de avaliação): entram na sonda
+# apenas quando existe chave cadastrada, para o relatório ficar completo.
 GATEWAY_ORDER = [
-    "groq",
-    "gemini",
-    "openrouter",
     "deepseek",
-    "cerebras",
-    "mistral",
     "openai",
     "anthropic",
     "opencode-zen",
@@ -117,8 +120,15 @@ def known_secret_values(env: dict[str, str]) -> list[str]:
         "CEREBRAS_API_KEY",
         "MISTRAL_API_KEY",
         "OPENCODE_API_KEY",
-        "LLM7_API_KEY",
-        "POLLINATIONS_TOKEN",
+        "NVIDIA_API_KEY",
+        "ZAI_API_KEY",
+        "OLLAMA_API_KEY",
+        "ZENMUX_API_KEY",
+        "MODELSCOPE_API_KEY",
+        "SILICONFLOW_API_KEY",
+        "COHERE_API_KEY",
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
     }
     return sorted({env.get(name, "") for name in names if len(env.get(name, "")) >= 8}, key=len, reverse=True)
 
@@ -252,7 +262,10 @@ def install_openai_compatible_tracker(provider: Any) -> None:
     provider._post = tracked_post  # type: ignore[method-assign]
 
 
-def descrever_catalogo(provider: Any) -> str:
+FICHA_POR_NOME = {spec.nome: spec for spec, _ in relatorio_do_pool({})}
+
+
+def descrever_catalogo(provider: Any) -> str:  # noqa: D401 - usado no relatório
     """Mostra, na sonda, o efeito da auto-descoberta de modelos e do castigo por 429."""
     modelos = getattr(provider, "models", None)
     configurados = getattr(provider, "configured_models", None)
@@ -332,6 +345,14 @@ async def run(timeout: float, concurrency: int) -> int:
             print(f"- {short_cell(redact(err, secrets), 260)}")
         print()
 
+    ativos, faltando = descrever_pool(env)
+    print(f"Pool gratuito ativo: {ativos or '(nenhum)'}")
+    if faltando:
+        print("Fora do pool por falta de credencial (cadastre como secret para ativar):")
+        for item in faltando:
+            print(f"- {item}")
+    print()
+
     if not entries:
         print("Nenhum provedor configurado para a smoke.")
         return 1
@@ -347,8 +368,8 @@ async def run(timeout: float, concurrency: int) -> int:
 
     results = await asyncio.gather(*(guarded(entry) for entry in entries))
 
-    print("| corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | catálogo grátis | erro compactado |")
-    print("|---|---:|---|---:|:---:|---|---|")
+    print("| corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |")
+    print("|---|---:|---|---:|:---:|---|---|---|")
     for result in results:
         print(
             "| "
@@ -359,8 +380,9 @@ async def run(timeout: float, concurrency: int) -> int:
                     short_cell(result.model, 80),
                     f"{result.latency_ms} ms",
                     "sim" if result.native_tool_call else "não",
-                    short_cell(result.catalogo, 80),
-                    short_cell(result.error or "-", 220),
+                    short_cell(getattr(FICHA_POR_NOME.get(result.name), "contexto", "") or "-", 40),
+                    short_cell(getattr(FICHA_POR_NOME.get(result.name), "cota", "") or "-", 60),
+                    short_cell(result.error or "-", 200),
                 ]
             )
             + " |"
@@ -370,6 +392,12 @@ async def run(timeout: float, concurrency: int) -> int:
     native_successes = [r for r in successes if r.native_tool_call]
     print()
     print(f"Resumo: {len(successes)}/{len(results)} provedores responderam; {len(native_successes)} com tool_call nativo.")
+    if successes:
+        print("🟢 TESTADOS E FUNCIONANDO AGORA: "
+              + ", ".join(f"{r.name} ({r.model})" for r in successes))
+    falharam = [r for r in results if r not in successes]
+    if falharam:
+        print("🔴 não responderam nesta rodada: " + ", ".join(f"{r.name}" for r in falharam))
     return 0 if successes else 2
 
 
