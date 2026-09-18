@@ -826,6 +826,28 @@ class TestErroTransitorioDoDiscord(unittest.TestCase):
         self.assertEqual(len(chamadas), 1, "403 não pode ser repetido")
         self.assertIn("Missing Permissions", msg)
 
+    def test_clear_messages_repete_o_purge_no_503(self) -> None:
+        """A rodada 35307204220 falhou em 'clear_messages apaga mensagens reais' com 503 do Discord."""
+        ctx, servidor = contexto()
+        canal = servidor.channels[0]
+        original = canal.purge
+        chamadas: list[int] = []
+
+        class Erro503(Exception):
+            status = 503
+
+        async def instavel(limit: int = 50) -> Any:
+            chamadas.append(limit)
+            if len(chamadas) == 1:
+                raise Erro503("503 Service Unavailable: upstream connect error")
+            return await original(limit=limit)
+
+        canal.purge = instavel  # type: ignore[assignment]
+        with unittest.mock.patch("brain.ops.asyncio.sleep", new=unittest.mock.AsyncMock()):
+            saida = executar("clear_messages", {"channel": "geral", "limit": 3}, ctx)
+        self.assertEqual(len(chamadas), 2, "o 503 do bulk delete tinha que ser repetido")
+        self.assertIn("3", saida)
+
     def test_5xx_na_criacao_de_canal_tambem_repete(self) -> None:
         ctx, servidor = contexto()
         original = servidor.create_text_channel

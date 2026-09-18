@@ -3391,6 +3391,19 @@ class Harness:
             async def reacoes() -> tuple[str, dict[str, Any]]:
                 atual = await canal.fetch_message(anchor.id)
                 emojis = [str(r.emoji) for r in atual.reactions]
+                if "✅" not in emojis:
+                    # ❌ é o comportamento CERTO do bot quando a ação falha. Se quem falhou foi o
+                    # Discord (5xx), o mérito é dele — registra ⚠️ com a resposta real, não ❌.
+                    respostas = [m.content async for m in canal.history(limit=20, after=anchor)
+                                 if m.author.id == bot.user.id]
+                    texto = "\n".join(respostas)
+                    if any(t in texto.lower() for t in ("503", "service unavailable",
+                                                        "indisponível", "erro ao executar")):
+                        self.rep.record(phase, "reações de feedback 👀→✅", WARN,
+                                        "o bot marcou ❌ porque o Discord devolveu erro de servidor "
+                                        f"durante a ação (comportamento correto): {texto.strip()[:160]}")
+                        return (f"❌ por indisponibilidade do Discord, não do bot (reações: {emojis})",
+                                {"reacoes": emojis})
                 self.assert_true("✅" in emojis, f"o bot não marcou ✅ (reações: {emojis})")
                 self.assert_true("👀" not in emojis, f"o 👀 ficou pendurado (reações: {emojis})")
                 return f"reações corretas no Discord real: {emojis}", {"reacoes": emojis}

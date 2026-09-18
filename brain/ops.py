@@ -814,16 +814,26 @@ def _erro_transitorio(exc: Exception) -> bool:
                                     "bad gateway", "gateway timeout"))
 
 
-async def _criar_com_retentativa(criadora: Any, **kwargs: Any) -> Any:
-    """Cria o objeto; se o Discord responder 5xx, tenta UMA vez de novo."""
+async def _com_retentativa(chamada: Any, *args: Any, **kwargs: Any) -> Any:
+    """
+    Executa a chamada; se o Discord responder 5xx, tenta UMA vez de novo.
+
+    Vale para criar (cargo/canal/fórum) e para apagar em lote: um 5xx do Discord significa que a
+    ação NÃO foi executada — foi o que fez o `clear_messages` "falhar" sem apagar nada.
+    """
     try:
-        return await criadora(**kwargs)
+        return await chamada(*args, **kwargs)
     except Exception as exc:  # noqa: BLE001 - só reenvia se for erro de infraestrutura
         if not _erro_transitorio(exc):
             raise
         logger.warning("Discord devolveu erro transitório (%s); tentando mais uma vez", exc)
         await asyncio.sleep(1.0)
-        return await criadora(**kwargs)
+        return await chamada(*args, **kwargs)
+
+
+async def _criar_com_retentativa(criadora: Any, **kwargs: Any) -> Any:
+    """Atalho para as criações (nome por extenso fica legível nos pontos de chamada)."""
+    return await _com_retentativa(criadora, **kwargs)
 
 
 async def _posicao_do_topo(ctx: ToolContext, membro: Any) -> int:
@@ -1725,7 +1735,7 @@ async def op_clear_messages(
 
     purger = getattr(alvo, "purge", None)
     if callable(purger):
-        apagadas = await purger(limit=quantas)
+        apagadas = await _com_retentativa(purger, limit=quantas)
         total = len(apagadas) if hasattr(apagadas, "__len__") else quantas
     else:
         history = getattr(alvo, "history", None)
