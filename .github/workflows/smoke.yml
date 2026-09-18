@@ -81,20 +81,26 @@ jobs:
         # Publica mesmo quando nenhum provedor respondeu: 🔴 também é resultado.
         run: |
           set -uo pipefail
-          if [ ! -f reports/smoke-llm.md ]; then echo "::warning title=smoke::relatório não foi gerado"; exit 0; fi
-          conteudo=$(base64 -w0 reports/smoke-llm.md)
-          sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/reports/smoke-llm.md?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
-          if [ -n "$sha" ]; then
-            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/reports/smoke-llm.md" \
-              -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
-              -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null \
-              && echo "::notice title=smoke::reports/smoke-llm.md atualizado"
-          else
-            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/reports/smoke-llm.md" \
-              -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
-              -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" >/dev/null \
-              && echo "::notice title=smoke::reports/smoke-llm.md criado"
-          fi
+          publicar() {
+            local caminho="$1"
+            [ -f "$caminho" ] || { echo "::warning title=smoke::$caminho não foi gerado"; return 0; }
+            local conteudo sha
+            conteudo=$(base64 -w0 "$caminho")
+            sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+            if [ -n "$sha" ]; then
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
+                -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+                && echo "::notice title=smoke::$caminho atualizado"
+            else
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
+                -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+                && echo "::notice title=smoke::$caminho criado"
+            fi
+          }
+          publicar "reports/smoke-llm.md"
+          publicar "reports/kilo-modelos-free.md"
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -110,5 +116,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: smoke-llm
-          path: reports/smoke-llm.md
+          path: |
+            reports/smoke-llm.md
+            reports/kilo-modelos-free.md
           if-no-files-found: warn

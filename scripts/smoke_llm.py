@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import re
 import sys
@@ -449,6 +450,112 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
     )
 
 
+# ---------------------------------------------------------------------------
+# Candidatos SEM credencial (verificação ao vivo, não por página antiga).
+#
+# Regra do dono: nada entra no pool por "a página diz que é grátis". Se um candidato
+# responde 200 sem chave, ele vira ficha; se responde 401/404, fica fora e documentado.
+# ---------------------------------------------------------------------------
+CANDIDATOS_SEM_CREDENCIAL: list[dict[str, Any]] = [
+    {
+        "nome": "kilo-sem-header",
+        "base_url": "https://api.kilo.ai/api/gateway",
+        "modelo": "kilo-auto/free",
+        "header": False,
+        "nota": "mesmo gateway do pool, sem a linha Authorization (o pool manda 'Bearer anonymous')",
+    },
+    {
+        "nome": "opencode-zen",
+        "base_url": "https://opencode.ai/zen/v1",
+        "modelo": "deepseek-v4-flash-free",
+        "header": False,
+        "nota": "candidato apontado pelo dono; checagem anterior deu 401 com 'Bearer opencode'",
+    },
+    {
+        "nome": "opencode-zen-big-pickle",
+        "base_url": "https://opencode.ai/zen/v1",
+        "modelo": "big-pickle",
+        "header": False,
+        "nota": "id citado pelo dono — só entra no pool depois de responder 200 aqui",
+    },
+]
+
+
+async def sondar_candidato(cand: dict[str, Any], timeout: float, secrets: list[str]) -> dict[str, str]:
+    """GET /models + POST /chat/completions sem credencial. Devolve uma linha de evidência."""
+    base = cand["base_url"]
+    headers = {"User-Agent": "FarolDiscordBot/1.0"}
+    if cand["header"]:
+        headers["Authorization"] = "Bearer anonymous"
+
+    linha = {"nome": cand["nome"], "models": "-", "chat": "-", "texto": "-", "erro": ""}
+    catalogo: dict[str, Any] = {}
+    try:
+        async with aiohttp.ClientSession() as sess:
+            async with sess.get(f"{base}/models", headers=headers,
+                                timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+                linha["models"] = str(resp.status)
+                if resp.status != 200:
+                    linha["erro"] = compact_error_text(redact(await resp.text(), secrets), 140)
+                    return linha
+                catalogo = await resp.json(content_type=None)
+
+            payload = {
+                "model": cand["modelo"],
+                "messages": [{"role": "user", "content": "Responda apenas OK."}],
+                "max_tokens": 32,
+                "stream": False,
+            }
+            async with sess.post(f"{base}/chat/completions", json=payload, headers=headers,
+                                 timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
+                linha["chat"] = str(resp.status)
+                corpo_txt = await resp.text()
+                if resp.status == 200:
+                    try:
+                        data = json.loads(corpo_txt)
+                        escolha = (data.get("choices") or [{}])[0]
+                        conteudo = ((escolha.get("message") or {}).get("content") or "").strip()
+                        linha["texto"] = compact_error_text(conteudo, 60) or "(vazio)"
+                    except Exception:  # noqa: BLE001
+                        linha["texto"] = "(resposta não-JSON)"
+                else:
+                    linha["erro"] = compact_error_text(redact(corpo_txt, secrets), 140)
+    except Exception as exc:  # noqa: BLE001 - sonda de candidato nunca derruba o relatório
+        linha["erro"] = compact_error_text(redact(f"{type(exc).__name__}: {exc}", secrets), 140)
+
+    # Catálogo de modelos grátis do Kilo (id + contexto + marcação de free do provedor).
+    if cand["nome"] == "kilo-sem-header" and linha["models"] == "200" and catalogo.get("data"):
+        itens = catalogo["data"]
+        linhas = ["| id | free? | contexto |", "|---|:---:|---:|"]
+        for item in itens:
+            mid = str(item.get("id") or "")
+            if not mid:
+                continue
+            ctx = item.get("context_length") or item.get("context") or item.get("context_window") or ""
+            free = item.get("isFree")
+            if free is None:
+                free = mid.endswith(":free")
+            linhas.append(f"| `{mid}` | {'sim' if free else 'não'} | {ctx or '-'} |")
+        path = Path("reports/kilo-modelos-free.md")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "# Catálogo ao vivo do gateway Kilo (GET /api/gateway/models sem credencial)\n\n"
+            f"- executada em: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n"
+            f"- total devolvido: {len(itens)} modelos\n"
+            "- campos de cada item: " + ", ".join(sorted(itens[0].keys())) + "\n\n"
+            + "\n".join(linhas) + "\n",
+            encoding="utf-8",
+        )
+        linha["texto"] += " · catálogo em reports/kilo-modelos-free.md"
+
+    return linha
+
+
+async def sondar_candidatos(timeout: float, secrets: list[str]) -> list[dict[str, str]]:
+    return [await sondar_candidato(c, timeout=timeout, secrets=secrets)
+            for c in CANDIDATOS_SEM_CREDENCIAL]
+
+
 class Relatorio:
     """Coleta o que é impresso para também gravar o relatório em arquivo/CI."""
 
@@ -571,6 +678,27 @@ async def run(timeout: float, concurrency: int, out: str = "") -> int:
     falharam = [r for r in results if r not in successes]
     if falharam:
         relatorio.print("🔴 não responderam nesta rodada: " + ", ".join(f"{r.name}" for r in falharam))
+
+    # Candidatos SEM credencial: entram no pool só com 200 comprovado aqui.
+    relatorio.print()
+    relatorio.print("### Candidatos sem credencial (entram no pool só com 200 ao vivo)")
+    relatorio.print()
+    relatorio.print("| candidato | GET /models | POST chat | resposta | erro |")
+    relatorio.print("|---|---|---|---|---|")
+    for cand in await sondar_candidatos(timeout, secrets):
+        relatorio.print(
+            "| "
+            + " | ".join(
+                [
+                    short_cell(cand["nome"]),
+                    short_cell(cand["models"]),
+                    short_cell(cand["chat"]),
+                    short_cell(cand["texto"] or "-", 60),
+                    short_cell(cand["erro"] or "-", 160),
+                ]
+            )
+            + " |"
+        )
     relatorio.salvar(out)
     return 0 if successes else 2
 
