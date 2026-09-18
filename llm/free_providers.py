@@ -504,25 +504,25 @@ FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
         nome="kilo",
         base_url="https://api.kilo.ai/api/gateway",
         # Lista conferida no catálogo AO VIVO (GET /api/gateway/models, sem credencial):
-        # reports/kilo-modelos-free.md — 21 modelos ":free" de 380. Ordem: contexto gigante
-        # primeiro, modelos pequenos por último (emergência), roteador por último de propósito
-        # (ele às vezes devolve vazio; com os explícitos na frente isso quase não acontece).
+        # reports/kilo-modelos-free.md (21 ":free" de 380) e ordenada pela LATÊNCIA MEDIDA
+        # em reports/kilo-latencia-modelos.md. O primeiro da fila é o que responde primeiro:
+        # rapidez percebida > contexto gigante (não adianta 1M se a resposta demora 20 s).
         modelos=(
-            "thinkingmachines/inkling-small:free",        # 1.048.576
-            "nvidia/nemotron-3.5-lightning:free",         # 1.000.000
-            "nvidia/nemotron-3-ultra-550b-a55b:free",     # 1.000.000
+            "nvidia/nemotron-3-super-120b-a12b:free",     # 0,54 s · 262K
+            "nex-agi/nex-n2.5-pro:free",                  # 0,92 s · 262K
+            "nvidia/nemotron-3.5-lightning:free",         # 1,02 s · 1M
+            "nvidia/nemotron-3-ultra-550b-a55b:free",     # 7,50 s · 1M (fundo esperto)
+            "thinkingmachines/inkling-small:free",        # 1.048.576 (reserva lenta)
             "dots-studio/dots-3-note-preview:free",       # 512.000
             "stepfun/step-3.7-flash:free",                # 262.144
             "qwen/qwen3.8-27b:free",                      # 262.144
             "poolside/laguna-s-2.1:free",                 # 262.144
-            "nvidia/nemotron-3-super-120b-a12b:free",     # 262.144
-            "nex-agi/nex-n2.5-pro:free",                  # 262.144
             "cohere/north-mini-code:free",                # 256.000
             "liquid/lfm-2.5-2.6b:free",                   # 65.536 (emergência)
-            "kilo-auto/free",                             # roteador do gateway
+            "kilo-auto/free",                             # roteador do gateway (por último)
         ),
         headers=(("Authorization", "Bearer anonymous"),),
-        contexto="1M (vários) · 512K · 262K · 65K mínimo",
+        contexto="262K nos rápidos · 1M nas reservas · 65K mínimo",
         cota="200 req/h por IP (anônimo)",
         supports_tools=True,
         # 200 confirmado na sonda ao vivo (reports/smoke-llm.md): GET /models 200 (380 modelos),

@@ -757,10 +757,13 @@ class Harness:
         async def prompt_rules() -> str:
             from brain.agent import SYSTEM_PROMPT_TEMPLATE
 
-            obrigatorios = ("REGRAS ABSOLUTAS", "português", "confirmed=true", "FORA DE ESCOPO", "{snapshot}")
+            obrigatorios = ("REGRAS ABSOLUTAS", "português", "Ações destrutivas",
+                            "FORA DE ESCOPO", "{snapshot}", "{confirmacao}")
             faltando = [r for r in obrigatorios if r not in SYSTEM_PROMPT_TEMPLATE]
             self.assert_true(not faltando, f"prompt de sistema sem: {faltando}")
-            return f"prompt com os {len(obrigatorios)} blocos obrigatórios"
+            direto = SYSTEM_PROMPT_TEMPLATE.format(snapshot="S", confirmacao="MODO DIRETO (padrão).")
+            self.assert_true("MODO DIRETO" in direto, "o prompt não descreve o modo direto")
+            return f"prompt com os {len(obrigatorios)} blocos obrigatórios (regra de confirmação dinâmica)"
 
         await self.check(phase, "prompt de sistema completo", prompt_rules)
 
@@ -838,7 +841,10 @@ class Harness:
                          lambda: self.spy_check(phase, "delete_channels apaga de verdade (1 canal)",
                                                 "delete_channels", {"channels": [cid]}, ctx, guild, canal, "delete"))
 
-        await self.check(phase, "delete_channels em lote pede confirmação", self._spy_bulk_confirm, skip_when=None)
+        await self.check(phase, "delete_channels em lote: modo direto apaga na hora",
+                         self._spy_bulk_direto, skip_when=None)
+        await self.check(phase, "delete_channels em lote: modo cauteloso pede confirmação",
+                         self._spy_bulk_confirm, skip_when=None)
 
         await self.check(phase, "edit_server altera de verdade",
                          lambda: self.spy_check(phase, "edit_server altera de verdade", "edit_server",
@@ -865,6 +871,23 @@ class Harness:
                          skip_when=None)
         await self.check(phase, "agente não se auto-confirma (offline)", self._spy_agente_confirmacao, skip_when=None)
 
+    async def _spy_bulk_direto(self) -> str:
+        """Padrão do bot: o pedido já autoriza — 2 canais apagam direto, com o resultado na hora."""
+        from brain.executors import execute_tool
+        from brain.tools import ToolContext
+
+        guild = SpyGuild()
+        a = await guild.create_text_channel("direto-a")
+        b = await guild.create_text_channel("direto-b")
+        ctx = ToolContext(guild=guild, channel=a, actor=guild.members[0])
+        a.calls.clear()
+        b.calls.clear()
+        resultado = await execute_tool("delete_channels", {"channels": [str(a.id), str(b.id)]}, ctx)
+        self.assert_true("delete" in a.actions() and "delete" in b.actions(),
+                         "modo direto não apagou os 2 canais")
+        self.assert_true("Exclusão concluída" in resultado, f"resposta sem confirmação do que fez: {resultado!r}")
+        return "2 canais apagados direto, com o resultado na resposta"
+
     async def _spy_bulk_confirm(self) -> str:
         from brain.executors import execute_tool
         from brain.tools import ToolContext, ToolError
@@ -872,7 +895,7 @@ class Harness:
         guild = SpyGuild()
         a = await guild.create_text_channel("conf-a")
         b = await guild.create_text_channel("conf-b")
-        ctx = ToolContext(guild=guild, channel=a, actor=guild.members[0])
+        ctx = ToolContext(guild=guild, channel=a, actor=guild.members[0], confirm_destructive=True)
         a.calls.clear()
         b.calls.clear()
         try:
@@ -1034,7 +1057,7 @@ class Harness:
 
         llm = LLMRoteirizado([chamada_deletar(),
                               LLMResponse(content="Posso apagar os 2 canais? Confirme, por favor.", tool_calls=[])])
-        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+        agent = Agent(llm_provider=llm, memory=ChannelMemory(), confirm_destructive=True)
 
         resposta = await agent.process_turn(guild=guild, channel=canal, actor=guild.members[0],
                                             prompt="Apague os canais lote-1 e lote-2 de uma vez.")
@@ -1047,12 +1070,30 @@ class Harness:
         teimoso = Agent(llm_provider=LLMRoteirizado([
             chamada_deletar(), chamada_deletar(),
             LLMResponse(content="**Resumo:** tentei excluir os canais e a tentativa falhou.", tool_calls=[]),
-        ]), memory=ChannelMemory(), max_tool_rounds=2)
+        ]), memory=ChannelMemory(), max_tool_rounds=2, confirm_destructive=True)
         resposta_ruim = await teimoso.process_turn(guild=guild, channel=canal, actor=guild.members[0],
                                                    prompt="Apague os canais lote-1 e lote-2 de uma vez.")
         self.assert_true(not any("delete" in ch.actions() for ch in lote), "apagou sem confirmação do usuário")
         self.assert_true("confirm" in resposta_ruim.lower() or "posso" in resposta_ruim.lower(),
                          f"o usuário ficou sem a pergunta de confirmação: {resposta_ruim[:90]!r}")
+
+        # Modo direto (padrão do bot): o mesmo pedido executou sem perguntar nada.
+        direto = [await guild.create_text_channel(f"direto-{i}") for i in (1, 2)]
+        for ch in direto:
+            ch.calls.clear()
+        agente_direto = Agent(llm_provider=LLMRoteirizado([
+            LLMResponse(content="", tool_calls=[ToolCall(
+                id="direto_1", name="delete_channels",
+                args={"channels": [str(ch.id) for ch in direto], "confirmed": True})]),
+            LLMResponse(content="Apaguei os 2 canais. 🗑️", tool_calls=[]),
+        ]), memory=ChannelMemory())
+        resposta_direta = await agente_direto.process_turn(
+            guild=guild, channel=canal, actor=guild.members[0],
+            prompt="Apague os canais e deixe só esse.")
+        self.assert_true(all("delete" in ch.actions() for ch in direto),
+                         "modo direto não apagou o lote")
+        self.assert_true("confirm" not in resposta_direta.lower() and "posso" not in resposta_direta.lower(),
+                         f"modo direto não pode pedir confirmação: {resposta_direta[:90]!r}")
 
         llm.roteiro = [chamada_deletar(), LLMResponse(content="Pronto, canais apagados.", tool_calls=[])]
         await agent.process_turn(guild=guild, channel=canal, actor=guild.members[0], prompt="sim, pode apagar")
@@ -1329,13 +1370,17 @@ class Harness:
 
         await self.check(phase, "autor não edita cargo no próprio nível", cargo_do_autor)
 
+        from dataclasses import replace as _replace
+
+        ctx_cauteloso = _replace(ctx, confirm_destructive=True)
+
         async def lote_exige_confirmacao() -> str:
             a = await guild.create_text_channel("lote-a")
             b = await guild.create_text_channel("lote-b")
             a.calls.clear()
             b.calls.clear()
             try:
-                await execute_tool("delete_channels", {"channels": [str(a.id), str(b.id)]}, ctx)
+                await execute_tool("delete_channels", {"channels": [str(a.id), str(b.id)]}, ctx_cauteloso)
             except ToolError as exc:
                 self.assert_true("confirm" in str(exc).lower(), f"erro não pede confirmação: {exc}")
             else:
@@ -1343,7 +1388,19 @@ class Harness:
             self.assert_true(not a.actions() and not b.actions(), "algo foi apagado antes da confirmação")
             return "2 canais: pede confirmação e não apaga nada antes"
 
-        await self.check(phase, "exclusão em lote exige confirmação", lote_exige_confirmacao)
+        await self.check(phase, "exclusão em lote exige confirmação (modo cauteloso)", lote_exige_confirmacao)
+
+        async def lote_no_modo_direto() -> str:
+            a = await guild.create_text_channel("direto-a")
+            b = await guild.create_text_channel("direto-b")
+            a.calls.clear()
+            b.calls.clear()
+            await execute_tool("delete_channels", {"channels": [str(a.id), str(b.id)]}, ctx)
+            self.assert_true("delete" in a.actions() and "delete" in b.actions(),
+                             "modo direto (padrão) não apagou o lote")
+            return "2 canais: modo direto apaga e informa, sem perguntar"
+
+        await self.check(phase, "exclusão em lote executa direto no padrão", lote_no_modo_direto)
 
         async def canal_unico_executa() -> str:
             unico = await guild.create_text_channel("canal-unico")
@@ -1358,17 +1415,27 @@ class Harness:
             papel = await guild.create_role("cargo-temp")
             papel.calls.clear()
             try:
-                await execute_tool("delete_role", {"role": str(papel.id)}, ctx)
+                await execute_tool("delete_role", {"role": str(papel.id)}, ctx_cauteloso)
             except ToolError:
                 pass
             else:
-                raise AssertionError("delete_role apagou sem confirmação")
+                raise AssertionError("delete_role apagou sem confirmação no modo cauteloso")
             self.assert_true(not papel.actions(), "cargo apagado antes da confirmação")
-            await execute_tool("delete_role", {"role": str(papel.id), "confirmed": True}, ctx)
+            await execute_tool("delete_role", {"role": str(papel.id), "confirmed": True}, ctx_cauteloso)
             self.assert_true("delete" in papel.actions(), "não apagou com confirmed=true")
             return "cargo: exige confirmação e apaga com confirmed=true"
 
-        await self.check(phase, "exclusão de cargo exige confirmação", cargo_exige_confirmacao)
+        await self.check(phase, "exclusão de cargo exige confirmação (modo cauteloso)", cargo_exige_confirmacao)
+
+        async def cargo_no_modo_direto() -> str:
+            papel = await guild.create_role("cargo-direto")
+            papel.calls.clear()
+            await execute_tool("delete_role", {"role": str(papel.id)}, ctx)
+            self.assert_true("delete" in papel.actions(),
+                             "modo direto (padrão) não apagou o cargo pedido")
+            return "cargo: modo direto apaga o que foi pedido, sem perguntar"
+
+        await self.check(phase, "exclusão de cargo executa direto no padrão", cargo_no_modo_direto)
 
         async def ferramenta_inexistente() -> str:
             try:
@@ -2028,12 +2095,15 @@ class Harness:
             novos = await self._capture_new(guild, antes_conf)
             ids = [c.id for c in novos if c.type.name == "text"]
             self.assert_true(len(ids) == 2, f"esperava 2 canais de teste, veio {len(ids)}")
+            from dataclasses import replace as _replace
+
+            cauteloso = _replace(ctx, confirm_destructive=True)
             try:
-                await ferramenta("delete_channels", {"channels": [str(i) for i in ids]})
+                await execute_tool("delete_channels", {"channels": [str(i) for i in ids]}, cauteloso)
             except ToolError as exc:
                 self.assert_true("confirm" in str(exc).lower(), f"o erro não pede confirmação: {exc}")
             else:
-                raise AssertionError("apagar 2 canais não pediu confirmação")
+                raise AssertionError("apagar 2 canais não pediu confirmação no modo cauteloso")
             vivos = [c for c in await guild.fetch_channels() if c.id in ids]
             self.assert_true(len(vivos) == 2, "os canais foram apagados antes da confirmação")
             await ferramenta("delete_channels", {"channels": [str(i) for i in ids], "confirmed": True})
@@ -2041,9 +2111,29 @@ class Harness:
             self.assert_true(not restantes, f"confirmed=true não apagou: {[c.name for c in restantes]}")
             for i in ids:
                 self.owned_channels.discard(i)
-            return "2 canais: pediu confirmação e só apagou com confirmed=true"
+            return "2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true"
 
-        await self.check(phase, "fluxo de confirmação em canais reais", confirmacao_canais)
+        await self.check(phase, "fluxo de confirmação em canais reais (modo cauteloso)", confirmacao_canais)
+
+        async def lote_direto_em_canais_reais() -> str:
+            """Padrão do bot: 'apague esses e deixe só um' executa e responde na hora."""
+            antes_direto = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-dir-1", "type": "text", "category": str(categoria.id)},
+                {"name": f"{TEMP_MARK}-dir-2", "type": "text", "category": str(categoria.id)}]})
+            novos_direto = await self._capture_new(guild, antes_direto)
+            ids_direto = [c.id for c in novos_direto if c.type.name == "text"]
+            self.assert_true(len(ids_direto) == 2, "não consegui criar os canais do teste direto")
+            resultado = await ferramenta("delete_channels", {"channels": [str(i) for i in ids_direto]})
+            self.assert_true("Exclusão concluída" in resultado,
+                             f"modo direto não respondeu o que fez: {resultado[:120]!r}")
+            restantes_direto = [c for c in await guild.fetch_channels() if c.id in ids_direto]
+            self.assert_true(not restantes_direto, "modo direto não apagou os canais")
+            for i in ids_direto:
+                self.owned_channels.discard(i)
+            return "2 canais reais apagados direto, sem perguntar, com o resultado na resposta"
+
+        await self.check(phase, "exclusão em lote direta em canais reais", lote_direto_em_canais_reais)
 
         async def agente_apaga_nominal() -> str:
             antes_efemero = await self._api_state(guild)
@@ -2073,7 +2163,8 @@ class Harness:
 
         await self.check(phase, "agente apaga canal nominal sem travar", agente_apaga_nominal)
 
-        async def agente_pede_confirmacao() -> str:
+        async def agente_apaga_lote_direto() -> str:
+            """PADRÃO do bot: 'apague esses dois' executa na hora e responde o que fez."""
             antes_lote = await self._api_state(guild)
             await ferramenta("create_channels", {"channels": [
                 {"name": f"{TEMP_MARK}-lote-1", "type": "text", "category": str(categoria.id)},
@@ -2085,40 +2176,84 @@ class Harness:
             try:
                 resposta = await live.agent.process_turn(
                     guild=guild, channel=ctx.channel, actor=live.actor,
-                    prompt=f"Apague os canais {TEMP_MARK}-lote-1 e {TEMP_MARK}-lote-2 de uma vez.")
+                    prompt=f"Apague os canais {TEMP_MARK}-lote-1 e {TEMP_MARK}-lote-2 e deixe só o resto.")
             except Exception as exc:
                 if self._culpa_do_llm(str(exc)):
-                    return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
+                    return self.degradar_llm(phase, "agente apaga lote direto (padrão)",
                                              "não deu para conversar: o LLM não respondeu", str(exc))
                 raise
-            vivos = [c for c in await guild.fetch_channels() if c.id in ids]
-            self.assert_true(len(vivos) == 2,
-                             f"o agente apagou 2 canais SEM pedir confirmação: {resposta[:150]!r}")
-            if self.llm_nao_chamou(registro_llm, "delete_channels"):
-                return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
-                                         "o modelo nem tentou excluir os 2 canais", resposta)
-            self.assert_true(any(t in resposta.lower() for t in ("confirm", "posso", "certeza", "apagar")),
-                             f"o agente não pediu confirmação no texto: {resposta[:150]!r}")
-            registro_llm.clear()
-            try:
-                resposta2 = await live.agent.process_turn(guild=guild, channel=ctx.channel, actor=live.actor,
-                                                          prompt="sim, pode apagar")
-            except Exception as exc:
-                if self._culpa_do_llm(str(exc)):
-                    return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
-                                             "o 'sim' não pôde ser processado: o LLM não respondeu", str(exc))
-                raise
             restantes = [c for c in await guild.fetch_channels() if c.id in ids]
-            if restantes and (self._culpa_do_llm(resposta2) or self._culpa_do_llm(resposta)
+            if restantes and (self._culpa_do_llm(resposta)
                               or self.llm_nao_chamou(registro_llm, "delete_channels")):
-                return self.degradar_llm(phase, "agente pede confirmação em lote e apaga após 'sim'",
-                                         "não apagou depois do 'sim'", resposta2)
-            self.assert_true(not restantes, f"não apagou depois do 'sim': {resposta2[:150]!r}")
+                return self.degradar_llm(
+                    phase, "agente apaga lote direto (padrão)",
+                    "o modelo não executou a exclusão nesta rodada", resposta)
+            self.assert_true(not restantes,
+                             f"modo direto não apagou os 2 canais: {resposta[:150]!r}")
+            self.assert_true(not any(t in resposta.lower() for t in ("confirm", "posso apagar", "certeza")),
+                             f"modo direto não pode pedir confirmação: {resposta[:150]!r}")
+            for i in ids:
+                self.owned_channels.discard(i)
+            return f"apagou os 2 canais direto e informou o resultado ({resposta[:60]!r})"
+
+        await self.check(phase, "agente apaga lote direto, sem perguntar (padrão)", agente_apaga_lote_direto)
+
+        async def agente_cauteloso_pergunta() -> str:
+            """Com CONFIRM_DESTRUCTIVE=true o bot volta a pedir o 'sim' antes do lote."""
+            antes_conf = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-caut-1", "type": "text", "category": str(categoria.id)},
+                {"name": f"{TEMP_MARK}-caut-2", "type": "text", "category": str(categoria.id)}]})
+            novos = await self._capture_new(guild, antes_conf)
+            ids = {c.id for c in novos}
+            self.assert_true(len(ids) == 2, "não consegui criar os 2 canais do modo cauteloso")
+
+            live.agent.confirm_destructive = True
+            try:
+                registro_llm.clear()
+                try:
+                    resposta = await live.agent.process_turn(
+                        guild=guild, channel=ctx.channel, actor=live.actor,
+                        prompt=f"Apague os canais {TEMP_MARK}-caut-1 e {TEMP_MARK}-caut-2 de uma vez.")
+                except Exception as exc:
+                    if self._culpa_do_llm(str(exc)):
+                        return self.degradar_llm(phase, "modo cauteloso pergunta e apaga após 'sim'",
+                                                 "não deu para conversar: o LLM não respondeu", str(exc))
+                    raise
+                vivos = [c for c in await guild.fetch_channels() if c.id in ids]
+                if len(vivos) != 2:
+                    return self.degradar_llm(
+                        phase, "modo cauteloso pergunta e apaga após 'sim'",
+                        "o modelo apagou sem esperar o 'sim'", resposta)
+                if self.llm_nao_chamou(registro_llm, "delete_channels"):
+                    return self.degradar_llm(phase, "modo cauteloso pergunta e apaga após 'sim'",
+                                             "o modelo nem tentou excluir os canais", resposta)
+                self.assert_true(any(t in resposta.lower() for t in ("confirm", "posso", "certeza", "apagar")),
+                                 f"não pediu confirmação no texto: {resposta[:150]!r}")
+
+                registro_llm.clear()
+                try:
+                    resposta2 = await live.agent.process_turn(guild=guild, channel=ctx.channel,
+                                                              actor=live.actor, prompt="sim, pode apagar")
+                except Exception as exc:
+                    if self._culpa_do_llm(str(exc)):
+                        return self.degradar_llm(phase, "modo cauteloso pergunta e apaga após 'sim'",
+                                                 "o 'sim' não pôde ser processado", str(exc))
+                    raise
+                restantes = [c for c in await guild.fetch_channels() if c.id in ids]
+                if restantes and (self._culpa_do_llm(resposta2) or self._culpa_do_llm(resposta)
+                                  or self.llm_nao_chamou(registro_llm, "delete_channels")):
+                    return self.degradar_llm(phase, "modo cauteloso pergunta e apaga após 'sim'",
+                                             "não apagou depois do 'sim'", resposta2)
+                self.assert_true(not restantes, f"não apagou depois do 'sim': {resposta2[:150]!r}")
+            finally:
+                live.agent.confirm_destructive = False
+
             for i in ids:
                 self.owned_channels.discard(i)
             return f"pediu confirmação e apagou depois do 'sim' ({resposta[:60]!r})"
 
-        await self.check(phase, "agente pede confirmação em lote e apaga após 'sim'", agente_pede_confirmacao)
+        await self.check(phase, "modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)", agente_cauteloso_pergunta)
 
         if self.args.allow_template:
             async def template() -> tuple[str, dict[str, Any]]:

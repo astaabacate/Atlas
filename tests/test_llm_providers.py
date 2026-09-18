@@ -645,6 +645,7 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
     """A lista do kilo sai do catálogo publicado pelo CI, não de listinha de terceiro."""
 
     RELATORIO = Path(__file__).resolve().parents[1] / "reports" / "kilo-modelos-free.md"
+    RELATORIO_LATENCIA = Path(__file__).resolve().parents[1] / "reports" / "kilo-latencia-modelos.md"
 
     def test_ficha_do_kilo_confere_com_o_catalogo_publicado(self) -> None:
         if not self.RELATORIO.exists():
@@ -664,10 +665,17 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
             "o catálogo do Kilo mudou: atualize a ficha com o que reports/kilo-modelos-free.md traz",
         )
 
-    def test_ordem_do_kilo_comeca_pelo_contexto_gigante(self) -> None:
+    def test_ordem_do_kilo_comeca_pelo_modelo_mais_rapido(self) -> None:
+        """Rapidez percebida primeiro: a ordem sai da latência medida no CI."""
         ficha = next(spec for spec in FREE_PROVIDERS if spec.nome == "kilo")
-        self.assertTrue(ficha.modelos[0].startswith("thinkingmachines/"), "1M vem primeiro")
-        self.assertTrue(ficha.modelos[-1].endswith("kilo-auto/free"), "roteador vai por último")
+        rapido = self.RELATORIO_LATENCIA
+        if rapido.exists():
+            linhas = [ln for ln in rapido.read_text(encoding="utf-8").splitlines() if ln.startswith("| `")]
+            ordem_medida = [ln.split("`")[1] for ln in linhas]
+            self.assertEqual(ficha.modelos[0], ordem_medida[0],
+                             "o primeiro da fila tem que ser o modelo mais rápido da última medição")
+        self.assertEqual(ficha.modelos[-1], "kilo-auto/free",
+                         "o roteador (que às vezes devolve vazio) vai por último")
 
 
 class TestFreePool(unittest.TestCase):

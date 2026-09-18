@@ -94,6 +94,25 @@ execuções [`35291065652`](https://github.com/astaabacate/Atlas/actions/runs/35
   **403 "OpenCode's free tier can only be used from within…"** (`big-pickle`). Não entra no pool —
   e não por opinião: está registrado na sonda a cada execução.
 
+## 3.2) Velocidade e confirmação (pedido de 18/09)
+
+**"Ele demora muito"** — três causas atacadas:
+
+1. **Ordem da fila agora é medida, não chutada.** O CI mede uma chamada curta por modelo do `kilo`
+   (`reports/kilo-latencia-modelos.md`): o mais rápido vai na frente. Hoje a fila abre com
+   `nvidia/nemotron-3-super-120b-a12b:free` (**0,54 s**) → `nex-agi/nex-n2.5-pro:free` (0,92 s) →
+   `nvidia/nemotron-3.5-lightning:free` (1,02 s, 1M de contexto) e deixa o gigante lento
+   (`nemotron-3-ultra-550b`, 7,5 s) e o `inkling-small` (19 s no teste do pool) como reserva.
+2. **Resposta vazia não repete o mesmo modelo:** passa a vez na hora. Antes o corredor repetia o
+   modelo que já tinha falhado, somando a latência dele de novo.
+3. **Roteador por último:** o `kilo-auto/free` é quem mais devolve vazio; com os modelos explícitos
+   na frente, a resposta não cai nele no caminho normal.
+
+**"Ele pergunta demais"** — `CONFIRM_DESTRUCTIVE`, padrão **desligado** (modo direto): o pedido do
+usuário já é a autorização, então *"apague todos os canais e deixe apenas esse"* apaga e responde o
+que fez, em uma linha. O modo cauteloso continua existindo (ligue com `CONFIRM_DESTRUCTIVE=true`) e
+é o que os testes de confirmação exercitam — os dois modos têm cobertura no E2E.
+
 ## 4) Realmente gratuitos (sem trial que expira)
 
 Todos os 12 têm camada gratuita descrita na documentação oficial do provedor, com link e data na

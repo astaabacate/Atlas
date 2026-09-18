@@ -146,6 +146,14 @@ credencial cadastrada fica fora da corrida (o log diz exatamente qual secret fal
 
 Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
 
+**Confirmação de ação destrutiva (`CONFIRM_DESTRUCTIVE`)** — padrão **desligada** (modo direto):
+*"apague todos os canais e deixe só esse"* executa na hora e responde o que apagou. Ligue com
+`CONFIRM_DESTRUCTIVE=true` para o modo cauteloso (2+ canais, categoria ou cargo pedem um "sim" antes).
+
+**Ordem da fila por latência:** o primeiro modelo do corredor é o que responde primeiro no Discord.
+A ordem vem da medição real do CI (`reports/kilo-latencia-modelos.md`), não de chute — hoje:
+`nemotron-3-super-120b` (0,5 s) → `nex-n2.5-pro` (0,9 s) → `nemotron-3.5-lightning` (1,0 s) → reservas.
+
 **Lista de modelos conferida ao vivo:** a ficha do `kilo` não é chute — cada id sai do catálogo real
 (`GET /api/gateway/models`, 380 modelos, 21 marcados `:free`), publicado pelo CI em
 [`reports/kilo-modelos-free.md`](reports/kilo-modelos-free.md). Modelo que sai do catálogo é
