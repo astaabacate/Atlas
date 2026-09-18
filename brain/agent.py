@@ -17,7 +17,8 @@ from brain.executors import execute_tool
 from brain.memory import ChannelMemory, memory_key
 from brain.snapshot import build_server_snapshot
 from brain.tools import ToolContext, ToolError, get_tool_definitions
-from llm.base import ChatProvider, parece_raciocinio, separar_raciocinio, LLMResponse, ToolCall
+from llm.base import (ChatProvider, parece_raciocinio, separar_raciocinio, extract_text_tool_calls,
+                      LLMResponse, ToolCall)
 
 logger = logging.getLogger("farol.brain.agent")
 
@@ -221,93 +222,13 @@ NUDGE_SEM_ACAO = (
 
 def _extract_fallback_tool_calls(text: str, nomes_de_ferramenta: set[str] | None = None) -> list[ToolCall]:
     """
-    Fallback para provedores gratuitos anônimos sem suporte nativo a function calling:
-    procura blocos markdown do tipo ```tool ... ``` ou ```json ... ``` com {"name": ..., "args": ...}.
+    Chamadas escritas em TEXTO (provedores grátis sem function calling).
+
+    O parser vive em `llm/base.py` porque o PROVEDOR também precisa dele: o modelo às vezes
+    escreve a chamada dentro do "rascunho interno" e o corte do rascunho apagava a ação — o
+    cliente pedia de novo e nada acontecia.
     """
-    calls: list[ToolCall] = []
-    conhecidas = nomes_de_ferramenta or set()
-
-    def _aceitar(data: Any) -> None:
-        """Aceita {"name":..,"args"/"arguments":{..}} e a forma nativa {"tool_calls":[..]}."""
-        if isinstance(data, dict) and isinstance(data.get("tool_calls"), list):
-            for bruto in data["tool_calls"]:
-                _aceitar(bruto)
-            return
-        if not isinstance(data, dict):
-            return
-        alvo = data.get("function") if isinstance(data.get("function"), dict) else data
-        name = alvo.get("name") or data.get("tool") or data.get("nome")
-        args = alvo.get("args")
-        if args is None:
-            args = alvo.get("arguments")
-        if isinstance(args, str):
-            try:
-                args = json.loads(args)
-            except Exception:  # noqa: BLE001 - argumento em texto solto não serve
-                args = {}
-        if not name or not isinstance(args, dict):
-            return
-        if conhecidas and str(name) not in conhecidas:
-            return
-        calls.append(ToolCall(id=f"fallback_{len(calls)}", name=str(name), args=args))
-
-    # 1. blocos ```tool/```json (formato documentado no prompt do sistema)
-    pattern = r"```(?:tool|json)?\s*(\{.*?\})\s*```"
-    for match in re.finditer(pattern, text, re.DOTALL):
-        try:
-            _aceitar(json.loads(match.group(1)))
-        except Exception:  # noqa: BLE001 - bloco que não é JSON: ignora
-            continue
-    if calls:
-        return calls
-
-    # 2. JSON solto no meio do texto (modelos grátis esquecem a cerca de código). O objeto é
-    #    recortado por CONTAGEM de chaves: regex preguiçoso corta no primeiro "}" e perde os
-    #    argumentos aninhados. Só vale se o nome for de uma ferramenta conhecida — sem isso, um
-    #    JSON qualquer seria executado por engano.
-    if conhecidas:
-        for candidato in _objetos_json(text):
-            try:
-                _aceitar(json.loads(candidato))
-            except Exception:  # noqa: BLE001
-                continue
-    return calls
-
-
-def _objetos_json(texto: str) -> list[str]:
-    """Recorta objetos `{...}` completos do texto (respeitando strings e aninhamento)."""
-    objetos: list[str] = []
-    i = 0
-    while i < len(texto):
-        ini = texto.find("{", i)
-        if ini == -1:
-            break
-        nivel = 0
-        em_string = False
-        escape = False
-        for j in range(ini, len(texto)):
-            c = texto[j]
-            if em_string:
-                if escape:
-                    escape = False
-                elif c == "\\":
-                    escape = True
-                elif c == '"':
-                    em_string = False
-                continue
-            if c == '"':
-                em_string = True
-            elif c == "{":
-                nivel += 1
-            elif c == "}":
-                nivel -= 1
-                if nivel == 0:
-                    objetos.append(texto[ini:j + 1])
-                    i = j + 1
-                    break
-        else:
-            break
-    return objetos
+    return extract_text_tool_calls(text, nomes_de_ferramenta)
 
 
 class Agent:

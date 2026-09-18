@@ -211,6 +211,103 @@ def separar_raciocinio(texto: str) -> tuple[str, str]:
     return texto, ""
 
 
+def objetos_json(texto: str) -> list[str]:
+    """Recorta objetos `{...}` completos do texto (respeitando strings e aninhamento)."""
+    objetos: list[str] = []
+    i = 0
+    while i < len(texto):
+        ini = texto.find("{", i)
+        if ini == -1:
+            break
+        nivel = 0
+        em_string = False
+        escape = False
+        for j in range(ini, len(texto)):
+            c = texto[j]
+            if em_string:
+                if escape:
+                    escape = False
+                elif c == "\\":
+                    escape = True
+                elif c == '"':
+                    em_string = False
+                continue
+            if c == '"':
+                em_string = True
+            elif c == "{":
+                nivel += 1
+            elif c == "}":
+                nivel -= 1
+                if nivel == 0:
+                    objetos.append(texto[ini:j + 1])
+                    i = j + 1
+                    break
+        else:
+            break
+    return objetos
+
+
+def extract_text_tool_calls(texto: str, nomes: set[str] | None = None) -> list[ToolCall]:
+    """
+    Extrai chamadas de ferramenta escritas em TEXTO (provedores grátis sem function calling).
+
+    Aceita ```tool/```json, JSON solto no meio da frase e a forma nativa
+    `{"tool_calls": [{"function": {"name": ..., "arguments": ...}}]}`. Se `nomes` for passado,
+    só aceita ferramenta conhecida — sem isso, um JSON qualquer viraria execução por engano.
+    """
+    import json as _json
+
+    calls: list[ToolCall] = []
+    conhecidas = nomes or set()
+
+    def _aceitar(data: Any) -> None:
+        if isinstance(data, dict) and isinstance(data.get("tool_calls"), list):
+            for bruto in data["tool_calls"]:
+                _aceitar(bruto)
+            return
+        if not isinstance(data, dict):
+            return
+        alvo = data.get("function") if isinstance(data.get("function"), dict) else data
+        name = alvo.get("name") or data.get("tool") or data.get("nome")
+        args = alvo.get("args")
+        if args is None:
+            args = alvo.get("arguments")
+        if isinstance(args, str):
+            try:
+                args = _json.loads(args)
+            except Exception:  # noqa: BLE001 - argumento em texto solto não serve
+                args = {}
+        if not name or not isinstance(args, dict):
+            return
+        if conhecidas and str(name) not in conhecidas:
+            return
+        calls.append(ToolCall(id=f"texto_{len(calls)}", name=str(name), args=args))
+
+    for bloco in _json_blocos(texto):
+        try:
+            _aceitar(_json.loads(bloco))
+        except Exception:  # noqa: BLE001 - bloco que não é JSON: ignora
+            continue
+    if calls:
+        return calls
+
+    if conhecidas:
+        for candidato in objetos_json(texto):
+            try:
+                _aceitar(_json.loads(candidato))
+            except Exception:  # noqa: BLE001
+                continue
+    return calls
+
+
+def _json_blocos(texto: str) -> list[str]:
+    """Conteúdo dos blocos ```...``` que parecem JSON."""
+    import re as _re
+
+    return [m.group(1) for m in
+            _re.finditer(r"```(?:tool|json)?\s*(\{.*?\})\s*```", texto, _re.DOTALL)]
+
+
 def compact_error_text(text: str, limit: int = 160) -> str:
     """Reduz um corpo de erro (às vezes HTML puro) a uma linha curta e legível."""
     if not text:

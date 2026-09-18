@@ -36,6 +36,7 @@ from typing import Any, Callable
 import aiohttp
 
 from llm.base import (
+    extract_text_tool_calls,
     separar_raciocinio,
     ChatProvider,
     LLMResponse,
@@ -59,6 +60,11 @@ DEFAULT_COOLDOWN = 45.0
 MIN_AMPLIACAO_TOKENS = 1024
 MAX_AMPLIACAO_TOKENS = 8192
 MAX_INLINE_RETRY_WAIT = 2.5
+# Hedge: se o modelo da frente não responde em X segundos, o PRÓXIMO entra em paralelo (no máximo
+# 2 ao mesmo tempo). Antes a fila era 100% sequencial: um modelo lento/congelado custava o tempo
+# dele INTEIRO antes de tentar o seguinte — e o cliente sentia isso como "demora".
+HEDGE_AFTER = 1.6
+HEDGE_MAX_EM_VOO = 2
 
 
 def _parse_retry_after(headers: Any) -> float | None:
@@ -293,6 +299,13 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         }
         client_timeout = aiohttp.ClientTimeout(total=timeout)
 
+        # Nomes das ferramentas disponíveis: usados para recuperar uma chamada que o modelo
+        # escreveu em TEXTO (às vezes dentro do próprio rascunho, que é cortado depois).
+        nomes_de_ferramenta = {
+            str((t.get("function") or {}).get("name") or "")
+            for t in (tools or []) if isinstance(t, dict)
+        } - {""}
+
         # Catálogo pode ter mudado (provedor gratuito troca modelo sem avisar).
         if self.auto_discover and not self.models:
             await self.refresh_models()
@@ -307,84 +320,154 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         # varredura recomeça já sem o modelo morto.
         modelos = list(self.models)
         indice = 0
-        while indice < len(modelos):
-            model = modelos[indice]
-            indice += 1
-            payload, _ = self.build_payload(messages, tools, model, max_tokens)
-            try:
-                resposta = await self._post(session, payload, headers, client_timeout, model)
-                self.cooldown_until = 0.0
-                return resposta
-            except ProviderError as exc:
-                last_error = exc
+        # `em_voo`: tentativas em paralelo, na ordem da fila. A primeira que devolver resposta
+        # útil vence; as outras são canceladas.
+        em_voo: dict[asyncio.Task[LLMResponse], str] = {}
+        iniciadas: list[str] = []
 
-                if exc.is_rate_limited:
-                    espera = exc.retry_after if exc.retry_after is not None else self.cooldown
-                    self._start_cooldown(espera)
-                    # Uma segunda tentativa rápida resolve fila momentânea ("Queue full for IP").
-                    if not retry_429_usado:
-                        retry_429_usado = True
-                        pausa = min(espera, MAX_INLINE_RETRY_WAIT)
-                        logger.debug("[%s] %s; tentando de novo em %.1fs", self.name, exc.raw_message[:80], pausa)
-                        await asyncio.sleep(pausa)
-                        try:
-                            resposta = await self._post(session, payload, headers, client_timeout, model)
-                            self.cooldown_until = 0.0
-                            return resposta
-                        except ProviderError as retry_exc:
-                            last_error = retry_exc
-                            if retry_exc.is_rate_limited:
-                                self._start_cooldown(retry_exc.retry_after or self.cooldown)
-                                raise
-                            exc = retry_exc
+        async def _lancar(modelo: str) -> None:
+            payload_local, _ = self.build_payload(messages, tools, modelo, max_tokens)
+            em_voo[asyncio.create_task(
+                self._post(session, payload_local, headers, client_timeout, modelo,
+                           nomes_de_ferramenta))] = modelo
+            iniciadas.append(modelo)
 
-                if exc.is_empty_response and not exc.truncated:
-                    # Vazio "seco" (roteador grátis costuma fazer isso): passar a vez na hora.
-                    # Repetir o mesmo modelo só soma a latência dele de novo — e tem fila atrás.
-                    logger.debug("[%s] %s devolveu resposta vazia; passando para o próximo modelo",
-                                 self.name, model)
-                    continue
+        def _proximo_modelo() -> str | None:
+            nonlocal indice
+            while indice < len(modelos):
+                modelo = modelos[indice]
+                indice += 1
+                if modelo not in iniciadas:
+                    return modelo
+            return None
 
-                if exc.is_empty_response and exc.truncated and model not in ampliados:
-                    ampliados.add(model)
-                    max_tokens = min(max(max_tokens * 2, MIN_AMPLIACAO_TOKENS), MAX_AMPLIACAO_TOKENS)
-                    logger.debug("[%s] %s devolveu nada no teto de tokens; repetindo com %d",
-                                 self.name, model, max_tokens)
-                    indice -= 1
-                    continue
+        primeiro = _proximo_modelo()
+        await _lancar(primeiro or modelos[0])
 
-                if exc.is_empty_response:
-                    # Já repetiu este modelo e continua vazio: tenta o próximo do corredor.
-                    logger.debug("[%s] %s segue vazio; trocando de modelo", self.name, model)
-                    continue
+        try:
+            while True:
+                if not em_voo:
+                    # Nada em voo: puxa o próximo da fila (um modelo que falhou não encerra a
+                    # varredura enquanto houver candidato — era assim que o fallback sumia).
+                    seguinte_ocioso = _proximo_modelo()
+                    if seguinte_ocioso is None:
+                        break
+                    await _lancar(seguinte_ocioso)
+                # Espera a primeira resposta OU o instante de soltar o próximo modelo da fila.
+                espera = HEDGE_AFTER if len(em_voo) < HEDGE_MAX_EM_VOO else None
+                pronto, _ = await asyncio.wait(
+                    set(em_voo), timeout=espera, return_when=asyncio.FIRST_COMPLETED)
 
-                if exc.is_tools_rejection and not self.native_tools_rejected:
-                    # O provedor não engole o schema: tenta de novo via protocolo de texto.
-                    logger.debug("[%s] tools recusados, degradando para protocolo de texto", self.name)
-                    self.native_tools_rejected = True
-                    fallback_payload, _ = self.build_payload(messages, tools, model, max_tokens)
+                if not pronto:
+                    seguinte = _proximo_modelo()
+                    if seguinte:
+                        logger.debug("[%s] hedge: %s demorou mais de %.1fs; chamando %s",
+                                     self.name, ", ".join(em_voo.values()), HEDGE_AFTER, seguinte)
+                        await _lancar(seguinte)
+                        continue
+                    # Fila acabou: espera o que está em voo (sem timeout artificial).
+                    pronto, _ = await asyncio.wait(set(em_voo),
+                                                   return_when=asyncio.FIRST_COMPLETED)
+
+                for tarefa in pronto:
+                    modelo = em_voo.pop(tarefa)
                     try:
-                        resposta = await self._post(session, fallback_payload, headers, client_timeout, model)
+                        resposta = tarefa.result()
+                    except ProviderError as exc:
+                        last_error = exc
+
+                        if exc.is_rate_limited:
+                            espera_429 = (exc.retry_after if exc.retry_after is not None
+                                          else self.cooldown)
+                            self._start_cooldown(espera_429)
+                            if not retry_429_usado:
+                                # Uma segunda tentativa rápida resolve fila momentânea
+                                # ("Queue full for IP") — e agora sem segurar os outros modelos.
+                                retry_429_usado = True
+                                pausa = min(espera_429, MAX_INLINE_RETRY_WAIT)
+                                logger.debug("[%s] %s; tentando de novo em %.1fs",
+                                             self.name, exc.raw_message[:80], pausa)
+                                payload_local, _ = self.build_payload(messages, tools, modelo,
+                                                                      max_tokens)
+                                em_voo[asyncio.create_task(
+                                    self._retry_apos_espera(session, payload_local, headers,
+                                                            client_timeout, modelo, pausa,
+                                                            nomes_de_ferramenta))] = modelo
+                                continue
+                            raise  # já tentou de novo e continua no limite: para aqui
+
+                        if exc.is_empty_response and not exc.truncated:
+                            # Vazio "seco" (roteador grátis faz isso): passa a vez na hora.
+                            logger.debug("[%s] %s devolveu resposta vazia", self.name, modelo)
+                            continue
+
+                        if exc.is_empty_response and exc.truncated and modelo not in ampliados:
+                            ampliados.add(modelo)
+                            max_tokens = min(max(max_tokens * 2, MIN_AMPLIACAO_TOKENS),
+                                             MAX_AMPLIACAO_TOKENS)
+                            logger.debug("[%s] %s devolveu nada no teto de tokens; repetindo com %d",
+                                         self.name, modelo, max_tokens)
+                            await _lancar(modelo)
+                            continue
+
+                        if exc.is_empty_response:
+                            logger.debug("[%s] %s segue vazio; trocando de modelo", self.name, modelo)
+                            continue
+
+                        if exc.is_tools_rejection and not self.native_tools_rejected:
+                            logger.debug("[%s] tools recusados, degradando para protocolo de texto",
+                                         self.name)
+                            self.native_tools_rejected = True
+                            fallback_payload, _ = self.build_payload(messages, tools, modelo,
+                                                                     max_tokens)
+                            try:
+                                resposta = await self._post(session, fallback_payload, headers,
+                                                            client_timeout, modelo,
+                                                            nomes_de_ferramenta)
+                                self.cooldown_until = 0.0
+                                return resposta
+                            except ProviderError as retry_exc:
+                                last_error = retry_exc
+                                continue
+
+                        if exc.is_model_problem:
+                            # O catálogo mudou: descobre os modelos válidos e recomeça a varredura.
+                            novos = await self.refresh_models(force=True)
+                            limpos = [m for m in (novos or self.models) if m != modelo]
+                            if limpos:
+                                logger.debug("[%s] modelo %s indisponível; catálogo agora é %s",
+                                             self.name, modelo, ", ".join(limpos[:3]))
+                                self.models = limpos
+                                # O catálogo descoberto assume a fila (o morto sai da frente);
+                                # quem já foi tentado é pulado por `iniciadas`.
+                                modelos = list(limpos)
+                                indice = 0
+                            continue
+
+                        raise  # erro duro do provedor: não insiste (mesmo comportamento de antes)
+                    else:
                         self.cooldown_until = 0.0
                         return resposta
-                    except ProviderError as retry_exc:
-                        last_error = retry_exc
-                        continue
+        finally:
+            for tarefa in em_voo:
+                tarefa.cancel()
 
-                if exc.is_model_problem:
-                    # O catálogo mudou: descobre os modelos válidos e recomeça a varredura.
-                    novos = await self.refresh_models(force=True)
-                    limpos = [m for m in (novos or self.models) if m != model]
-                    if limpos:
-                        logger.debug("[%s] modelo %s indisponível; catálogo agora é %s",
-                                     self.name, model, ", ".join(limpos[:3]))
-                        self.models = limpos
-                        modelos = list(limpos)
-                        indice = 0
-                        continue
-
-                raise
         raise last_error or ProviderError(self.name, "falha sem detalhe", model=self.default_model)
+
+    async def _retry_apos_espera(
+        self,
+        session: aiohttp.ClientSession,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+        client_timeout: aiohttp.ClientTimeout,
+        model: str,
+        pausa: float,
+        nomes_de_ferramenta: set[str] | None = None,
+    ) -> LLMResponse:
+        """Espera o tempo do 429 e tenta de novo o MESMO modelo (sem travar a fila)."""
+        await asyncio.sleep(pausa)
+        return await self._post(session, payload, headers, client_timeout, model,
+                                nomes_de_ferramenta)
 
     async def _post(
         self,
@@ -393,6 +476,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         headers: dict[str, str],
         client_timeout: aiohttp.ClientTimeout,
         model: str,
+        nomes_de_ferramenta: set[str] | None = None,
     ) -> LLMResponse:
         try:
             async with session.post(
@@ -447,11 +531,22 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         # separado). Rascunho não é resposta: vale o que vier depois do "final answer".
         if msg.get("reasoning_content") or msg.get("reasoning"):
             logger.debug("[%s] %s devolveu raciocínio em campo separado", self.name, model)
+        original = content
         rascunho, resposta = separar_raciocinio(content)
         if rascunho:
             logger.info("[%s] %s mandou rascunho interno (%d chars); resposta útil: %d chars",
                         self.name, model, len(rascunho), len(resposta))
             content = resposta
+
+        if not tool_calls and (rascunho or not content):
+            # O modelo pode ter escrito a CHAMADA dentro do rascunho (ou no texto cortado). Jogar
+            # isso fora é o pior caso: a ação não acontece, o cliente pede de novo e o bot
+            # demora — foi o que o dono viu ("tive que pedir várias vezes"). Recupera.
+            recuperadas = extract_text_tool_calls(original, nomes_de_ferramenta)
+            if recuperadas:
+                logger.info("[%s] %s: chamada de ferramenta recuperada do texto (%s)",
+                            self.name, model, ", ".join(c.name for c in recuperadas))
+                tool_calls = recuperadas
 
         if not content and not tool_calls:
             # Modelos de raciocínio (grátis, via gateway) gastam o teto inteiro "pensando" e

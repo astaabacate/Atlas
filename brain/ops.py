@@ -1866,6 +1866,89 @@ async def op_translate_text(ctx: ToolContext, text: str, target_lang: str = "pt"
 
 # --- 8. Sessão (1) ---
 
+async def op_diagnostic_report(ctx: ToolContext, limit: int = 80) -> str:
+    """
+    Manda por MENSAGEM DIRETA (só para quem pediu) um arquivo com a conversa recente do canal e o
+    tempo das últimas respostas.
+
+    Por que existe: para consertar "o bot demorou / tive que pedir várias vezes" é preciso ver a
+    conversa de verdade. O log do GitHub Actions é PÚBLICO (o repositório é público), então o
+    caminho é a DM: o conteúdo fica entre o bot e quem pediu — que já tem acesso ao canal — e pode
+    ser repassado a quem dá suporte sem virar log público.
+    """
+    canal = ctx.channel
+    historico = getattr(canal, "history", None)
+    if not callable(historico):
+        raise ToolError("Não consigo ler o histórico deste canal para montar o diagnóstico.")
+    limite = max(1, min(int(limit or 80), 200))
+
+    linhas: list[str] = []
+    try:
+        async for msg in historico(limit=limite):
+            quando = getattr(msg, "created_at", None)
+            autor = getattr(getattr(msg, "author", None), "display_name", None) or "?"
+            eh_bot = bool(getattr(getattr(msg, "author", None), "bot", False))
+            conteudo = str(getattr(msg, "content", "") or "").strip()
+            if not conteudo and getattr(msg, "attachments", None):
+                conteudo = "[anexo]"
+            if len(conteudo) > 1500:
+                conteudo = conteudo[:1500] + " …(cortado)"
+            marca = "🐟 bot" if eh_bot else autor
+            linhas.append(f"[{quando}] {marca}: {conteudo}")
+    except Exception as exc:  # noqa: BLE001 - sem histórico, ainda vale o relatório de tempo
+        linhas.append(f"(não consegui ler o histórico deste canal: {exc})")
+
+    linhas.reverse()  # da mensagem mais antiga para a mais nova
+    corpo = (
+        "🏮 Farol — diagnóstico da conversa\n"
+        f"servidor: {getattr(ctx.guild, 'name', '?')} · canal: #{getattr(canal, 'name', '?')}\n"
+        f"{resumo_de_tempos(getattr(ctx, 'tempos', None))}\n"
+        "\n--- conversa (mais antiga primeiro) ---\n"
+        + "\n".join(linhas)
+    )
+
+    # DM: só para quem pediu (já tem acesso a este canal).
+    enviei = ""
+    autor = ctx.actor
+    if autor is not None and hasattr(autor, "send"):
+        try:
+            await autor.send(content="🏮 Aqui está o diagnóstico da nossa conversa (arquivo). "
+                                     "Se puder, repasse para quem dá suporte ao Farol.",
+                             file=_arquivo_de_texto("farol-diagnostico.txt", corpo))
+            enviei = "Mandei o arquivo na sua **mensagem direta**"
+        except Exception as exc:  # noqa: BLE001 - DM fechada/menor de idade: cai no canal
+            logger.info("diagnóstico por DM falhou (%s); tentando no canal", exc)
+
+    if not enviei:
+        enviar = getattr(canal, "send", None)
+        if callable(enviar):
+            try:
+                await enviar(file=_arquivo_de_texto("farol-diagnostico.txt", corpo))
+                enviei = "Não consegui abrir sua DM, então mandei o arquivo aqui no canal"
+            except Exception as exc:  # noqa: BLE001
+                raise ToolError(f"Não consegui entregar o diagnóstico: {exc}")
+        else:
+            raise ToolError("Não tenho como te enviar o arquivo do diagnóstico neste canal.")
+
+    return (f"{enviei}: a conversa recente (até {limite} mensagens) com data/hora + o tempo das "
+            f"últimas respostas ({resumo_de_tempos(getattr(ctx, 'tempos', None))}). "
+            "É só repassar o arquivo.")
+
+
+def _arquivo_de_texto(nome: str, conteudo: str) -> Any:
+    """`discord.File` quando o discord.py está disponível; senão, um anexo simples."""
+    try:
+        import io
+
+        import discord
+
+        return discord.File(io.BytesIO(conteudo.encode("utf-8")), filename=nome)
+    except Exception:  # noqa: BLE001 - testes/ambientes sem discord.py
+        import types
+
+        return types.SimpleNamespace(filename=nome, content=conteudo)
+
+
 async def op_conversation_clear(ctx: ToolContext) -> str:
     """Limpa a MEMÓRIA do bot. Não toca nas mensagens do canal — a resposta diz isso."""
     havia = False

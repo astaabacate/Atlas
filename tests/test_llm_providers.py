@@ -542,6 +542,68 @@ class TestTabelaDoPool(unittest.TestCase):
         self.assertEqual(corredor.cooldown, FREE_PROVIDERS[0].cooldown)
 
 
+class TestHedgeEFerramentaNoRascunho(unittest.TestCase):
+    """Latência e recuperação de ação: um modelo travado não pode segurar a resposta inteira, e
+    uma chamada escrita no rascunho não pode ser jogada fora (o cliente pedia de novo)."""
+
+    def _provider(self, session: Any, **extra: Any) -> Any:
+        return provider_de_teste(session, **extra)
+
+    def test_modelo_travado_nao_segura_a_resposta(self) -> None:
+        import time as _time
+
+        from llm import free_providers
+
+        session = FakeSession([FakeResponse(200, ok_payload("respondeu o modelo rápido"))])
+        provider = self._provider(session, models=["modelo-lento", "modelo-rapido"])
+
+        original = provider._post
+
+        async def lento_ou_rapido(session_, payload, headers, ct, model, nomes=None):
+            if model == "modelo-lento":
+                await asyncio.sleep(5)  # travado (era o que somava a latência inteira)
+            return await original(session_, payload, headers, ct, model, nomes)
+
+        provider._post = lento_ou_rapido
+        anterior = free_providers.HEDGE_AFTER
+        free_providers.HEDGE_AFTER = 0.1
+        try:
+            inicio = _time.monotonic()
+            resposta = asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}],
+                                                 timeout=10))
+            gasto = _time.monotonic() - inicio
+        finally:
+            free_providers.HEDGE_AFTER = anterior
+
+        self.assertEqual(resposta.content, "respondeu o modelo rápido")
+        self.assertLess(gasto, 1.0, f"o hedge não cortou a espera ({gasto:.1f}s)")
+
+    def test_chamada_escrita_no_rascunho_e_recuperada(self) -> None:
+        """O modelo escreve a chamada dentro do raciocínio; o corte do rascunho não pode apagar a ação."""
+        rascunho = ("Here's my thinking: o usuário quer um canal novo.\n"
+                    "```tool\n"
+                    '{"name": "create_channels", "args": {"channels": [{"name": "avisos"}]}}\n'
+                    "```\n")
+        session = FakeSession([FakeResponse(200, ok_payload(rascunho))])
+        provider = self._provider(session)
+
+        resp = asyncio.run(provider.chat(
+            messages=[{"role": "user", "content": "crie o canal avisos"}],
+            tools=[{"type": "function", "function": {"name": "create_channels"}}]))
+
+        self.assertEqual([c.name for c in resp.tool_calls], ["create_channels"],
+                         "a chamada do rascunho foi perdida")
+        self.assertEqual(resp.tool_calls[0].args["channels"][0]["name"], "avisos")
+
+    def test_rascunho_sem_chamada_continua_sendo_vazio(self) -> None:
+        """Só rascunho, sem chamada: continua 'resposta vazia' (não inventa ação)."""
+        session = FakeSession([FakeResponse(200, ok_payload("Here's my thinking: preciso verificar."))])
+        provider = self._provider(session, models=["modelo-a"])
+        with self.assertRaises(ProviderError) as ctx:
+            asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}]))
+        self.assertTrue(ctx.exception.is_empty_response)
+
+
 class TestRespostaVaziaPorTeto(unittest.TestCase):
     """Modelo grátis de raciocínio gasta o teto e devolve vazio: repetir com mais espaço."""
 
@@ -558,7 +620,7 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
             session_factory=fake_session,
         )
 
-        async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
+        async def fake_post(session, payload, headers, timeout, model, nomes_de_ferramenta=None):  # noqa: ANN001
             pedidos.append(int(payload["max_tokens"]))
             if len(pedidos) == 1:
                 raise ProviderError(
@@ -592,7 +654,7 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
             session_factory=fake_session,
         )
 
-        async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
+        async def fake_post(session, payload, headers, timeout, model, nomes_de_ferramenta=None):  # noqa: ANN001
             vistos.append(model)
             raise ProviderError(
                 provider=provider.name,
@@ -624,7 +686,7 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
             session_factory=fake_session,
         )
 
-        async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
+        async def fake_post(session, payload, headers, timeout, model, nomes_de_ferramenta=None):  # noqa: ANN001
             tentativas["n"] += 1
             if model == "modelo-a":
                 raise ProviderError(

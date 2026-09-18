@@ -83,6 +83,9 @@ PHASE_TITLES = {
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("farol.e2e")
 
+# Acima disso, a resposta "demora" para o padrão que o dono espera (o alvo dele é instantâneo).
+LIMITE_DE_DEMORA_S = 6.0
+
 
 # --------------------------------------------------------------------------- reporter
 
@@ -3457,6 +3460,8 @@ class Harness:
 
             await self.check(phase, "DM é respondida com o aviso de escopo", ramo_dm)
 
+            tempos_do_loop: list[float] = []
+
             async def menciona_dispara() -> str:
                 if config_permite_canal is False:
                     return "pulado: ALLOWED_CHANNEL_IDS está configurado e o canal de teste não está na lista"
@@ -3465,17 +3470,66 @@ class Harness:
                 chamadas.clear()
                 registro_llm.clear()
                 done.clear()
+                import time as _time
+
+                inicio = _time.monotonic()
                 await bot.on_message(msg)
                 await asyncio.wait_for(done.wait(), timeout=self.args.llm_timeout * 3)
+                gasto = _time.monotonic() - inicio
+                tempos_do_loop.append(gasto)
                 self.assert_true(bool(msg.replies), "o bot não respondeu à menção")
                 texto = "\n".join(msg.replies)
                 self.assert_true(guild.name.lower() in texto.lower() or len(texto) > 20,
                                  f"resposta suspeita: {texto[:120]!r}")
-                return f"on_message → agente → resposta real no canal: {texto.strip()[:100]!r}"
+                return (f"on_message → agente → resposta real no canal em **{gasto:.1f}s**: "
+                        f"{texto.strip()[:100]!r}")
 
             permitidos = set(getattr(live.config, "allowed_channel_ids", set()) or set())
             config_permite_canal = not permitidos or canal.id in permitidos
             await self.check(phase, "menção dispara o agente e responde", menciona_dispara)
+
+            async def tempo_ate_responder() -> str:
+                """
+                Quanto o cliente ESPERA de verdade (mensagem → resposta no canal), medido no loop de
+                produção. É o número que responde "ele continua demorando": mediana de 3 pedidos
+                simples. Sem chave paga, o teto é o provedor gratuito — por isso o aviso.
+                """
+                if config_permite_canal is False:
+                    return "pulado: ALLOWED_CHANNEL_IDS está configurado e o canal de teste não está na lista"
+                import time as _time
+
+                tempos_do_loop.clear()
+                for pergunta in ("diga apenas: olá",
+                                 "responda em uma linha: quantos canais existem aqui?",
+                                 "diga em uma palavra: pronto"):
+                    msg = FakeMessage(canal, live.actor, f"<@{bot.user.id}> {pergunta}",
+                                      mentions=[bot.user])
+                    chamadas.clear()
+                    registro_llm.clear()
+                    done.clear()
+                    inicio = _time.monotonic()
+                    await bot.on_message(msg)
+                    try:
+                        await asyncio.wait_for(done.wait(), timeout=self.args.llm_timeout * 2)
+                    except asyncio.TimeoutError:
+                        self.rep.record(phase, "tempo até responder (mensagem → resposta)", WARN,
+                                        "uma das respostas passou do tempo limite — o provedor "
+                                        "gratuito não atendeu nesta rodada")
+                        return "sem medida confiável nesta rodada (timeout do provedor)"
+                    tempos_do_loop.append(_time.monotonic() - inicio)
+
+                tempos_do_loop.sort()
+                mediana = tempos_do_loop[len(tempos_do_loop) // 2]
+                detalhe = ", ".join(f"{t:.1f}s" for t in tempos_do_loop)
+                if mediana > LIMITE_DE_DEMORA_S:
+                    self.rep.record(phase, "tempo até responder (mensagem → resposta)", WARN,
+                                    f"mediana {mediana:.1f}s (amostras: {detalhe}) — acima do "
+                                    f"limite de {LIMITE_DE_DEMORA_S:.0f}s. O gargalo é o provedor "
+                                    "gratuito (fila/limite); mais chaves = mais corredores.")
+                return (f"o cliente espera **{mediana:.1f}s** (mediana de 3) entre mandar e receber: "
+                        f"{detalhe}")
+
+            await self.check(phase, "tempo até responder (mensagem → resposta)", tempo_ate_responder)
 
             async def reacoes() -> tuple[str, dict[str, Any]]:
                 atual = await canal.fetch_message(anchor.id)

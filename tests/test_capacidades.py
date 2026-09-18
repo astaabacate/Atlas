@@ -411,6 +411,73 @@ class TestCapacidadesDeCargo(unittest.TestCase):
         self.assertEqual(len([r for r in servidor.roles if r.name == "Duplicado"]), 1)
 
 
+# --------------------------------------------------------------- diagnóstico
+
+class TestDiagnostico(unittest.TestCase):
+    """`diagnostic_report`: entrega a conversa recente + tempos por DM (sem virar log público)."""
+
+    @staticmethod
+    def _ctx_com_conversa(com_dm: bool = True) -> tuple[ToolContext, list[Any]]:
+        ctx, _ = contexto()
+        enviados: list[Any] = []
+
+        class Msg:
+            def __init__(self, autor: str, conteudo: str, bot: bool = False) -> None:
+                self.created_at = "2026-09-18T12:00:00Z"
+                self.author = types.SimpleNamespace(display_name=autor, bot=bot)
+                self.content = conteudo
+                self.attachments: list[Any] = []
+
+        mensagens = [Msg("asta", "crie o canal avisos"),
+                     Msg("farol", "Pronto! Criei 1 canal(is) 🎉", bot=True),
+                     Msg("asta", "ele demorou demais")]
+
+        async def history(limit: int = 80):  # noqa: ANN202 - gerador assíncrono como no discord.py
+            for m in reversed(mensagens[-limit:]):
+                yield m
+
+        ctx.channel.history = history
+        if com_dm:
+            async def send(**kwargs: Any) -> None:
+                enviados.append(kwargs)
+            ctx.actor.send = send
+        ctx.tempos = [{"total": 3.0, "llm": 2.2, "ferramentas": 0.5}]
+        return ctx, enviados
+
+    def test_entrega_por_dm_com_conversa_e_tempos(self) -> None:
+        ctx, enviados = self._ctx_com_conversa()
+        saida = executar("diagnostic_report", {}, ctx)
+        self.assertIn("mensagem direta", saida)
+        self.assertEqual(len(enviados), 1, "não mandou nada na DM")
+        arquivo = enviados[0]["file"]
+        self.assertEqual(arquivo.filename, "farol-diagnostico.txt")
+        bruto = arquivo.fp.read() if hasattr(arquivo, "fp") else arquivo.content
+        conteudo = bruto.decode() if isinstance(bruto, bytes) else bruto
+        self.assertIn("crie o canal avisos", conteudo)
+        self.assertIn("Pronto! Criei 1 canal", conteudo)
+        self.assertIn("mediana", conteudo)
+        self.assertIn("canal: #geral", conteudo)
+
+    def test_dm_fechada_cai_no_canal(self) -> None:
+        ctx, _ = self._ctx_com_conversa()
+        async def send_dm(**kwargs: Any) -> None:
+            raise RuntimeError("Cannot send messages to this user")
+        ctx.actor.send = send_dm
+        no_canal: list[Any] = []
+        async def send_canal(**kwargs: Any) -> None:
+            no_canal.append(kwargs)
+        ctx.channel.send = send_canal
+        saida = executar("diagnostic_report", {}, ctx)
+        self.assertIn("aqui no canal", saida)
+        self.assertEqual(len(no_canal), 1)
+
+    def test_sem_historico_avisa_em_vez_de_mentir(self) -> None:
+        ctx, _ = self._ctx_com_conversa()
+        ctx.channel.history = None
+        msg = falha("diagnostic_report", {}, ctx)
+        self.assertIn("histórico", msg)
+
+
 # --------------------------------------------------------------------- canais
 
 class TestCapacidadesDeCanal(unittest.TestCase):

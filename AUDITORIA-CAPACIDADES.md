@@ -266,6 +266,24 @@ do dono para qualquer pessoa. Por isso a leitura da conversa real precisa vir do
 colar aqui) — o que dá para fazer daqui, e foi feito, é medir o tempo e a sequência de ferramentas
 sem o texto, e cobrir cada comportamento com regressão.
 
+### Rodada 7 (18/09): "continua demorando" — onde o tempo era perdido (e o que mudou)
+
+O dono insistiu: segue lento. Três causas reais encontradas lendo o caminho da requisição:
+
+| Onde | Causa | Correção |
+| --- | --- | --- |
+| **Fila de modelos do provedor era sequencial** | com um corredor só (kilo), a lista de modelos era percorrida **um por vez**: o modelo da frente tinha o tempo INTEIRO dele (até o teto do turno) antes de o próximo ser tentado. Um modelo congelado custava 20 s e o cliente só esperava | **hedge**: se o modelo da frente não responde em 1,6 s, o próximo entra em paralelo (no máximo 2 em voo). O primeiro que responder vence e o outro é cancelado; o 429 continua respeitado (castigo + retry curto, agora sem travar os demais) |
+| **A chamada podia ser escrita no RASCUNHO** | o provedor corta o rascunho interno do `content`; se o modelo escrevia a chamada de ferramenta **dentro** desse rascunho, ela era jogada fora: a ação não acontecia, o cliente pedia de novo e o bot "demorava" (era o mesmo caso do "tive que pedir várias vezes") | o provedor **recupera** a chamada do texto original (antes do corte) — parser único em `llm/base.py`, com filtro de nomes de ferramenta conhecidos para não executar JSON por engano. Sem chamada, o comportamento segue o de antes (resposta vazia → próximo modelo) |
+| **Ninguém medía** | não havia número nenhum de quanto o cliente esperava, e o log do Actions é público (ler a conversa ali não é opção) | o loop de produção agora mede **mensagem → resposta** na fase `botloop` do E2E (mediana de 3 pedidos simples, WARN acima de 6 s) e o agente loga o tempo por etapa **sem nenhum conteúdo de conversa** |
+
+E, para o dono, duas ferramentas novas no Discord:
+
+- **`performance_report`** — "quanto tempo o bot está levando?" → mediana/pior/melhor + o que pesou
+  (modelo × ações no Discord).
+- **`diagnostic_report`** — entrega por **mensagem direta** (só para quem pediu) um arquivo `.txt`
+  com a conversa recente do canal e os tempos. É o caminho para o dono repassar a conversa real a
+  quem dá suporte **sem** publicar o chat em log público de CI.
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o

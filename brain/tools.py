@@ -338,6 +338,19 @@ TOOLS: list[ToolDef] = [
         },
     ),
     ToolDef(
+        name="diagnostic_report",
+        description=("Envia por mensagem direta (para quem pediu) um arquivo com a conversa recente "
+                     "deste canal + o tempo das últimas respostas. Use quando alguém relatar que o "
+                     "bot falhou, demorou ou pediu a mesma coisa várias vezes."),
+        parameters={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer",
+                          "description": "Quantas mensagens incluir (padrão 80, máximo 200)."},
+            },
+        },
+    ),
+    ToolDef(
         name="performance_report",
         description=("Mostra quanto tempo as últimas respostas do bot levaram (mediana, pior e "
                      "melhor) e o que pesou: modelo de linguagem ou execução das ações. Use "

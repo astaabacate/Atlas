@@ -135,3 +135,13 @@ solto no meio da frase e a forma nativa {"tool_calls": ...}; (3) medição de te
 (LLM × ações, sem nenhum conteúdo de conversa) e a ferramenta `performance_report` para o dono
 perguntar "quanto tempo o bot está levando?"; (4) o workflow da sonda não deixa mais execução
 antiga na fila consumindo a MESMA cota grátis que o bot usa para responder no Discord.
+
+RESTART PEDIDO EM 2026-09-18T10:55Z
+-------------------------------
+Motivo: "continua demorando". Entram: (1) HEDGE na fila de modelos do provedor — se o modelo da
+frente não responde em 1,6 s, o próximo entra em paralelo (antes era 100% sequencial: um modelo
+congelado custava o tempo inteiro dele); (2) recuperação da chamada de ferramenta escrita DENTRO
+do rascunho do modelo (o corte do rascunho apagava a ação — ninguém agia e o cliente pedia de
+novo); (3) medição de "mensagem → resposta" no E2E do loop de produção; (4) ferramentas novas para
+o dono: performance_report ("quanto tempo o bot está levando?") e diagnostic_report (manda por DM
+um arquivo com a conversa recente + tempos, para repassar ao suporte sem expor o chat em log).

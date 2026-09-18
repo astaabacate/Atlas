@@ -31,6 +31,7 @@ from brain.ops import (
     op_import_structure,
     op_list_roles,
     op_move_channel,
+    op_diagnostic_report,
     op_performance_report,
     op_server_info,
     op_set_icon,
@@ -67,6 +68,7 @@ _OPS: dict[str, Callable[..., Awaitable[str]]] = {
     "show_permissions": op_show_permissions,
     # Servidor (3)
     "edit_server": op_edit_server,
+    "diagnostic_report": op_diagnostic_report,
     "performance_report": op_performance_report,
     "server_info": op_server_info,
     "set_icon": op_set_icon,

@@ -40,6 +40,7 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     "show_permissions": [],
     "server_info": [],
     "performance_report": [],
+    "diagnostic_report": ["read_message_history"],
     "color_palette": [],
     "color_name": [],
     "emoji_search": [],
