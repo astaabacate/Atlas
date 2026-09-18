@@ -113,6 +113,13 @@ execuções [`35291065652`](https://github.com/astaabacate/Atlas/actions/runs/35
 4. **Roteador por último:** o `kilo-auto/free` é quem mais devolve vazio; com os modelos explícitos
    na frente, a resposta não cai nele no caminho normal.
 
+**Medido ao vivo (E2E de 18/09, [`35296914216`](https://github.com/astaabacate/Atlas/actions/runs/35296914216)):**
+
+| Cenário | Antes | Agora |
+|---|---|---|
+| "apague os canais X e Y e deixe só o resto" | pedia confirmação e gastava 2 idas ao LLM | **apagou os 2 em 4,1 s, 1 ida ao LLM**, resposta com o link do que apagou |
+| "apague o canal Y agora" | 2 idas ao LLM | **4,4 s, 1 ida ao LLM** |
+
 **"Ele pergunta demais"** — `CONFIRM_DESTRUCTIVE`, padrão **desligado** (modo direto): o pedido do
 usuário já é a autorização, então *"apague todos os canais e deixe apenas esse"* apaga e responde o
 que fez, em uma linha. O modo cauteloso continua existindo (ligue com `CONFIRM_DESTRUCTIVE=true`) e
