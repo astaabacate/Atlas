@@ -512,17 +512,20 @@ async def sondar_candidato(cand: dict[str, Any], timeout: float, secrets: list[s
                                  timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
                 linha["chat"] = str(resp.status)
                 corpo_txt = await resp.text()
+                vazio = False
                 if resp.status == 200:
                     try:
                         data = json.loads(corpo_txt)
                         escolha = (data.get("choices") or [{}])[0]
                         conteudo = ((escolha.get("message") or {}).get("content") or "").strip()
-                        linha["texto"] = compact_error_text(conteudo, 60) or "(vazio)"
+                        vazio = not conteudo
+                        linha["texto"] = compact_error_text(conteudo, 60) if conteudo else "CORPO VAZIO"
                     except Exception:  # noqa: BLE001
-                        linha["texto"] = "(resposta não-JSON)"
+                        vazio = True
+                        linha["texto"] = "CORPO VAZIO (não-JSON)"
 
                     # 200 com corpo vazio: separa "roteador devolve nada" de "faltou credencial".
-                    if linha["texto"] in {"(vazio)", "(resposta não-JSON)"} and cand.get("fallback_modelo"):
+                    if vazio and cand.get("fallback_modelo"):
                         payload["model"] = cand["fallback_modelo"]
                         async with sess.post(f"{base}/chat/completions", json=payload, headers=headers,
                                              timeout=aiohttp.ClientTimeout(total=timeout)) as retry:
@@ -532,7 +535,7 @@ async def sondar_candidato(cand: dict[str, Any], timeout: float, secrets: list[s
                                     rdata = json.loads(await retry.text())
                                     rmsg = ((rdata.get("choices") or [{}])[0].get("message") or {})
                                     texto_retry = compact_error_text(
-                                        (rmsg.get("content") or "").strip(), 60) or "(vazio)"
+                                        (rmsg.get("content") or "").strip(), 60) or "CORPO VAZIO"
                                     linha["texto"] = f"{texto_retry} [{cand['fallback_modelo']}]"
                                 except Exception:  # noqa: BLE001
                                     pass
