@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "started_at": "2026-09-18T11:45:42+00:00",
-  "finished_at": "2026-09-18T11:45:42.652091+00:00",
+  "started_at": "2026-09-18T11:48:45+00:00",
+  "finished_at": "2026-09-18T11:48:44.999558+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "bd34fbe",
-    "execução": "35338995240",
+    "commit": "5d8469f",
+    "execução": "35341439906",
     "discord.py": "2.7.1",
     "fases": "static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep",
     "mutações reais": "sim"
@@ -35,7 +35,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "31 assinaturas conferem com os schemas",
-          "ms": 30,
+          "ms": 32,
           "data": {}
         },
         {
@@ -160,7 +160,7 @@
           "name": "set_icon com estilo gera imagem sem rede",
           "status": "PASS",
           "detail": "gerou um PNG 256x256 sem tocar a rede",
-          "ms": 2,
+          "ms": 3,
           "data": {}
         },
         {
@@ -200,7 +200,7 @@
           "name": "permissões: set/clear/sync tocam a API",
           "status": "PASS",
           "detail": "set/clear/sync chamaram a API e show leu as permissões",
-          "ms": 0,
+          "ms": 7,
           "data": {}
         },
         {
@@ -224,7 +224,7 @@
           "name": "conversa isolada por servidor (multi-servidor)",
           "status": "PASS",
           "detail": "conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal)",
-          "ms": 0,
+          "ms": 1,
           "data": {}
         },
         {
@@ -386,7 +386,7 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 13,
+          "ms": 15,
           "data": {}
         },
         {
@@ -394,7 +394,7 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor kilo (tools nativas: True) → 'pong'",
-          "ms": 922,
+          "ms": 3652,
           "data": {
             "vencedor": "kilo"
           }
@@ -404,7 +404,7 @@
           "name": "login e gateway",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 83,
+          "ms": 156,
           "data": {}
         },
         {
@@ -425,7 +425,7 @@
           "name": "conexão",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 71,
+          "ms": 165,
           "data": {}
         },
         {
@@ -446,7 +446,7 @@
           "name": "conexão",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 67,
+          "ms": 149,
           "data": {}
         },
         {
@@ -467,7 +467,7 @@
           "name": "conexão",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 75,
+          "ms": 159,
           "data": {}
         },
         {
@@ -488,7 +488,7 @@
           "name": "conexão",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 72,
+          "ms": 147,
           "data": {}
         },
         {
@@ -509,7 +509,7 @@
           "name": "conexão",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 77,
+          "ms": 175,
           "data": {}
         },
         {
@@ -530,7 +530,7 @@
           "name": "conexão",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 76,
+          "ms": 191,
           "data": {}
         },
         {
@@ -551,7 +551,7 @@
           "name": "conexão",
           "status": "FAIL",
           "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 72,
+          "ms": 156,
           "data": {}
         },
         {
