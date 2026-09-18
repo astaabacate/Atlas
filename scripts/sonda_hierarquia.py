@@ -119,19 +119,43 @@ MANAGE_ROLES = 1 << 28
 
 # --------------------------------------------------------------------------- sonda
 
-async def sondar(guild_id: str | None, outdir: Path) -> int:
-    token = os.environ.get("DISCORD_TOKEN", "").strip()
-    if not token:
-        print("::error title=sonda::DISCORD_TOKEN vazio — nada a testar")
-        return 2
+def _gravar(outdir: Path, linhas: list[str], dados: dict[str, Any]) -> None:
+    """
+    Grava o relatório ANTES de qualquer saída — inclusive quando a sonda morre no meio.
 
+    Sem isso, uma falha de token deixava o passo do CI vermelho sem nenhuma pista no branch
+    (o log do job demora a ficar baixável).
+    """
+    outdir.mkdir(parents=True, exist_ok=True)
+    (outdir / "sonda-hierarquia.md").write_text("\n".join(linhas) + "\n", encoding="utf-8")
+    (outdir / "sonda-hierarquia.json").write_text(
+        json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+async def sondar(guild_id: str | None, outdir: Path) -> int:
     linhas: list[str] = []
     dados: dict[str, Any] = {"gerado_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                              "guilds": []}
 
+    token = os.environ.get("DISCORD_TOKEN", "").strip()
+    if not token:
+        linhas.append("# Sonda de hierarquia de cargos — ABORTADA")
+        linhas.append("")
+        linhas.append("- ❌ `DISCORD_TOKEN` está VAZIO no ambiente do job: o segredo "
+                      "`DISCORD_TOKEN` não chegou até aqui. Nada foi testado no Discord.")
+        _gravar(outdir, linhas, dados)
+        print("::error title=sonda::DISCORD_TOKEN vazio — nada a testar")
+        return 2
+
     async with Sondagem(token) as api:
         st, eu = await api.pedir("GET", "/users/@me")
         if st != 200:
+            linhas.append("# Sonda de hierarquia de cargos — ABORTADA")
+            linhas.append("")
+            linhas.append(f"- ❌ O Discord recusou o token do segredo "
+                          f"`DISCORD_TOKEN` (HTTP {st}: {_erro(eu)}). "
+                          "Nada foi testado — se o token foi trocado, atualize o segredo.")
+            _gravar(outdir, linhas, dados)
             print(f"::error title=sonda::token recusado (HTTP {st}: {_erro(eu)})")
             return 2
         bot_id = str(eu["id"])
@@ -140,11 +164,16 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
 
         st, guilds = await api.pedir("GET", "/users/@me/guilds")
         if st != 200 or not isinstance(guilds, list):
+            linhas.append(f"- ❌ não listei servidores (HTTP {st}: {_erro(guilds)}).")
+            _gravar(outdir, linhas, dados)
             print(f"::error title=sonda::não listei servidores (HTTP {st}: {_erro(guilds)})")
             return 2
 
         alvos = [g for g in guilds if not guild_id or str(g["id"]) == str(guild_id)]
         if not alvos:
+            linhas.append(f"- ❌ o servidor `{guild_id}` não está na minha lista "
+                          f"({len(guilds)} servidor(es) visíveis).")
+            _gravar(outdir, linhas, dados)
             print(f"::error title=sonda::servidor {guild_id} não está na lista do bot")
             return 2
 
@@ -208,12 +237,8 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
                 "pos_dono": pos_dono, "experimento": experimento["dados"],
             })
 
-    relatorio = "\n".join(linhas) + "\n"
-    outdir.mkdir(parents=True, exist_ok=True)
-    (outdir / "sonda-hierarquia.md").write_text(relatorio, encoding="utf-8")
-    (outdir / "sonda-hierarquia.json").write_text(
-        json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(relatorio)
+    _gravar(outdir, linhas, dados)
+    print("\n".join(linhas))
     return 0
 
 
@@ -287,7 +312,17 @@ def main() -> int:
                         default=os.environ.get("SONDA_GUILD_ID")
                         or os.environ.get("E2E_GUILD_ID") or None)
     args = parser.parse_args()
-    return asyncio.run(sondar(args.guild_id, Path(args.outdir)))
+    outdir = Path(args.outdir)
+    try:
+        return asyncio.run(sondar(args.guild_id, outdir))
+    except Exception:  # noqa: BLE001 - a sonda precisa deixar rastro no branch, não só no log
+        import traceback
+        rastro = traceback.format_exc()
+        print(rastro)
+        _gravar(outdir, ["# Sonda de hierarquia de cargos — FALHOU", "",
+                         "```", rastro.strip()[-4000:], "```"], {"erro": rastro.strip()})
+        print("::error title=sonda::a sonda levantou exceção — rastro publicado no branch")
+        return 1
 
 
 if __name__ == "__main__":

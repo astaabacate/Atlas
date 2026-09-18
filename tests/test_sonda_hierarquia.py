@@ -165,6 +165,57 @@ class TestSondaAoVivoComDuplo(unittest.TestCase):
         self.assertIn("ACIMA do meu cargo", texto)
         self.assertIn("@everyone (sempre intocável)", texto)
 
+    def test_sem_token_ainda_grava_o_motivo(self) -> None:
+        original = sonda.Sondagem
+        sonda.Sondagem = lambda token: FakeAPI(token, RoteiroDeRespostas())  # type: ignore[assignment]
+        os.environ.pop("DISCORD_TOKEN", None)
+        try:
+            with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+                rc = asyncio.run(sonda.sondar(None, pathlib.Path(tmp)))
+                texto = (pathlib.Path(tmp) / "sonda-hierarquia.md").read_text(encoding="utf-8")
+        finally:
+            sonda.Sondagem = original  # type: ignore[assignment]
+        self.assertEqual(rc, 2)
+        self.assertIn("ABORTADA", texto)
+        self.assertIn("`DISCORD_TOKEN` está VAZIO", texto)
+
+    def test_token_recusado_grava_o_motivo(self) -> None:
+        def recusado(metodo: str, caminho: str, kwargs: dict[str, Any]) -> tuple[int, Any]:
+            return 401, {"code": 0, "message": "401: Unauthorized"}
+
+        original = sonda.Sondagem
+        sonda.Sondagem = lambda token: FakeAPI(token, recusado)  # type: ignore[assignment]
+        os.environ["DISCORD_TOKEN"] = "token-falso-de-teste"
+        try:
+            with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+                rc = asyncio.run(sonda.sondar(None, pathlib.Path(tmp)))
+                texto = (pathlib.Path(tmp) / "sonda-hierarquia.md").read_text(encoding="utf-8")
+        finally:
+            sonda.Sondagem = original  # type: ignore[assignment]
+        self.assertEqual(rc, 2)
+        self.assertIn("recusou o token", texto)
+        self.assertIn("HTTP 401", texto)
+
+    def test_excecao_inesperada_publica_o_rastro(self) -> None:
+        original = sonda.sondar
+
+        async def explode(guild_id: str | None, outdir: pathlib.Path) -> int:
+            raise RuntimeError("quebrou de propósito")
+
+        sonda.sondar = explode  # type: ignore[assignment]
+        argv = sys.argv
+        sys.argv = ["sonda", "--outdir", tempfile.mkdtemp()]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = sonda.main()
+                texto = (pathlib.Path(sys.argv[2]) / "sonda-hierarquia.md").read_text("utf-8")
+        finally:
+            sonda.sondar = original  # type: ignore[assignment]
+            sys.argv = argv
+        self.assertEqual(rc, 1)
+        self.assertIn("FALHOU", texto)
+        self.assertIn("quebrou de propósito", texto)
+
     def test_sem_token_nao_roda(self) -> None:
         original = sonda.Sondagem
         sonda.Sondagem = lambda token: FakeAPI(token, RoteiroDeRespostas())  # type: ignore[assignment]
