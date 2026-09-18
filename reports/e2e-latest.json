@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "started_at": "2026-09-18T03:25:35+00:00",
-  "finished_at": "2026-09-18T03:25:35.475048+00:00",
+  "started_at": "2026-09-18T03:33:00+00:00",
+  "finished_at": "2026-09-18T03:33:00.202675+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "74c1d89",
-    "execução": "35302850657",
+    "commit": "e234677",
+    "execução": "35303210010",
     "discord.py": "2.7.1",
     "fases": "static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep",
     "mutações reais": "sim"
   },
   "summary": {
-    "PASS": 88,
+    "PASS": 87,
     "FAIL": 0,
     "WARN": 3,
     "SKIP": 1
@@ -37,7 +37,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "28 assinaturas conferem com os schemas",
-          "ms": 24,
+          "ms": 26,
           "data": {}
         },
         {
@@ -226,7 +226,7 @@
           "name": "conversa isolada por servidor (multi-servidor)",
           "status": "PASS",
           "detail": "conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal)",
-          "ms": 9,
+          "ms": 6,
           "data": {}
         },
         {
@@ -250,7 +250,7 @@
           "name": "agente não se auto-confirma (offline)",
           "status": "PASS",
           "detail": "sem confirmação do usuário nada é apagado; a pergunta sempre aparece; com o 'sim', apaga",
-          "ms": 0,
+          "ms": 1,
           "data": {}
         }
       ]
@@ -388,7 +388,7 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 16,
+          "ms": 17,
           "data": {}
         },
         {
@@ -396,7 +396,7 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor kilo (tools nativas: True) → 'pong'",
-          "ms": 1236,
+          "ms": 1481,
           "data": {
             "vencedor": "kilo"
           }
@@ -413,11 +413,11 @@
           "phase": "connect",
           "name": "login e gateway",
           "status": "PASS",
-          "detail": "conectado como Atlas#1985 · gateway em 47ms",
-          "ms": 3073,
+          "detail": "conectado como Atlas#1985 · gateway em 68ms",
+          "ms": 2715,
           "data": {
             "usuario": "Atlas#1985",
-            "latencia_ms": 47,
+            "latencia_ms": 68,
             "servidores": [
               {
                 "nome": "Pinguim",
@@ -432,7 +432,7 @@
           "name": "servidor e autor do teste",
           "status": "PASS",
           "detail": "servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador)",
-          "ms": 2503,
+          "ms": 135,
           "data": {}
         }
       ]
@@ -514,7 +514,7 @@
           "name": "estado local bate com a API",
           "status": "PASS",
           "detail": "cache local bate com a API REST (0 canais, 14 cargos)",
-          "ms": 366,
+          "ms": 281,
           "data": {}
         }
       ]
@@ -552,8 +552,8 @@
           "phase": "tools",
           "name": "show_permissions",
           "status": "PASS",
-          "detail": "O canal <#1550345913006952508> não possui permissões personalizadas configuradas.",
-          "ms": 1322,
+          "detail": "O canal <#1550347345072230480> não possui permissões personalizadas configuradas.",
+          "ms": 1277,
           "data": {}
         },
         {
@@ -569,7 +569,7 @@
           "name": "APIs externas (cores/emojis/tópicos/tradução)",
           "status": "PASS",
           "detail": "5 APIs externas responderam",
-          "ms": 1583,
+          "ms": 1287,
           "data": {
             "falhas": []
           }
@@ -582,22 +582,17 @@
         {
           "phase": "agent",
           "name": "prompt → ferramenta → resposta coerente",
-          "status": "PASS",
-          "detail": "ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'asta', 'asta']",
-          "ms": 7365,
-          "data": {
-            "ferramentas": [
-              "list_roles"
-            ],
-            "vencedor": "kilo"
-          }
+          "status": "WARN",
+          "detail": "o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 28, 'ferramentas_chamadas': [], 'chars': 109, 'vencedor': 'kilo'}]) — o provedor gratuito não cooperou nesta rodada ('Cargos do servidor **Pinguim**:\\n\\n- @Cupido\\n- @asta (10 cargos com este nome)\\n- @Atlas\\n- @iTinder\\n- @@everyone'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "ms": 0,
+          "data": {}
         },
         {
           "phase": "agent",
           "name": "fora de escopo é recusado sem executar",
           "status": "PASS",
-          "detail": "recusou moderação sem chamar ferramentas: 'Não consigo banir usuários; meu foco exclusivo é montar e organizar a estrutura do servido'",
-          "ms": 2282,
+          "detail": "recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, permissõe'",
+          "ms": 3265,
           "data": {
             "tool_calls": []
           }
@@ -607,7 +602,7 @@
           "name": "agente conhece a estrutura real",
           "status": "PASS",
           "detail": "citou itens reais do servidor (🧪-estrutura)",
-          "ms": 6923,
+          "ms": 10607,
           "data": {}
         },
         {
@@ -615,7 +610,7 @@
           "name": "memória do canal entre turnos",
           "status": "PASS",
           "detail": "histórico do canal lembrado entre turnos",
-          "ms": 5724,
+          "ms": 2669,
           "data": {}
         }
       ]
@@ -628,7 +623,7 @@
           "name": "infra: categoria e canais de teste",
           "status": "PASS",
           "detail": "categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
-          "ms": 2350,
+          "ms": 1352,
           "data": {}
         },
         {
@@ -636,15 +631,15 @@
           "name": "create_channels DENTRO de categoria (via ferramenta)",
           "status": "PASS",
           "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz'])",
-          "ms": 1169,
+          "ms": 784,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "create_channels na RAIZ (via ferramenta)",
           "status": "PASS",
-          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria'])",
-          "ms": 21194,
+          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz'])",
+          "ms": 22197,
           "data": {}
         },
         {
@@ -652,7 +647,7 @@
           "name": "edit_channel alterou de verdade",
           "status": "PASS",
           "detail": "nome, tópico e slowmode confirmados na API (🧪-renomeado)",
-          "ms": 351,
+          "ms": 294,
           "data": {}
         },
         {
@@ -660,9 +655,9 @@
           "name": "clone_channel clonou de verdade",
           "status": "PASS",
           "detail": "clone 🧪-clone criado com a mesma categoria",
-          "ms": 1089,
+          "ms": 1654,
           "data": {
-            "clone_id": 1550346155211096134
+            "clone_id": 1550347577864495195
           }
         },
         {
@@ -670,7 +665,7 @@
           "name": "move_channel moveu de verdade",
           "status": "PASS",
           "detail": "saiu e voltou de categoria, confirmado pela API",
-          "ms": 907,
+          "ms": 871,
           "data": {}
         },
         {
@@ -686,7 +681,7 @@
           "name": "cargos: criar/editar/atribuir de verdade",
           "status": "PASS",
           "detail": "cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor",
-          "ms": 1562,
+          "ms": 1786,
           "data": {}
         },
         {
@@ -694,7 +689,7 @@
           "name": "permissões de canal confirmadas pela API",
           "status": "PASS",
           "detail": "set, sync, clear e show (com filtro por target) confirmados pela API",
-          "ms": 4112,
+          "ms": 2307,
           "data": {}
         },
         {
@@ -702,7 +697,7 @@
           "name": "import_structure recriou a estrutura",
           "status": "PASS",
           "detail": "import recriou 3 canais e 2 cargo(s)",
-          "ms": 1888,
+          "ms": 1740,
           "data": {
             "canais": 3
           }
@@ -712,7 +707,7 @@
           "name": "fluxo de confirmação em canais reais (modo cauteloso)",
           "status": "PASS",
           "detail": "2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true",
-          "ms": 50826,
+          "ms": 51944,
           "data": {}
         },
         {
@@ -720,7 +715,7 @@
           "name": "exclusão em lote direta em canais reais",
           "status": "PASS",
           "detail": "2 canais reais apagados direto, sem perguntar, com o resultado na resposta",
-          "ms": 1794,
+          "ms": 1600,
           "data": {}
         },
         {
@@ -728,39 +723,31 @@
           "name": "clear_messages apaga mensagens reais do canal",
           "status": "PASS",
           "detail": "apagou 3 mensagem(ns) reais e o canal ficou vazio",
-          "ms": 6069,
+          "ms": 6276,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente apaga canal nominal sem travar",
           "status": "PASS",
-          "detail": "agente apagou o canal nominal direto em 50.5s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)'",
-          "ms": 51734,
+          "detail": "agente apagou o canal nominal direto em 50.7s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)'",
+          "ms": 51758,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente apaga lote direto, sem perguntar (padrão)",
           "status": "PASS",
-          "detail": "apagou os 2 canais direto em 12.7s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído'",
-          "ms": 13996,
-          "data": {}
-        },
-        {
-          "phase": "mutate",
-          "name": "modo cauteloso pergunta e apaga após 'sim'",
-          "status": "WARN",
-          "detail": "o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Para excluir #🧪-caut-1 e #🧪-caut-2 de uma vez, confirme com **“sim”**.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
-          "ms": 0,
+          "detail": "apagou os 2 canais direto em 26.9s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído'",
+          "ms": 27724,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)",
           "status": "PASS",
-          "detail": "não conclusivo por causa do LLM gratuito: o modelo nem tentou excluir os canais",
-          "ms": 10843,
+          "detail": "pediu confirmação e apagou depois do 'sim' ('**Resumo das ações:**\\n- ✅ **Excluídos:** `#🧪-efemero`, `#🧪-l')",
+          "ms": 79564,
           "data": {}
         },
         {
@@ -768,7 +755,7 @@
           "name": "apply_template (--allow-template)",
           "status": "PASS",
           "detail": "template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza)",
-          "ms": 3813,
+          "ms": 3044,
           "data": {
             "canais": 9
           }
@@ -798,8 +785,8 @@
           "phase": "botloop",
           "name": "canal temporário de teste",
           "status": "PASS",
-          "detail": "canal temporário 🧪-loop-do-bot (1550346856414842962) criado",
-          "ms": 13454,
+          "detail": "canal temporário 🧪-loop-do-bot (1550348604223529001) criado",
+          "ms": 1463,
           "data": {}
         },
         {
@@ -831,7 +818,7 @@
           "name": "menção dispara o agente e responde",
           "status": "PASS",
           "detail": "on_message → agente → resposta real no canal: 'Pinguim'",
-          "ms": 7380,
+          "ms": 3701,
           "data": {}
         },
         {
@@ -839,7 +826,7 @@
           "name": "reações de feedback 👀→✅",
           "status": "PASS",
           "detail": "reações corretas no Discord real: ['✅']",
-          "ms": 177,
+          "ms": 238,
           "data": {
             "reacoes": [
               "✅"
@@ -851,7 +838,7 @@
           "name": "ferramenta real acionada por mensagem",
           "status": "PASS",
           "detail": "o bot criou de verdade: ['🧪-via-bot']",
-          "ms": 10438,
+          "ms": 55937,
           "data": {}
         }
       ]
