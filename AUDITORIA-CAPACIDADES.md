@@ -100,6 +100,27 @@ recusado: o bot se autobloqueava.
   cache ruim, e o dono sabe exatamente o que subir.
 - a matriz mede a posição do bot na API (`topo_do_bot()`), nunca pelo cache.
 
+## Rodada 4 (run 35310362333, commit 3809884): ✅ 104 · ❌ 0 · ⚠️ 8 · ⏭️ 1
+
+Primeira rodada SEM nenhuma falha. O que sobrou são avisos com causa medida, não defeito
+escondido:
+
+| ⚠️ | Causa | Dono |
+| --- | --- | --- |
+| `cargos que o bot não consegue gerenciar` | 13 cargos (Cupido, iTinder, Atlas, asta…) **no nível ou acima** do cargo do farol, que está na posição 1 | dono do servidor: arrastar o cargo do farol para cima |
+| `cargo do farol no chão do servidor` | o mesmo: o Discord recusa gerenciar cargo no nível do topo do bot | dono do servidor |
+| 3 × `cargos: gerenciar o cargo criado` | consequência direta: a matriz confere a RECUSA (clara, sem alterar nada) e registra que **não pôde** provar edição/inválidos/dar-tirar ao vivo — essas validações seguem cobertas offline | dono do servidor |
+| `canais: tipo stage` | o servidor não tem o recurso **Comunidade**; a mensagem traduzida foi conferida | opcional: ativar Comunidade |
+| `prompt → ferramenta → resposta coerente` | o modelo grátis não chamou ferramenta nesta rodada (a rede oscila; tratado como aviso, nunca como ✅ falso) | aceito pelo dono |
+| `modo cauteloso pergunta e apaga após 'sim'` | o provedor grátis não cooperou na resposta ao "sim" | aceito pelo dono |
+
+Nesta rodada o `clear_messages` (que havia falhado com 503 do Discord) passou com a segunda
+tentativa, e `export_structure`/`import_structure` fecharam o round-trip completo.
+
+**Sobre os avisos de cargo**: a recusa é conferida de verdade (mensagem clara + nada alterado), por
+isso eles não são ❌. Para virarem ✅ de execução, basta o dono subir o cargo do farol acima dos
+cargos de teste — não há correção de código pendente ali.
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o
