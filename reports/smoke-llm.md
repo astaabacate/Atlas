@@ -1,0 +1,27 @@
+# 🛰️ Sonda ao vivo dos provedores LLM
+
+- executada em: 2026-09-18T00:16:08Z
+- python: 3.11.16
+
+Pool gratuito ativo: kilo
+Fora do pool por falta de credencial (cadastre como secret para ativar):
+- gemini (falta o secret GEMINI_API_KEY)
+- groq (falta o secret GROQ_API_KEY)
+- mistral (falta o secret MISTRAL_API_KEY)
+- nvidia (falta o secret NVIDIA_API_KEY)
+- zai (falta o secret ZAI_API_KEY)
+- cloudflare (falta o secret CLOUDFLARE_API_TOKEN)
+- ollama (falta o secret OLLAMA_API_KEY)
+- openrouter (falta o secret OPENROUTER_API_KEY)
+- modelscope (falta o secret MODELSCOPE_API_KEY)
+- siliconflow (falta o secret SILICONFLOW_API_KEY)
+- cohere (falta o secret COHERE_API_KEY)
+
+Corredores sondados: kilo (AutoProvider.create_default)
+
+| corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
+|---|---:|---|---:|:---:|---|---|---|
+| kilo | 200 | kilo-auto/free | 2679 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
+
+Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
+🟢 TESTADOS E FUNCIONANDO AGORA: kilo (kilo-auto/free)
