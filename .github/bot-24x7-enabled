@@ -202,3 +202,12 @@ e a resposta seguinte já sai na cor nova, sem reiniciar) e uma leitura que falh
 de novo na mensagem seguinte em vez de ficar presa na cor de reserva. Se quiser que ele assuma
 AGORA, cancele a execução em andamento na aba Actions; senão ele entra sozinho quando a fatia
 atual terminar.
+
+
+RESTART PEDIDO EM 2026-09-18T20:35Z
+-------------------------------
+Motivo: a fatia no ar é a de 19:15Z (código `4bf354d`, sem a cara nova nem o bug do canal) e o
+cron de segurança levantou uma execução a partir da `main` (código velho `8c9f636`) — esta
+pendência entra na frente para o bot voltar com o código novo do ramo da sessão: Components V2
+com a cor medida do avatar, o canal da conversa nunca apagado ("menos esse"), a cor remedida
+quando a foto trocar e o conserto do `bot.yml` que ficou inválido às 19:59Z.
