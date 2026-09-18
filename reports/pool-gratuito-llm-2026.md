@@ -78,11 +78,17 @@ execuções [`35291065652`](https://github.com/astaabacate/Atlas/actions/runs/35
   quais **21 marcados `:free`** → publicado em [`reports/kilo-modelos-free.md`](kilo-modelos-free.md).
   A ficha do `kilo` passou a listar **ids conferidos nessa lista**, do contexto gigante para o pequeno
   (1M → 65K); três modelos que estavam na ficha (`qwen/qwen3-coder:free`, `z-ai/glm-5:free`,
-  `minimax/minimax-m3:free`) **já não existem** e foram trocados.
+  `minimax/minimax-m3:free`) **já não existem** e foram trocados. Os ids que o dono apontou
+  (`nemotron-3-ultra-550b-a55b`, `nemotron-3.5-lightning`, `step-3.7-flash`, `poolside/laguna-s-2.1`,
+  `cohere/north-mini-code`, `liquid/lfm-2.5-2.6b`) **estavam certos** — entraram os que o catálogo de
+  fato marca como `:free`.
 - **Sonda com a lista nova:** o corredor respondeu com
   `thinkingmachines/inkling-small:free` (**1M de contexto**), tools nativo, 3 consecutivas 200/200/200.
-- **Linha `Authorization` do Kilo:** testado **sem** o header — o POST volta 200 com **corpo vazio**.
-  Com `Bearer anonymous` o modelo responde de verdade → o header fica (evidência, não crença).
+- **Linha `Authorization` do Kilo:** com o header, ou sem ele, o gateway responde — **o header não é
+  obrigatório** (testado das duas formas). O que devolvia corpo vazio era o **roteador
+  `kilo-auto/free`**: sem header, o POST nele voltou vazio e a **mesma** requisição com o modelo
+  explícito `nvidia/nemotron-3.5-lightning:free` devolveu conteúdo. Por isso o roteador ficou **por
+  último** na lista e a repetição-com-troca-de-modelo cobre os casos em que ele entra.
 - **`opencode-zen` (candidato trazido pelo dono): 🔴 FORA.** `GET /models` responde 200, mas
   `POST /chat/completions` deu **400 "Model is unavailable"** (`deepseek-v4-flash-free`) e
   **403 "OpenCode's free tier can only be used from within…"** (`big-pickle`). Não entra no pool —
