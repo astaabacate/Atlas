@@ -1,6 +1,6 @@
 # Catálogo ao vivo do gateway Kilo (GET /api/gateway/models sem credencial)
 
-- executada em: 2026-09-18T07:03:25Z
+- executada em: 2026-09-18T10:20:42Z
 - total devolvido: 380 modelos
 - campos de cada item: architecture, autoRouting, context_length, created, description, id, isFree, mayTrainOnYourPrompts, name, opencode, preferredIndex, pricing, supported_parameters, top_provider
 
