@@ -338,6 +338,22 @@ TOOLS: list[ToolDef] = [
         },
     ),
     ToolDef(
+        name="delete_roles",
+        description=("Apaga VÁRIOS cargos de uma vez (para quando pedirem 'apague todos os cargos' "
+                     "ou vários de uma vez). Diz quantos apagou e, se algum não puder ser apagado, "
+                     "explica o motivo e o que fazer."),
+        parameters={
+            "type": "object",
+            "properties": {
+                "roles": {"type": "array", "items": {"type": "string"},
+                          "description": "Nomes, menções ou IDs dos cargos a apagar."},
+                "confirmed": {"type": "boolean",
+                              "description": "true quando o usuário já confirmou (modo cauteloso)."},
+            },
+            "required": ["roles"],
+        },
+    ),
+    ToolDef(
         name="diagnostic_report",
         description=("Envia por mensagem direta (para quem pediu) um arquivo com a conversa recente "
                      "deste canal + o tempo das últimas respostas. Use quando alguém relatar que o "

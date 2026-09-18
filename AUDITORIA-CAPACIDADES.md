@@ -284,6 +284,31 @@ E, para o dono, duas ferramentas novas no Discord:
   com a conversa recente do canal e os tempos. É o caminho para o dono repassar a conversa real a
   quem dá suporte **sem** publicar o chat em log público de CI.
 
+### Rodada 8 (18/09): "pedi pra apagar todos os cargos e ele diz que não consegue"
+
+Relato do dono, e o diagnóstico é honesto: **não é o bot que se recusa — é o Discord**. A regra é
+"um bot só gerencia cargos estritamente ABAIXO do cargo mais alto dele". No servidor do dono o cargo
+**farol** está na **posição 1** (o mais baixo de todos), e os cargos criados pelo próprio bot nascem
+nessa mesma altura — então o Discord recusa até a exclusão do que ele mesmo criou. Medido no E2E:
+`O cargo '🧪 teste-papel' (posição 1) está acima ou na mesma posição do meu cargo mais alto (posição 1)`.
+
+O que estava **mal no produto** (e foi corrigido agora):
+
+| Problema | Antes | Agora |
+| --- | --- | --- |
+| Não existia exclusão de cargo EM LOTE | "apague todos os cargos" virava uma tentativa por cargo: erro atrás de erro, sem resumo e sem dizer o que fazer | ferramenta nova **`delete_roles`**: apaga o que pode, informa quantos saíram, quantos ficaram e **por quê**, com o caminho exato (Configurações do Servidor → Cargos → arrastar o **farol** para cima) |
+| A recusa era seca | "Suba o cargo do farol nas configurações de cargos do servidor." (sem dizer onde nem o que acontece) | mensagem completa: posição do cargo × posição do bot + o passo a passo no Discord + "me peça de novo que eu apago de uma vez" |
+| Posição empatada era recusada de chute | o cache do discord.py pode estar velho (já mentiu antes) e o cargo podia ser apagável | quando a posição empata, o bot **tenta de verdade** e relata o que o Discord respondeu |
+| Pior de tudo: **mentira** | quando TODAS as execuções falhavam e o modelo devolvia texto vazio, o bot respondia **"Feito! ✅ Confira no servidor"** | agora responde o motivo real ("❌ Não deu para concluir: …") — nunca mais finge que fez |
+
+Regressões: `TestExclusaoEmLoteDeCargos` (8 testes: chão do servidor, apaga-o-que-pode, cargo
+inexistente no meio do lote, lista vazia, modo cauteloso, empate que funciona, empate recusado com
+instrução, cargo individual) e `test_falha_em_tudo_nao_vira_feito` no agente.
+
+**Ação do dono (30 segundos, e vale para tudo):** Configurações do Servidor → **Cargos** → arraste o
+cargo do **farol** para cima dos cargos que ele deve gerenciar. Depois disso, "apague todos os
+cargos" funciona de uma vez — e o cargo do bot passa a conseguir editar/apagar cargos em geral.
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o

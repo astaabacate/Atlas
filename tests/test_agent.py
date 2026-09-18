@@ -967,6 +967,28 @@ class TestOrdemSeguraEDedupe(unittest.TestCase):
         self.assertIn("Pronto!", resposta)
         self.assertEqual(len(llm.call_history), 2, "não pode haver terceira chamada")
 
+    def test_falha_em_tudo_nao_vira_feito(self) -> None:
+        """
+        O cliente viu "não consigo apagar" quando pediu para apagar cargos — e o pior seria ler
+        "Feito!" sem nada ter sido feito. Quando TODAS as execuções falham, a resposta tem que
+        trazer o motivo real.
+        """
+        agent, _ = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="delete_role", args={"role": "cargo-24"}),
+            ]),
+            LLMResponse(content="", tool_calls=[]),  # modelo desiste sem explicar nada
+            LLMResponse(content="", tool_calls=[]),  # e nem a reescrita em PT-BR vem
+        ])
+
+        with self._espiar_execucao():
+            resposta = self._turno(agent, "apague todos os cargos")
+
+        self.assertIn("Não deu para concluir", resposta, "tem que assumir a falha")
+        self.assertNotIn("Feito!", resposta, "nunca dizer que fez o que não foi feito")
+        self.assertIn("cargo-24", resposta, "a resposta precisa trazer o motivo real da recusa")
+        self.assertNotIn("Erro:", resposta, "sem prefixo interno na cara do cliente")
+
     def test_chamada_repetida_nao_cria_duplicado(self) -> None:
         """O modelo repetiu a mesma criação: só pode rodar UMA vez (cargo/canal duplicado era bug)."""
         agent, _ = self._agent([

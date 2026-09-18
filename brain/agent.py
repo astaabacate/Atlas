@@ -87,7 +87,7 @@ TOOLS_QUE_CRIAM = frozenset({
     "edit_channel", "edit_role", "set_permissions", "clear_permissions", "sync_permissions",
     "give_role", "take_role", "move_channel",
 })
-TOOLS_QUE_APAGAM = frozenset({"delete_channels", "delete_role", "clear_messages"})
+TOOLS_QUE_APAGAM = frozenset({"delete_channels", "delete_role", "delete_roles", "clear_messages"})
 # Destes, os que CRIAM algo novo. Só a FALHA de um deles bloqueia exclusões da mesma mensagem:
 # uma edição que falha não pode travar o "apague o canal Y" que veio na mesma frase.
 TOOLS_QUE_CRIAM_DE_VERDADE = frozenset({
@@ -160,6 +160,16 @@ def _assinatura_da_chamada(call: Any) -> str:
 _REPETIDA_PREFIXO = "(já executei esta mesma chamada nesta mensagem)"
 
 
+def _texto_das_falhas(falhas: list[str]) -> str:
+    """Motivo real das falhas, sem o prefixo interno 'Erro:' e sem repetir a mesma coisa."""
+    limpos = []
+    for f in falhas:
+        texto = f[5:].strip() if f.startswith("Erro:") else f
+        if texto and texto not in limpos:
+            limpos.append(texto)
+    return ("❌ Não deu para concluir: " + " ".join(limpos))[:900]
+
+
 def _resultado_apresentavel(resultado: str) -> bool:
     """True para resultado real de ferramenta (não erro, não aviso de chamada repetida)."""
     return bool(resultado) and not resultado.startswith(("Erro", _REPETIDA_PREFIXO))
@@ -185,6 +195,8 @@ def _alvos_de_exclusao(tool_calls: list[Any]) -> set[str]:
         elif nome == "delete_role":
             if args.get("role"):
                 alvos.add(_normalizar_alvo(args["role"]))
+        elif nome == "delete_roles":
+            alvos.update(_normalizar_alvo(r) for r in (args.get("roles") or []))
     return alvos
 
 
@@ -347,8 +359,14 @@ class Agent:
         nenhum modelo" — o cliente acharia que nada aconteceu. Preferimos o resultado real da
         ferramenta (já em português) e, sem ele, dizemos exatamente quais ações rodaram.
         """
+        falhas = [r for r in execucoes_finais if r.startswith("Erro")]
         reais = [r for r in execucoes_finais
                  if _resultado_apresentavel(r) and self.resposta_ruim(r) is None]
+        if not reais and falhas:
+            # Nada foi executado com sucesso: dizer "fiz o que você pediu" seria mentira.
+            texto = _texto_das_falhas(falhas)
+            self.memory.add_message(channel_id, {"role": "assistant", "content": texto})
+            return texto
         if reais:
             # 2+ ações no mesmo pedido ("recrie o canal" = criou + apagou): mostrar só a última
             # esconderia metade do que foi feito. Junta as duas, desde que continue curto.
@@ -408,6 +426,13 @@ class Agent:
             if _resultado_apresentavel(resultado) and self.resposta_ruim(resultado) is None:
                 self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
                 return resultado
+
+        falhas = [r for r in execucoes_finais if r.startswith("Erro")]
+        if falhas:
+            # Antes daqui saía "Feito! ✅" mesmo quando NADA foi feito — pior do que o erro.
+            texto = _texto_das_falhas(falhas)
+            self.memory.add_message(channel_id, {"role": "assistant", "content": texto})
+            return texto
 
         seguro = "Feito! ✅ Confira no servidor e me diga se falta algo."
         self.memory.add_message(channel_id, {"role": "assistant", "content": seguro})
@@ -717,4 +742,10 @@ class Agent:
         final_text = self._com_pergunta_de_confirmacao(channel_id, limpa)
         if final_text:
             self.memory.add_message(channel_id, {"role": "assistant", "content": final_text})
-        return _fechar_turno(final_text or "Operações concluídas.")
+            return _fechar_turno(final_text)
+        falhas = [r for r in execucoes_finais if r.startswith("Erro")]
+        if falhas:
+            texto = _texto_das_falhas(falhas)
+            self.memory.add_message(channel_id, {"role": "assistant", "content": texto})
+            return _fechar_turno(texto)
+        return _fechar_turno("Operações concluídas.")

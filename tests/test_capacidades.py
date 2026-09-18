@@ -411,6 +411,107 @@ class TestCapacidadesDeCargo(unittest.TestCase):
         self.assertEqual(len([r for r in servidor.roles if r.name == "Duplicado"]), 1)
 
 
+class TestExclusaoEmLoteDeCargos(unittest.TestCase):
+    """
+    "Apague todos os cargos": o bot tem que apagar o que PODE, dizer o que não pode e explicar
+    o caminho — em vez de devolver erro solto (ou pior, dizer que fez).
+    """
+
+    def _servidor(self, quantidade: int = 24, bot_posicao: int = 1) -> tuple[ToolContext, Servidor]:
+        """Cargos numa posição cada, e a regra do Discord: só apaga ABAIXO do topo do bot."""
+        ctx, servidor = contexto()
+        for i in range(1, quantidade + 1):
+            papel = Entidade(f"cargo-{i}", 100 + i, i)
+            papel.managed = False
+            pap = papel  # nome curto só para o closure
+
+            async def delete(_p: Any = pap) -> None:
+                if _p.position >= bot_posicao:  # como o Discord: igual ou acima é recusado
+                    raise Exception("403 Forbidden (50013): Missing Permissions")
+                servidor.roles.remove(_p)
+
+            papel.delete = delete
+            servidor.roles.append(papel)
+        servidor.me.top_role = Entidade("farol", 999, bot_posicao)
+        return ctx, servidor
+
+    def test_nao_apaga_nada_quando_esta_no_chao_e_explica_o_que_fazer(self) -> None:
+        ctx, servidor = self._servidor(bot_posicao=1)
+        antes = len(servidor.roles)
+        saida = executar("delete_roles", {"roles": [f"cargo-{i}" for i in range(1, 25)]}, ctx)
+
+        self.assertEqual(len(servidor.roles), antes, "não podia apagar nada mesmo")
+        self.assertIn("Não consegui apagar 24 cargo(s)", saida)
+        self.assertIn("Configurações do Servidor", saida, "tem que dizer ONDE resolver")
+        self.assertIn("farol", saida)
+        self.assertIn("Nada foi apagado nesta rodada", saida, "não pode fingir que fez")
+        self.assertNotIn("@everyone", saida)
+
+    def test_apaga_o_que_pode_e_lista_o_que_nao_pode(self) -> None:
+        ctx, servidor = self._servidor(bot_posicao=10)  # cargos 1..9 estão abaixo do bot
+        saida = executar("delete_roles", {"roles": [f"cargo-{i}" for i in range(1, 25)]}, ctx)
+
+        self.assertIn("Apaguei 9 cargo(s)", saida)
+        self.assertIn("Não consegui apagar 15 cargo(s)", saida)
+        nomes = [getattr(r, "name", "") for r in servidor.roles]
+        self.assertNotIn("cargo-9", nomes)
+        self.assertIn("cargo-10", nomes, "cargo acima do bot não pode ter sido apagado")
+
+    def test_cargo_inexistente_nao_derruba_o_lote(self) -> None:
+        ctx, servidor = self._servidor(bot_posicao=10)
+        saida = executar("delete_roles", {"roles": ["cargo-3", "não-existe"]}, ctx)
+        self.assertIn("Apaguei 1 cargo(s)", saida)
+        self.assertIn("não-existe", saida)
+
+    def test_lista_vazia_e_recusada(self) -> None:
+        ctx, _ = self._servidor()
+        self.assertIn("Nenhum cargo", falha("delete_roles", {"roles": []}, ctx))
+
+    def test_modo_cauteloso_pede_confirmacao(self) -> None:
+        ctx, servidor = self._servidor(bot_posicao=10)
+        ctx.confirm_destructive = True
+        msg = falha("delete_roles", {"roles": ["cargo-1", "cargo-2"]}, ctx)
+        self.assertIn("confirme", msg.lower())
+        self.assertEqual(len(servidor.roles), 25, "nada pode ser apagado antes do 'sim'")
+
+    def test_posicao_empatada_tenta_apagar_de_verdade(self) -> None:
+        """
+        Cargo na MESMA posição do topo do bot: o cache do discord.py pode estar velho (já
+        aconteceu) — em vez de recusar no chute, tenta e relata o que o Discord respondeu.
+        """
+        ctx, servidor = self._servidor(bot_posicao=5)
+        papel = next(r for r in servidor.roles if getattr(r, "name", "") == "cargo-5")
+        tentou: list[str] = []
+
+        async def delete_que_funciona() -> None:
+            tentou.append("cargo-5")
+            servidor.roles.remove(papel)
+
+        papel.delete = delete_que_funciona
+        saida = executar("delete_roles", {"roles": ["cargo-5"]}, ctx)
+        self.assertEqual(tentou, ["cargo-5"], "não tentou apagar o cargo empatado")
+        self.assertIn("Apaguei 1 cargo(s)", saida)
+
+    def test_discord_recusando_o_empatado_vira_instrucao_clara(self) -> None:
+        ctx, servidor = self._servidor(bot_posicao=5)
+        papel = next(r for r in servidor.roles if getattr(r, "name", "") == "cargo-5")
+
+        async def delete_recusado() -> None:
+            raise Exception("403 Forbidden (50013): Missing Permissions")
+
+        papel.delete = delete_recusado
+        saida = executar("delete_roles", {"roles": ["cargo-5"]}, ctx)
+        self.assertIn("Configurações do Servidor", saida)
+        self.assertIn("Nada foi apagado nesta rodada", saida)
+
+    def test_delete_role_individual_com_recusa_explica_o_caminho(self) -> None:
+        ctx, servidor = self._servidor(bot_posicao=1)
+        msg = falha("delete_role", {"role": "cargo-24"}, ctx)
+        self.assertIn("posição", msg)
+        self.assertIn("Configurações do Servidor", msg)
+        self.assertIn("arraste", msg)
+
+
 # --------------------------------------------------------------- diagnóstico
 
 class TestDiagnostico(unittest.TestCase):

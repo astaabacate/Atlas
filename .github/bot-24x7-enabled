@@ -145,3 +145,12 @@ do rascunho do modelo (o corte do rascunho apagava a ação — ninguém agia e 
 novo); (3) medição de "mensagem → resposta" no E2E do loop de produção; (4) ferramentas novas para
 o dono: performance_report ("quanto tempo o bot está levando?") e diagnostic_report (manda por DM
 um arquivo com a conversa recente + tempos, para repassar ao suporte sem expor o chat em log).
+
+RESTART PEDIDO EM 2026-09-18T11:35Z
+-------------------------------
+Motivo: "pedi pra apagar todos os cargos e ele diz que não consegue". Entram: (1) exclusão de cargo
+EM LOTE (ferramenta delete_roles) — apaga o que pode, diz o que ficou e o motivo, com o caminho
+exato para resolver (arrastar o cargo do farol para cima); (2) mensagem de hierarquia com posições
+medidas + passo a passo, também no delete_role individual; (3) empate de posição passa a TENTAR a
+exclusão de verdade (o cache do discord.py pode estar velho); (4) fim da mentira: quando tudo
+falha e o modelo devolve texto vazio, o bot responde o motivo real em vez de "Feito!".

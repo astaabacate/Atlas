@@ -22,6 +22,7 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     "create_roles": ["manage_roles"],
     "edit_role": ["manage_roles"],
     "delete_role": ["manage_roles"],
+    "delete_roles": ["manage_roles"],
     "give_role": ["manage_roles"],
     "take_role": ["manage_roles"],
     # Permissões de canais

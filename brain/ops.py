@@ -875,6 +875,33 @@ async def op_edit_role(
     return f"Cargo <@&{rid}> atualizado com sucesso ({mudancas})."
 
 
+def _instrucao_hierarquia(pos_alvo: int | None, pos_bot: int, bot_name: str = "farol") -> str:
+    """
+    O QUE fazer para o bot poder gerenciar o cargo — em português e com o caminho exato.
+
+    Sem isso a resposta era só "não consigo apagar", e o dono do servidor ficava sem saber que a
+    solução é arrastar o cargo do bot para cima (regra de hierarquia do Discord).
+    """
+    onde = (f"Hoje o meu está na posição {pos_bot} e esse aí na posição {pos_alvo}. "
+            if pos_alvo is not None else f"Hoje o meu está na posição {pos_bot}. ")
+    return (
+        "O Discord só me deixa mexer em cargos que estejam ABAIXO do meu cargo mais alto. "
+        + onde +
+        "Para eu conseguir: **Configurações do Servidor → Cargos** e arraste o cargo "
+        f"**{bot_name}** (o meu) para cima dos cargos que você quer que eu gerencie — depois me "
+        "peça de novo que eu apago de uma vez."
+    )
+
+
+def _e_bloqueio_do_bot(mensagem: str) -> bool:
+    """A recusa veio da hierarquia do MEU cargo (não da hierarquia do autor)."""
+    return "do meu cargo mais alto" in mensagem
+
+
+def _e_bloqueio_de_hierarquia(mensagem: str) -> bool:
+    return _e_bloqueio_do_bot(mensagem) or "maior ou igual à do seu cargo mais alto" in mensagem
+
+
 async def op_delete_role(
     ctx: ToolContext,
     role: str,
@@ -882,10 +909,22 @@ async def op_delete_role(
 ) -> str:
     r_obj = resolve_role(ctx.guild, role)
 
-    require("delete_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
-            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
-            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
+    pos_bot = await _posicao_do_topo(ctx, ctx.guild.me)
+    empatado = False
+    try:
+        require("delete_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
+                actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
+                bot_top_position=pos_bot,
+                actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
+    except ToolError as exc:
+        mensagem = str(exc)
+        if not _e_bloqueio_de_hierarquia(mensagem):
+            raise
+        pos_alvo = getattr(r_obj, "position", 0)
+        if _e_bloqueio_do_bot(mensagem) and pos_alvo > (pos_bot or 0):
+            raise ToolError(f"{mensagem} {_instrucao_hierarquia(pos_alvo, pos_bot or 0)}")
+        # Mesma posição: o cache do discord.py pode estar velho (já aconteceu). Tenta de verdade.
+        empatado = True
 
     name = getattr(r_obj, "name", str(role))
 
@@ -899,8 +938,114 @@ async def op_delete_role(
     if not deleter:
         raise ToolError(f"Não foi possível excluir o cargo '{name}'.")
 
-    await deleter()
+    try:
+        await deleter()
+    except Exception as exc:  # noqa: BLE001 - recusa do Discord: traduz e diz o que fazer
+        if empatado:
+            raise ToolError(
+                f"O Discord recusou apagar **{name}** ({exc}). "
+                f"{_instrucao_hierarquia(getattr(r_obj, 'position', 0), pos_bot or 0)}"
+            ) from exc
+        raise
     return f"🗑️ Cargo **{name}** excluído com sucesso."
+
+
+async def op_delete_roles(
+    ctx: ToolContext,
+    roles: list[str],
+    confirmed: bool = False,
+) -> str:
+    """
+    Apaga VÁRIOS cargos de uma vez, dizendo com honestidade o que saiu e o que ficou de fora.
+
+    Pedido comum ("apague todos os cargos") virava uma sequência de erros soltos: o modelo tentava
+    um por um, cada um batia na hierarquia e o cliente ficava sem entender o que aconteceu nem o
+    que fazer. Aqui: apaga o que dá, lista o que não dá (com o motivo) e explica o caminho para
+    resolver — arrastar o cargo do bot para cima.
+    """
+    if not roles:
+        raise ToolError("Nenhum cargo foi informado para exclusão.")
+
+    guild = ctx.guild
+    pos_bot = await _posicao_do_topo(ctx, guild.me)
+    pos_actor = await _posicao_do_topo(ctx, ctx.actor)
+
+    # Permissões de quem pediu e do bot: se faltar, é erro do pedido e vale avisar na hora.
+    require("delete_roles", ctx.actor.guild_permissions, guild.me.guild_permissions,
+            actor=ctx.actor, bot_member=guild.me, guild=guild)
+
+    resolvidos: list[Any] = []
+    bloqueados: list[tuple[str, str]] = []
+    for query in roles:
+        try:
+            resolvidos.append(resolve_role(guild, str(query)))
+        except ToolError as exc:
+            bloqueados.append((str(query), str(exc)))
+
+    # Confirmação só no modo cauteloso (igual à exclusão em lote de canais).
+    if ctx.confirm_destructive and len(resolvidos) > 1 and not confirmed:
+        nomes = ", ".join(f"**{getattr(r, 'name', '?')}**" for r in resolvidos[:8])
+        raise ToolError(
+            f"Isso apaga {len(resolvidos)} cargos ({nomes}) — confirme com o usuário e chame de "
+            "novo com confirmed=true."
+        )
+
+    apagados: list[str] = []
+    for r_obj in resolvidos:
+        nome = getattr(r_obj, "name", "cargo")
+        empatado = False
+        try:
+            require("delete_role", ctx.actor.guild_permissions, guild.me.guild_permissions,
+                    actor=ctx.actor, bot_member=guild.me, guild=guild, target_role=r_obj,
+                    bot_top_position=pos_bot, actor_top_position=pos_actor)
+        except ToolError as exc:
+            mensagem = str(exc)
+            pos_alvo = getattr(r_obj, "position", 0)
+            if _e_bloqueio_do_bot(mensagem) and pos_alvo > (pos_bot or 0):
+                bloqueados.append((nome, f"{mensagem} "
+                                         f"{_instrucao_hierarquia(pos_alvo, pos_bot or 0)}"))
+                continue
+            if not _e_bloqueio_de_hierarquia(mensagem):
+                bloqueados.append((nome, mensagem))
+                continue
+            empatado = True  # mesma posição: tenta de verdade (o cache pode estar velho)
+
+        deleter = getattr(r_obj, "delete", None)
+        if not deleter:
+            bloqueados.append((nome, "o objeto deste cargo não permite exclusão"))
+            continue
+        try:
+            await deleter()
+            apagados.append(nome)
+        except Exception as exc:  # noqa: BLE001 - recusa do Discord
+            if _e_bloqueio_de_hierarquia(str(exc)) or "Missing Permissions" in str(exc) or empatado:
+                bloqueados.append((nome, _instrucao_hierarquia(getattr(r_obj, "position", 0),
+                                                               pos_bot or 0)))
+            else:
+                bloqueados.append((nome, f"o Discord recusou: {exc}"))
+
+    if not apagados and not bloqueados:
+        raise ToolError("Não encontrei nenhum cargo com esses nomes.")
+
+    partes: list[str] = []
+    if apagados:
+        partes.append(f"🗑️ Apaguei {len(apagados)} cargo(s): " + ", ".join(f"**{n}**" for n in apagados[:12])
+                      + (" …" if len(apagados) > 12 else ""))
+    if bloqueados:
+        so_instrucao = all("Discord só me deixa" in m for _, m in bloqueados)
+        resumo = (f"Não consegui apagar {len(bloqueados)} cargo(s) — todos estão no nível ou ACIMA "
+                  f"do meu cargo (posição {pos_bot})."
+                  if so_instrucao else
+                  f"Não consegui apagar {len(bloqueados)} cargo(s): "
+                  + "; ".join(f"**{n}** ({m})" for n, m in bloqueados[:6])
+                  + (" …" if len(bloqueados) > 6 else ""))
+        partes.append(resumo)
+        if so_instrucao:
+            partes.append(_instrucao_hierarquia(None, pos_bot or 0))
+    if not apagados:
+        partes.append("Nada foi apagado nesta rodada.")
+
+    return " ".join(partes)
 
 
 def _cargos_do_membro(membro: Any) -> set[int]:
