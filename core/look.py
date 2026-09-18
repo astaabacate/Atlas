@@ -185,13 +185,17 @@ def cor_de_destaque(pixels: Iterable[tuple[int, int, int, int]]) -> int:
         soma_g += g * peso
         soma_b += b * peso
         peso_total += peso
+    # round (e não int) para uma foto de cor única devolver exatamente aquela cor: somar em
+    # ponto flutuante e truncar erra por 1 (230 · 4096 → 229,99999999999997 → 229).
     if peso_total <= 0:
         if geral[3] == 0:
             return COR_RESERVA
-        return ((geral[0] // geral[3]) << 16) | ((geral[1] // geral[3]) << 8) | (geral[2] // geral[3])
-    return ((int(soma_r / peso_total) << 16)
-            | (int(soma_g / peso_total) << 8)
-            | int(soma_b / peso_total))
+        return ((round(geral[0] / geral[3]) << 16)
+                | (round(geral[1] / geral[3]) << 8)
+                | round(geral[2] / geral[3]))
+    return ((round(soma_r / peso_total) << 16)
+            | (round(soma_g / peso_total) << 8)
+            | round(soma_b / peso_total))
 
 
 def cor_do_avatar(dados: bytes, *, reserva: int = COR_RESERVA) -> int:

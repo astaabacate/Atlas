@@ -123,6 +123,11 @@ class TestCorDeDestaque(unittest.TestCase):
         cor = look.cor_do_avatar(_png(4, 4, px))
         self.assertEqual(cor, 0x787878)
 
+    def test_foto_de_uma_cor_so_devolve_exatamente_essa_cor(self) -> None:
+        """Truncar a média errava por 1 (230 → 229); a cor da foto tem que sair inteira."""
+        px = [[(230, 40, 60, 255)] * 64 for _ in range(64)]
+        self.assertEqual(look.cor_do_avatar(_png(64, 64, px, alfa=True)), 0xE6283C)
+
     def test_bytes_invalidos_devolvem_a_reserva(self) -> None:
         self.assertEqual(look.cor_do_avatar(b"lixo"), look.COR_RESERVA)
 

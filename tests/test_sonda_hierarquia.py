@@ -318,5 +318,105 @@ class TestSondaAoVivoComDuplo(unittest.TestCase):
         self.assertEqual(rc, 2)
 
 
+class _Resposta:
+    """Resposta mínima da CDN do Discord para a sonda medir a cor do avatar."""
+
+    def __init__(self, status: int, corpo: bytes = b"") -> None:
+        self.status = status
+        self._corpo = corpo
+
+    async def read(self) -> bytes:
+        return self._corpo
+
+    async def __aenter__(self) -> "_Resposta":
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+
+class _Sessao:
+    def __init__(self, resposta: _Resposta) -> None:
+        self.resposta = resposta
+        self.urls: list[str] = []
+
+    def get(self, url: str) -> _Resposta:
+        self.urls.append(url)
+        return self.resposta
+
+
+class _ApiDaCor:
+    """Duplo com a mesma peça que a sonda usa para baixar a foto (`_sessao`)."""
+
+    def __init__(self, resposta: _Resposta) -> None:
+        self._sessao = _Sessao(resposta)
+
+
+class TestCorDoAvatarDaSonda(unittest.TestCase):
+    """A sonda mede a cor do avatar — e isso NÃO pode derrubar a sonda.
+
+    Bug pego ao vivo (run 35388580915): o passo "Rodar a sonda" morreu com
+    `No module named 'core'`, porque `import core.look` puxa o `__init__` do pacote e o
+    discord.py não está instalado lá. A sonda roda com uma dependência só (aiohttp).
+    """
+
+    def test_medidor_carrega_sem_o_pacote_core_nem_o_discord(self) -> None:
+        """No CI a sonda roda só com aiohttp: nem `core` (pacote) nem `discord` podem ser exigidos."""
+        guardados = {nome: sys.modules.get(nome) for nome in ("core", "discord")}
+        for nome in ("core", "discord"):
+            sys.modules[nome] = None  # type: ignore[assignment] - faz `import <nome>` explodir
+        try:
+            look = sonda._medidor_de_cor()
+        finally:
+            for nome, antes in guardados.items():
+                if antes is None:
+                    sys.modules.pop(nome, None)
+                else:
+                    sys.modules[nome] = antes
+        self.assertTrue(hasattr(look, "cor_de_destaque"))
+        self.assertEqual(look.__file__, str(pathlib.Path(sonda.__file__).resolve().parents[1]
+                                            / "core" / "look.py"))
+
+    def test_sem_avatar_registra_o_motivo_e_nao_quebra(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            outdir = pathlib.Path(tmp)
+            api = _ApiDaCor(_Resposta(200))
+            with contextlib.redirect_stdout(io.StringIO()):
+                cor = asyncio.run(sonda._cor_do_avatar(api, {"id": "1", "username": "farol"}, outdir))
+            texto = (outdir / "cor-do-avatar.txt").read_text(encoding="utf-8")
+            self.assertIsNone(cor)
+            self.assertIn("NÃO MEDIDA", texto)
+            self.assertIn("avatar padrão do Discord", texto)
+            self.assertEqual(api._sessao.urls, [], "sem foto não se chama a CDN")
+
+    def test_com_foto_mede_e_grava_o_hex(self) -> None:
+        from tests.test_look import _cor_de, _fundo_branco, _png
+
+        px = _cor_de(_fundo_branco(8, 8), (230, 40, 60, 255), amostra=2)
+        api = _ApiDaCor(_Resposta(200, _png(8, 8, px, alfa=True)))
+        eu = {"id": "42", "username": "farol", "avatar": "abc123"}
+        with tempfile.TemporaryDirectory() as tmp:
+            outdir = pathlib.Path(tmp)
+            with contextlib.redirect_stdout(io.StringIO()):
+                cor = asyncio.run(sonda._cor_do_avatar(api, eu, outdir))
+            texto = (outdir / "cor-do-avatar.txt").read_text(encoding="utf-8")
+        self.assertIsNotNone(cor)
+        self.assertIn(f"ACCENT_COLOR={sonda.hex_da_cor(cor)}", texto)
+        self.assertEqual(api._sessao.urls,
+                         ["https://cdn.discordapp.com/avatars/42/abc123.png?size=64"],
+                         "a sonda pede o PNG de verdade, no tamanho que o bot usa")
+
+    def test_cdn_fora_do_ar_registra_e_nao_quebra(self) -> None:
+        api = _ApiDaCor(_Resposta(503))
+        with tempfile.TemporaryDirectory() as tmp:
+            outdir = pathlib.Path(tmp)
+            with contextlib.redirect_stdout(io.StringIO()):
+                cor = asyncio.run(sonda._cor_do_avatar(
+                    api, {"id": "42", "username": "farol", "avatar": "abc"}, outdir))
+            texto = (outdir / "cor-do-avatar.txt").read_text(encoding="utf-8")
+        self.assertIsNone(cor)
+        self.assertIn("HTTP 503", texto)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -39,13 +39,45 @@ from typing import Any
 
 import aiohttp
 
-# Rodando como `python scripts/sonda_hierarquia.py`, o diretório do script entra no sys.path —
-# e o medidor de cor (core/look.py) ficaria invisível. A raiz do repositório entra na frente.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from core.look import cor_de_destaque, hex_da_cor, pixels_do_png  # noqa: E402
-
 API = "https://discord.com/api/v10"
+
+
+def _medidor_de_cor():
+    """Carrega core/look.py pelo caminho do arquivo.
+
+    A sonda roda com uma dependência só (aiohttp): `import core.look` puxaria o `__init__` do
+    pacote, que importa o discord.py e quebraria aqui. O módulo da cor é puro stdlib.
+    """
+    import importlib.util
+
+    caminho = Path(__file__).resolve().parents[1] / "core" / "look.py"
+    spec = importlib.util.spec_from_file_location("look_da_sonda", caminho)
+    if spec is None or spec.loader is None:  # pragma: no cover - só em instalação quebrada
+        raise ImportError(f"não achei o medidor de cor em {caminho}")
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
+try:
+    _look = _medidor_de_cor()
+    cor_de_destaque, hex_da_cor, pixels_do_png = (
+        _look.cor_de_destaque,
+        _look.hex_da_cor,
+        _look.pixels_do_png,
+    )
+    ERRO_DO_MEDIDOR = ""
+except Exception as exc:  # noqa: BLE001 - a sonda segue sem a cor
+    ERRO_DO_MEDIDOR = f"não consegui carregar o medidor de cor ({exc})"
+
+    def cor_de_destaque(*_a, **_k):
+        raise RuntimeError(ERRO_DO_MEDIDOR)
+
+    def pixels_do_png(*_a, **_k):
+        raise RuntimeError(ERRO_DO_MEDIDOR)
+
+    def hex_da_cor(_c: int) -> str:
+        return "#??????"
 MARCA = "🧪 sonda-hierarquia"
 
 
@@ -292,6 +324,9 @@ async def _cor_do_avatar(api: "Sondagem", eu: dict[str, Any], outdir: Path) -> i
             "(e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).\n", encoding="utf-8")
         print(f"::warning title=sonda::cor do avatar não medida ({motivo})")
 
+    if ERRO_DO_MEDIDOR:
+        registrar(ERRO_DO_MEDIDOR)
+        return None
     avatar = eu.get("avatar")
     if not avatar:
         # Sem foto própria: o Discord usa o avatar padrão (imagem neutra, sem cor viva).
