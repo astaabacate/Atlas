@@ -121,6 +121,36 @@ tentativa, e `export_structure`/`import_structure` fecharam o round-trip complet
 isso eles não são ❌. Para virarem ✅ de execução, basta o dono subir o cargo do farol acima dos
 cargos de teste — não há correção de código pendente ali.
 
+
+## Respostas do bot: por que "oi" virou textão e por que falhava "em tarefas específicas"
+
+Dois relatos do dono do servidor, duas causas distintas:
+
+### 1. O textão em inglês (o bot respondeu "oi" com o planejamento)
+
+O bot ONLINE estava na fatia antiga (código `6685b71`, iniciada 02:12Z — antes da barreira de
+resposta). O texto recebido era o modelo **regurgitando o contexto**: começava com
+`[Ação solicitada: edit_channel(...)]`, que é a marca que o bot usa ao converter uma chamada de
+ferramenta para o protocolo de texto dos provedores sem function calling nativo.
+
+Além da barreira que já existia (sem rascunho, sem inglês, ≤ ~1000 chars), `resposta_ruim` agora
+reconhece **eco do contexto interno** por essas marcas (`[Ação solicitada`, bloco ```tool,
+"PROTOCOLO DE FERRAMENTAS", "ferramentas disponíveis", `"tool_calls"`, `"system prompt"`) e manda
+a resposta para a mesma correção: reescrita curta em PT-BR e, se falhar, o resultado real da
+ferramenta.
+
+### 2. "Não consegui falar com nenhum modelo de linguagem" em tarefas específicas
+
+Três causas, medidas:
+
+| Causa | Correção |
+| --- | --- |
+| **O CI tem UM corredor só.** O relatório do E2E registra `corredores de LLM na corrida: kilo/tools` — nenhuma das 11 chaves gratuitas está cadastrada como secret no repositório (os workflows já passam todas). Qualquer soluço do kilo derruba o turno | estrutural: cadastrar as chaves gratuitas (`GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `COHERE_API_KEY`, …) nos secrets do repositório → a corrida passa a ter 10+ corredores |
+| **O pedido não cabia no modelo** (HTTP 400/413 de contexto/tamanho) era tratado como erro definitivo | `ProviderError.is_context_problem` reconhece o caso e a corrida repete com o histórico CORTADO de forma progressiva (12 → 6 → 3 → 2 mensagens, mantendo o system) sem gastar onda; se ainda não couber, o cliente lê o motivo certo ("a conversa ficou comprida demais… use `limpar conversa`") |
+| **O LLM caía DEPOIS de a ferramenta já ter rodado** — a ação estava feita e o cliente achava que não | o agente responde com o RESULTADO REAL da ferramenta em português (antes isso só valia para a última rodada) |
+
+Também: as ondas da corrida subiram de 2 para 3 (com o mesmo teto de tempo total).
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o
