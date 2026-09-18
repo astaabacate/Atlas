@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "started_at": "2026-09-18T05:28:26+00:00",
-  "finished_at": "2026-09-18T05:28:26.137553+00:00",
+  "started_at": "2026-09-18T05:38:01+00:00",
+  "finished_at": "2026-09-18T05:38:01.289874+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "993f229",
-    "execução": "35310288866",
+    "commit": "3809884",
+    "execução": "35310362333",
     "discord.py": "2.7.1",
     "fases": "static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep",
     "mutações reais": "sim"
@@ -37,7 +37,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "28 assinaturas conferem com os schemas",
-          "ms": 30,
+          "ms": 31,
           "data": {}
         },
         {
@@ -162,7 +162,7 @@
           "name": "set_icon com estilo gera imagem sem rede",
           "status": "PASS",
           "detail": "gerou um PNG 256x256 sem tocar a rede",
-          "ms": 3,
+          "ms": 4,
           "data": {}
         },
         {
@@ -202,7 +202,7 @@
           "name": "permissões: set/clear/sync tocam a API",
           "status": "PASS",
           "detail": "set/clear/sync chamaram a API e show leu as permissões",
-          "ms": 1,
+          "ms": 12,
           "data": {}
         },
         {
@@ -226,7 +226,7 @@
           "name": "conversa isolada por servidor (multi-servidor)",
           "status": "PASS",
           "detail": "conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal)",
-          "ms": 1,
+          "ms": 0,
           "data": {}
         },
         {
@@ -396,7 +396,7 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor kilo (tools nativas: True) → 'pong'",
-          "ms": 7987,
+          "ms": 3008,
           "data": {
             "vencedor": "kilo"
           }
@@ -413,11 +413,11 @@
           "phase": "connect",
           "name": "login e gateway",
           "status": "PASS",
-          "detail": "conectado como Atlas#1985 · gateway em 20ms",
-          "ms": 2803,
+          "detail": "conectado como Atlas#1985 · gateway em 69ms",
+          "ms": 2629,
           "data": {
             "usuario": "Atlas#1985",
-            "latencia_ms": 20,
+            "latencia_ms": 69,
             "servidores": [
               {
                 "nome": "Pinguim",
@@ -432,7 +432,7 @@
           "name": "servidor e autor do teste",
           "status": "PASS",
           "detail": "servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador)",
-          "ms": 111,
+          "ms": 155,
           "data": {}
         }
       ]
@@ -467,7 +467,7 @@
           "name": "hierarquia de cargos",
           "status": "PASS",
           "detail": "cargo do bot na posição 1",
-          "ms": 304,
+          "ms": 270,
           "data": {
             "posicao_cargo_bot": 1,
             "cargos_acima_ou_igual": [
@@ -514,7 +514,7 @@
           "name": "estado local bate com a API",
           "status": "PASS",
           "detail": "cache local bate com a API REST (0 canais, 14 cargos)",
-          "ms": 195,
+          "ms": 240,
           "data": {}
         }
       ]
@@ -552,8 +552,8 @@
           "phase": "tools",
           "name": "show_permissions",
           "status": "PASS",
-          "detail": "O canal <#1550375539460804668> não possui permissões personalizadas configuradas.",
-          "ms": 2001,
+          "detail": "O canal <#1550378066432360488> não possui permissões personalizadas configuradas.",
+          "ms": 1069,
           "data": {}
         },
         {
@@ -569,7 +569,7 @@
           "name": "APIs externas (cores/emojis/tópicos/tradução)",
           "status": "PASS",
           "detail": "5 APIs externas responderam",
-          "ms": 897,
+          "ms": 1275,
           "data": {
             "falhas": []
           }
@@ -583,7 +583,7 @@
           "phase": "agent",
           "name": "prompt → ferramenta → resposta coerente",
           "status": "WARN",
-          "detail": "o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 28, 'ferramentas_chamadas': [], 'chars': 112, 'vencedor': 'kilo'}]) — o provedor gratuito não cooperou nesta rodada ('Cargos do servidor **Pinguim**:\\n\\n- @Cupido\\n- @asta (10 cargos com o mesmo nome)\\n- @Atlas\\n- @iTinder\\n- @@everyo'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "detail": "o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 28, 'ferramentas_chamadas': [], 'chars': 139, 'vencedor': 'kilo'}]) — o provedor gratuito não cooperou nesta rodada ('Cargos existentes no servidor **Pinguim**:\\n\\n- @Cupido\\n- @asta (10 cargos com o mesmo nome, IDs diferentes)\\n- @'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
           "ms": 0,
           "data": {}
         },
@@ -592,7 +592,7 @@
           "name": "fora de escopo é recusado sem executar",
           "status": "PASS",
           "detail": "recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, permissõe'",
-          "ms": 3420,
+          "ms": 6404,
           "data": {
             "tool_calls": []
           }
@@ -602,7 +602,7 @@
           "name": "agente conhece a estrutura real",
           "status": "PASS",
           "detail": "citou itens reais do servidor (🧪-estrutura)",
-          "ms": 25558,
+          "ms": 10820,
           "data": {}
         },
         {
@@ -610,7 +610,7 @@
           "name": "memória do canal entre turnos",
           "status": "PASS",
           "detail": "histórico do canal lembrado entre turnos",
-          "ms": 21621,
+          "ms": 3481,
           "data": {}
         }
       ]
@@ -623,23 +623,23 @@
           "name": "infra: categoria e canais de teste",
           "status": "PASS",
           "detail": "categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
-          "ms": 1039,
+          "ms": 1456,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "create_channels DENTRO de categoria (via ferramenta)",
           "status": "PASS",
-          "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro'])",
-          "ms": 740,
+          "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz'])",
+          "ms": 1242,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "create_channels na RAIZ (via ferramenta)",
           "status": "PASS",
-          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria'])",
-          "ms": 791,
+          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz'])",
+          "ms": 743,
           "data": {}
         },
         {
@@ -647,7 +647,7 @@
           "name": "edit_channel alterou de verdade",
           "status": "PASS",
           "detail": "nome, tópico e slowmode confirmados na API (🧪-renomeado)",
-          "ms": 214,
+          "ms": 263,
           "data": {}
         },
         {
@@ -655,9 +655,9 @@
           "name": "clone_channel clonou de verdade",
           "status": "PASS",
           "detail": "clone 🧪-clone criado com a mesma categoria",
-          "ms": 1263,
+          "ms": 39230,
           "data": {
-            "clone_id": 1550375829375029299
+            "clone_id": 1550378327406022686
           }
         },
         {
@@ -665,7 +665,7 @@
           "name": "move_channel moveu de verdade",
           "status": "PASS",
           "detail": "saiu e voltou de categoria, confirmado pela API",
-          "ms": 604,
+          "ms": 781,
           "data": {}
         },
         {
@@ -681,7 +681,7 @@
           "name": "cargos: criar/editar/atribuir de verdade",
           "status": "PASS",
           "detail": "cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor",
-          "ms": 56128,
+          "ms": 1817,
           "data": {}
         },
         {
@@ -689,7 +689,7 @@
           "name": "permissões de canal confirmadas pela API",
           "status": "PASS",
           "detail": "set, sync, clear e show (com filtro por target) confirmados pela API",
-          "ms": 2078,
+          "ms": 1990,
           "data": {}
         },
         {
@@ -697,7 +697,7 @@
           "name": "import_structure recriou a estrutura",
           "status": "PASS",
           "detail": "import recriou 3 canais e 2 cargo(s)",
-          "ms": 1477,
+          "ms": 2855,
           "data": {
             "canais": 3
           }
@@ -707,7 +707,7 @@
           "name": "fluxo de confirmação em canais reais (modo cauteloso)",
           "status": "PASS",
           "detail": "2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true",
-          "ms": 1554,
+          "ms": 1458,
           "data": {}
         },
         {
@@ -715,7 +715,7 @@
           "name": "exclusão em lote direta em canais reais",
           "status": "PASS",
           "detail": "2 canais reais apagados direto, sem perguntar, com o resultado na resposta",
-          "ms": 54642,
+          "ms": 52449,
           "data": {}
         },
         {
@@ -723,30 +723,30 @@
           "name": "clear_messages apaga mensagens reais do canal",
           "status": "PASS",
           "detail": "apagou 3 mensagem(ns) reais e o canal ficou vazio",
-          "ms": 4905,
+          "ms": 5551,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente apaga canal nominal sem travar",
           "status": "PASS",
-          "detail": "agente apagou o canal nominal direto em 17.0s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)'",
-          "ms": 19071,
+          "detail": "agente apagou o canal nominal direto em 6.7s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)'",
+          "ms": 8077,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente apaga lote direto, sem perguntar (padrão)",
           "status": "PASS",
-          "detail": "apagou os 2 canais direto em 3.7s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído'",
-          "ms": 4214,
+          "detail": "apagou os 2 canais direto em 44.9s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído'",
+          "ms": 45687,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "modo cauteloso pergunta e apaga após 'sim'",
           "status": "WARN",
-          "detail": "não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Erros: kilo: kilo: falha de re'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "detail": "o 'sim' não pôde ser processado — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Os gratuitos compartilham o IP'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
           "ms": 0,
           "data": {}
         },
@@ -754,8 +754,8 @@
           "phase": "mutate",
           "name": "modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)",
           "status": "PASS",
-          "detail": "não conclusivo por causa do LLM gratuito: não deu para conversar: o LLM não respondeu",
-          "ms": 98205,
+          "detail": "não conclusivo por causa do LLM gratuito: o 'sim' não pôde ser processado",
+          "ms": 109792,
           "data": {}
         },
         {
@@ -763,7 +763,7 @@
           "name": "apply_template (--allow-template)",
           "status": "PASS",
           "detail": "template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza)",
-          "ms": 2630,
+          "ms": 3892,
           "data": {
             "canais": 9
           }
@@ -794,7 +794,7 @@
           "name": "infra: categoria e canais da matriz",
           "status": "PASS",
           "detail": "categoria 🧪 caps + 🧪-caps-texto + 🧪-caps-voz prontos (tudo registrado para limpeza)",
-          "ms": 902,
+          "ms": 1245,
           "data": {}
         },
         {
@@ -802,7 +802,7 @@
           "name": "cargos: criar com nome, cor, hoist, mentionable e permissões",
           "status": "PASS",
           "detail": "cargo real com cor 0x5865f2, hoist, mentionable e 3 permissões conferidas na API (posição 1)",
-          "ms": 551,
+          "ms": 800,
           "data": {}
         },
         {
@@ -818,7 +818,7 @@
           "name": "cargos: editar cada propriedade e ver o efeito real",
           "status": "PASS",
           "detail": "não verificável neste servidor: o cargo criado ficou na posição 1: o Discord recusa a edição (recusa conferida como clara, sem alterar nada) (meu cargo mais alto está na posição 1)",
-          "ms": 305,
+          "ms": 527,
           "data": {}
         },
         {
@@ -834,7 +834,7 @@
           "name": "cargos: valores inválidos, @everyone e hierarquia",
           "status": "PASS",
           "detail": "não verificável neste servidor: com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da validação de valor — sem cargo gerenciável não dá para provar valor inválido ao vivo (meu cargo mais alto está na posição 1)",
-          "ms": 103,
+          "ms": 122,
           "data": {}
         },
         {
@@ -850,7 +850,7 @@
           "name": "cargos: dar e tirar de um membro (estado real)",
           "status": "PASS",
           "detail": "não verificável neste servidor: não posso atribuir cargo que ficou na altura do meu topo (meu cargo mais alto está na posição 1)",
-          "ms": 94,
+          "ms": 117,
           "data": {}
         },
         {
@@ -866,7 +866,7 @@
           "name": "canais: todos os tipos suportados (tipo real na API)",
           "status": "PASS",
           "detail": "tipos reais conferidos na API: text→text, voice→voice, category→category, forum→forum",
-          "ms": 1278,
+          "ms": 2609,
           "data": {}
         },
         {
@@ -874,7 +874,7 @@
           "name": "canais: tópico, NSFW, slowmode, bitrate e limite na criação",
           "status": "PASS",
           "detail": "texto: tópico, nsfw, slowmode 30s, categoria · voz: bitrate 96000, limite 4 — tudo conferido na API",
-          "ms": 45825,
+          "ms": 35035,
           "data": {}
         },
         {
@@ -882,7 +882,7 @@
           "name": "canais: editar cada propriedade e ver o efeito real",
           "status": "PASS",
           "detail": "nome; tópico; nsfw+slowmode; categoria (sair e voltar); voz: bitrate 96000, limite 7",
-          "ms": 2209,
+          "ms": 3361,
           "data": {}
         },
         {
@@ -890,7 +890,7 @@
           "name": "canais: mover, clonar e excluir (estado real)",
           "status": "PASS",
           "detail": "mover por categoria e posição, clonar levando tópico+nsfw+slowmode+categoria e apagar só a cópia — tudo conferido na API",
-          "ms": 2814,
+          "ms": 3281,
           "data": {}
         },
         {
@@ -898,7 +898,7 @@
           "name": "canais: valores inválidos e limites (nada é criado por engano)",
           "status": "PASS",
           "detail": "valores inválidos recusados sem criar/alterar nada: não existe, slowmode, bitrate, limite, vazio, slowmode, bitrate, Nenhum parâmetro, negativa",
-          "ms": 218,
+          "ms": 433,
           "data": {}
         },
         {
@@ -906,7 +906,7 @@
           "name": "permissões: allow, deny, conflito, leitura e limpeza",
           "status": "PASS",
           "detail": "allow e deny em português viraram permissões reais (view_channel/send_messages/mention_everyone), conflito recusado e limpeza conferida na API",
-          "ms": 55769,
+          "ms": 54270,
           "data": {}
         },
         {
@@ -914,7 +914,7 @@
           "name": "permissões: sincronizar canal com a categoria",
           "status": "PASS",
           "detail": "permissão da categoria copiada para o canal filho (conferido na API)",
-          "ms": 897,
+          "ms": 919,
           "data": {}
         },
         {
@@ -922,7 +922,7 @@
           "name": "permissões: autor sem permissão é barrado antes da API",
           "status": "PASS",
           "detail": "4 ferramentas recusadas ANTES de tocar no Discord (autor sem permissão) e nenhum objeto criado ou apagado",
-          "ms": 212,
+          "ms": 318,
           "data": {}
         },
         {
@@ -930,7 +930,7 @@
           "name": "estrutura: export guarda as capacidades reais",
           "status": "PASS",
           "detail": "export grande: recorte AVISADO (não serve para importar) e os campos de capacidade (permissões, hoist, mentionable, nsfw, slowmode, bitrate, limite) presentes no JSON",
-          "ms": 208,
+          "ms": 489,
           "data": {}
         },
         {
@@ -938,7 +938,7 @@
           "name": "estrutura: import recria com os mesmos campos (round-trip)",
           "status": "PASS",
           "detail": "import recriou cargo (cor, hoist, mentionable, permissões) e canais (tópico, nsfw, slowmode, bitrate, limite, categoria e sem categoria) — conferido na API · '✅ Estrutura importada: 1 cargo(s) e 3 canal(is) recriados com tipo, tópico, nsfw, slowmode, bitrate,'",
-          "ms": 1763,
+          "ms": 2722,
           "data": {}
         },
         {
@@ -946,7 +946,7 @@
           "name": "repetição: mesma ordem várias vezes não quebra nem duplica efeito",
           "status": "PASS",
           "detail": "3 canais iguais criados e editados em sequência, todos com o estado esperado",
-          "ms": 58710,
+          "ms": 56403,
           "data": {}
         },
         {
@@ -966,8 +966,8 @@
           "phase": "botloop",
           "name": "canal temporário de teste",
           "status": "PASS",
-          "detail": "canal temporário 🧪-loop-do-bot (1550377666996342785) criado",
-          "ms": 597,
+          "detail": "canal temporário 🧪-loop-do-bot (1550380282035838988) criado",
+          "ms": 786,
           "data": {}
         },
         {
@@ -998,8 +998,8 @@
           "phase": "botloop",
           "name": "menção dispara o agente e responde",
           "status": "PASS",
-          "detail": "on_message → agente → resposta real no canal: '**Pinguim**'",
-          "ms": 2859,
+          "detail": "on_message → agente → resposta real no canal: 'O servidor se chama **Pinguim**.'",
+          "ms": 3237,
           "data": {}
         },
         {
@@ -1007,7 +1007,7 @@
           "name": "reações de feedback 👀→✅",
           "status": "PASS",
           "detail": "reações corretas no Discord real: ['✅']",
-          "ms": 104,
+          "ms": 202,
           "data": {
             "reacoes": [
               "✅"
@@ -1019,7 +1019,7 @@
           "name": "ferramenta real acionada por mensagem",
           "status": "PASS",
           "detail": "o bot criou de verdade: ['🧪-via-bot']",
-          "ms": 55443,
+          "ms": 5189,
           "data": {}
         }
       ]
