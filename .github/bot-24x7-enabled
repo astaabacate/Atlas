@@ -192,3 +192,13 @@ dentro do `env:` do passo "Executar bot" e entrou um teste que parseia TODOS os 
 (tests/test_workflows.py), então uma indentação errada nunca mais passa pela CI em silêncio.
 Esta fatia leva a cara nova (Components V2 com a cor medida do avatar), o bug do canal da
 conversa ("apague todos menos esse") e a correção da cor medida.
+
+
+RESTART PEDIDO EM 2026-09-18T20:20Z
+-------------------------------
+Motivo: substituir a fatia ainda pendente por esta, que leva MAIS uma correção da cara: a cor do
+avatar passa a ser remedida quando o dono troca a foto com o bot no ar (o endereço do avatar muda
+e a resposta seguinte já sai na cor nova, sem reiniciar) e uma leitura que falhou (CDN fora) tenta
+de novo na mensagem seguinte em vez de ficar presa na cor de reserva. Se quiser que ele assuma
+AGORA, cancele a execução em andamento na aba Actions; senão ele entra sozinho quando a fatia
+atual terminar.
