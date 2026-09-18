@@ -2,12 +2,12 @@
 
 ## Servidor Pinguim (`1546763083005825084`)
 
-- Meu cargo mais alto: **Atlas** (`1550240596134731888`) na **posição 26** de 27 cargo(s).
+- Meu cargo mais alto: **Atlas** (`1550240596134731888`) na **posição 27** de 27 cargo(s).
 - Permissões medidas na API: `8` (Gerenciar Cargos: **sim**, Administrator).
 
 | Posição | Cargo | ID | Gerenciado | Situação para o bot |
 | --- | --- | --- | --- | --- |
-| 26 | Atlas | `1550240596134731888` | sim | MESMA posição do meu cargo |
+| 27 | Atlas | `1550240596134731888` | sim | MESMA posição do meu cargo |
 | 25 | Cupido | `1546763266657751103` | sim | abaixo do meu cargo |
 | 24 | iTinder | `1549340321685569577` | sim | abaixo do meu cargo |
 | 23 | asta | `1550337302335721493` |  | abaixo do meu cargo |
@@ -37,10 +37,10 @@
 
 ### Experimento cru (sem passar pelo produto)
 
-- Criei **🧪 sonda-hierarquia-1789759231** (`1550587344472776856`) → o Discord colocou na **posição 1** (meu cargo está na 26).
-- ✏️ **RENOMEAR: o Discord ACEITOU** mesmo na mesma posição.
+- Criei **🧪 sonda-hierarquia-1789759392** (`1550588018606346332`) → o Discord colocou na **posição 1** (meu cargo está na 27).
+- ✏️ Renomear o cargo recém-criado: o Discord **ACEITOU**.
 - ✏️ Renomear ABAIXO do meu topo: o Discord **ACEITOU**.
-- ⬆️ Movi o cargo de teste para a posição 26 (a MESMA do meu topo).
+- ⬆️ Pedi para mover o cargo de teste para a posição 27 (a MESMA do meu topo) e conferi na API: o Discord na verdade colocou na posição 26.
 - ✏️ **EMPATE: RENOMEAR foi ACEITO** — o Discord não recusa por posição igual; quem recusava era o NOSSO gate.
 - 🗑️ **EMPATE: APAGAR foi ACEITO** — a regra é estritamente ABAIXO; cargo empatado é apagável, sim.
 
