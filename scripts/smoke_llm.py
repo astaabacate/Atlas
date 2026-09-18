@@ -690,8 +690,14 @@ def escrever_relatorio_latencia(historico: dict[str, Any],
         "| modelo | resposta com conteúdo | mediana | amostras |",
         "|---|---|---:|---:|",
     ]
-    ordenado = sorted(resumo.items(), key=lambda kv: (kv[1]["taxa_conteudo"] < 0.5, kv[1]["ms"],
-                                                      -kv[1]["taxa_conteudo"]))
+    # modelos sem mediana (nunca responderam com conteúdo) vão para o fim SEM virar None no
+    # meio da comparação: comparar None com float levantava TypeError e derrubava a sonda
+    # inteira (aconteceu na rodada de 18/09 — vários modelos com 0% de conteúdo).
+    ordenado = sorted(resumo.items(),
+                      key=lambda kv: (kv[1]["taxa_conteudo"] < 0.5,
+                                      kv[1]["ms"] is None,
+                                      kv[1]["ms"] if kv[1]["ms"] is not None else 0.0,
+                                      -kv[1]["taxa_conteudo"]))
     for modelo, info in ordenado:
         ms_txt = f"{info['ms'] / 1000:.2f}s" if info["ms"] is not None else "-"
         linhas.append(f"| `{modelo}` | {info['taxa_conteudo'] * 100:.0f}% "
@@ -863,7 +869,12 @@ async def run(timeout: float, concurrency: int, out: str = "") -> int:
     relatorio.print()
     relatorio.print("| modelo | resultado | latência |")
     relatorio.print("|---|---|---:|")
-    medidas = await medir_latencia_modelos(timeout, secrets)
+    try:
+        medidas = await medir_latencia_modelos(timeout, secrets)
+    except Exception as exc:  # noqa: BLE001
+        medidas = []
+        relatorio.print(f"_(medição de latência falhou nesta rodada: "
+                        f"{type(exc).__name__}: {compact_error_text(redact(str(exc), secrets), 120)})_")
     for modelo, resultado, ms in sorted(medidas, key=lambda m: m[2]):
         relatorio.print(f"| `{modelo}` | {resultado} | {ms / 1000:.2f}s |")
 

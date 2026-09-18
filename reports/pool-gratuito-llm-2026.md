@@ -189,15 +189,27 @@ Correção (dado, não sorte):
   conteúdo** vem antes de quem nunca devolveu; (2) o primeiro da fila precisa ter ≥ 50% de
   conteúdo e mediana < 5 s; (3) `kilo-auto` por último (é o que mais devolve vazio).
 
-| posição | modelo | taxa com conteúdo | mediana |
+| posição | modelo | escrita com conteúdo | mediana |
 |---:|---|---:|---:|
-| 1 | `nex-agi/nex-n2.5-pro:free` | 100% (2/2) | 2,23 s |
-| 2 | `nvidia/nemotron-3-super-120b-a12b:free` | 50% (1/2) | 1,89 s |
-| 3 | `dots-studio/dots-3-note-preview:free` | 50% (1/2) | 1,18 s |
-| 4 | `nvidia/nemotron-3.5-lightning:free` | 100% (2/2) | 3,10 s |
-| 5 | `nvidia/nemotron-3-ultra-550b-a55b:free` | 100% (2/2) | 6,66 s |
-| 6-11 | step, inkling, qwen, laguna, north-mini-code, lfm | 0% (0/2) | — |
-| 12 | `kilo-auto/free` | 0% (0/2) | — |
+| 1 | `nex-agi/nex-n2.5-pro:free` | 100% (3/3) | 0,78 s |
+| 2 | `nvidia/nemotron-3-ultra-550b-a55b:free` | 100% (3/3) | 1,30 s |
+| 3 | `dots-studio/dots-3-note-preview:free` | 67% (2/3) | 1,81 s |
+| 4 | `nvidia/nemotron-3-super-120b-a12b:free` | 67% (2/3) | 1,89 s |
+| 5 | `nvidia/nemotron-3.5-lightning:free` | 100% (3/3) | 2,15 s |
+| 6 | `liquid/lfm-2.5-2.6b:free` | 33% (1/3) | 0,57 s |
+| 7 | `stepfun/step-3.7-flash:free` | 33% (1/3) | 2,21 s |
+| 8-11 | inkling-small, qwen3.8-27b, laguna-s-2.1, north-mini-code | 0% (0/3) | — |
+| 12 | `kilo-auto/free` | último por regra (roteador) | — |
+
+(Agregado da rodada `03:16Z`, que já mede **3 amostras por modelo**; a mediana usa só as
+amostras em que o modelo respondeu com conteúdo, e empate de contagem fica com a mais lenta.)
+
+Achado no caminho: a primeira versão dessa ordenação levantava `TypeError` quando **dois ou mais**
+modelos ficavam sem mediana (`None` comparado com `float`) — foi o que derrubou a sonda de
+`03:16Z`: o histórico era gravado, o relatório não, e o passo saía vermelho apesar de 1/1
+provedor ter respondido. Corrigido com chave de ordenação que manda os sem-mediana para o fim,
+mais uma guarda para a medição de latência nunca derrubar o relatório da sonda (é evidência
+secundária). Regressão coberta por teste.
 
 Efeito no E2E: com o **único** corredor sem chave caindo (NVIDIA devolveu erro de upstream na
 rodada de 18/09), a corrida de LLMs e a checagem "agente conhece a estrutura real" saíam como

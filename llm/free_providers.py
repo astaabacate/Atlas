@@ -520,25 +520,30 @@ FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
         # ORDEM = MEDIÇÃO, não chute: o smoke mede cada modelo 3× por rodada e guarda o
         # histórico em reports/kilo-latencia-historico.json; a mediana agregada (e a taxa de
         # resposta com conteúdo) está em reports/kilo-latencia-modelos.md. Critério:
-        #   1) quem JÁ devolveu conteúdo vem na frente de quem nunca devolveu (0%);
-        #   2) entre esses, mediana de latência crescente;
+        #   1) grupo A (≥50% das rodadas com conteúdo) antes do grupo B (às vezes responde)
+        #      e dos que nunca responderam (0%);
+        #   2) dentro do grupo, mediana de latência crescente;
         #   3) empate técnico → o de maior contexto;
-        #   4) o roteador `kilo-auto` fica por último (é o que mais devolve vazio).
+        #   4) o roteador `kilo-auto` fica por último (é o que mais devolve vazio; só existe
+        #      para o caso de todos os nomeados falharem).
         # O bot usa o primeiro que responder, então rapidez percebida > contexto gigante.
+        # Números do agregado de 18/09 (3 rodadas, 3 amostras por rodada):
         modelos=(
-            "nex-agi/nex-n2.5-pro:free",                  # 2,23 s · 100% com conteúdo · 262K
-            "nvidia/nemotron-3-super-120b-a12b:free",     # 1,89 s ·  50% com conteúdo · 262K
-            "dots-studio/dots-3-note-preview:free",       # 1,18 s ·  50% com conteúdo · 512K
-            "nvidia/nemotron-3.5-lightning:free",         # 3,10 s · 100% com conteúdo · 1M
-            "nvidia/nemotron-3-ultra-550b-a55b:free",     # 6,66 s · 100% com conteúdo · 1M
+            "nex-agi/nex-n2.5-pro:free",                  # 100% · 0,78 s · 262K
+            "nvidia/nemotron-3-ultra-550b-a55b:free",     # 100% · 1,30 s · 1M
+            "dots-studio/dots-3-note-preview:free",       #  67% · 1,81 s · 512K
+            "nvidia/nemotron-3-super-120b-a12b:free",     #  67% · 1,89 s · 262K
+            "nvidia/nemotron-3.5-lightning:free",         # 100% · 2,15 s · 1M
+            # -- grupo B: responderam com conteúdo em pelo menos uma rodada, mas não são
+            #    confiáveis ainda; disputam a fila quando os de cima falham.
+            "liquid/lfm-2.5-2.6b:free",                   #  33% · 0,57 s · 65.536 (emergência)
+            "stepfun/step-3.7-flash:free",                #  33% · 2,21 s · 262K
             # -- reservas: ainda não devolveram conteúdo nas rodadas medidas, mas continuam
-            #    na fila (disputam quando os de cima falham) e podem subir no próximo smoke.
-            "stepfun/step-3.7-flash:free",                # 262.144
+            #    na fila e podem subir no próximo smoke.
             "thinkingmachines/inkling-small:free",        # 1.048.576
             "qwen/qwen3.8-27b:free",                      # 262.144
             "poolside/laguna-s-2.1:free",                 # 262.144
             "cohere/north-mini-code:free",                # 256.000
-            "liquid/lfm-2.5-2.6b:free",                   # 65.536 (emergência)
             "kilo-auto/free",                             # roteador do gateway (por último)
         ),
         headers=(("Authorization", "Bearer anonymous"),),

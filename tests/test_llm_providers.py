@@ -689,7 +689,9 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
         if not self.HISTORICO_LATENCIA.exists():
             self.skipTest("sem histórico de medição: só os invariantes estruturais valem")
         resumo = self._resumo_do_historico()
-        conhecidos = [m for m in ficha.modelos if m in resumo]
+        # o roteador `kilo-auto` tem regra própria (sempre o último), então não entra na
+        # comparação de grupos: ele responde de vez em quando, mas não é modelo de trabalho.
+        conhecidos = [m for m in ficha.modelos if m in resumo and m != "kilo-auto/free"]
         com_conteudo = [m for m in conhecidos if resumo[m]["com_conteudo"] > 0]
         if len(com_conteudo) < 3:
             self.skipTest(f"histórico curto: só {len(com_conteudo)} modelo(s) com conteúdo medido")
@@ -779,6 +781,40 @@ class TestHistoricoDeLatencia(unittest.TestCase):
         self.assertIn("`b:free` | 50% (1/2)", texto)
         # quem nunca devolveu conteúdo aparece sem mediana, e não inventa número
         self.assertIn("`c:free` | 0% (0/2) | - |", texto)
+
+    def test_varios_modelos_sem_conteudo_nao_quebram_o_relatorio(self) -> None:
+        """Regressão da rodada de 18/09: comparar None com float derrubava a sonda inteira.
+
+        Naquela rodada a maioria dos modelos devolveu 429/vazio, e a ordenação do agregado
+        (que precisa mandar os sem-mediana para o fim) estourava TypeError — o relatório de
+        latência não era escrito e o passo da sonda saía vermelho sem motivo.
+        """
+        import os
+        import tempfile
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        from smoke_llm import escrever_relatorio_latencia  # noqa: PLC0415
+
+        historico = {"rodadas": [{"em": "2026-09-18T03:16:31Z", "modelos": {
+            "bom:free": {"resultado": "200", "ms_mediana": 900, "amostras": [["200", 900]]},
+            "vazio1:free": {"resultado": "200 vazio", "ms_mediana": 400, "amostras": [["200 vazio", 400]]},
+            "vazio2:free": {"resultado": "HTTP 429", "ms_mediana": 500, "amostras": [["HTTP 429", 500]]},
+            "vazio3:free": {"resultado": "200 vazio", "ms_mediana": 600, "amostras": [["200 vazio", 600]]},
+        }}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(Path(tmp) / "reports", exist_ok=True)
+            anterior = os.getcwd()
+            os.chdir(tmp)
+            try:
+                escrever_relatorio_latencia(
+                    historico, [("bom:free", "200", 900.0), ("vazio1:free", "200 vazio", 400.0)])
+                texto = (Path(tmp) / "reports" / "kilo-latencia-modelos.md").read_text(encoding="utf-8")
+            finally:
+                os.chdir(anterior)
+
+        linhas = [ln for ln in texto.splitlines() if ln.startswith("| `")]
+        self.assertTrue(linhas[0].startswith("| `bom:free`"), f"o que respondeu tem que vir primeiro: {linhas[0]}")
+        self.assertIn("- |", linhas[1], f"quem não tem mediana aparece sem número: {linhas[1]}")
 
     def test_historico_guarda_no_maximo_30_rodadas(self) -> None:
         import os
