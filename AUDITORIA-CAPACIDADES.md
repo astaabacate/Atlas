@@ -397,3 +397,35 @@ a sonda imprime o número cru das permissões medidas e considera Administrator.
 
 Regressões acrescentadas: `test_empate_apagar_aceito_prova_que_a_regra_nao_bloqueia_posicao_igual`,
 `test_empate_recusado_cai_para_mover_e_apagar` e `test_permissao_conta_administrator`.
+
+### Rodada 12 (18/09): "apague todos os canais menos esse" apagou o canal da conversa + a cara nova
+
+**Bug ao vivo (do dono).** O pedido dizia "apague todos os canais MENOS ESSE" e o bot apagou todos,
+inclusive o canal onde a conversa estava acontecendo — o oposto do pedido, e a resposta não teria
+nem onde aparecer. Causa: o modelo monta a lista de canais a partir do snapshot e incluiu o canal
+atual; nada no produto impedia isso.
+
+| Antes | Agora |
+| --- | --- |
+| o canal da conversa entrava na lista e era apagado junto | ele é retirado da lista antes de qualquer chamada ao Discord, e a resposta avisa: "Mantive <#canal> fora da lista: é aqui que estamos conversando (\"menos esse\")" |
+| pedir só o canal atual tentava apagar | recusa com o motivo e o caminho alternativo: `clear_messages` limpa as MENSAGENS daqui sem sumir com o canal |
+| a regra só existia na cabeça de quem escrevia o prompt | regra 4.0 no prompt do sistema + descrição da ferramenta + checagem offline e checagem AO VIVO na matriz |
+
+**A cara das respostas (pedido do dono).** "Queria que ele respondesse em embed naquele componente
+V2... não sei qual cor vou usar, queria uma que combinasse com a foto dele."
+
+* a resposta agora sai em **Components V2**: um container com cor de destaque, texto organizado e o
+  avatar do farol como miniatura (`core/look.py`, `montar_view`);
+* **a cor é MEDIDA do avatar**, não chutada: o PNG do avatar é baixado e decodificado sem biblioteca
+  externa (zlib + filtros do formato, stdlib pura) e a cor escolhida é a média das cores vivas
+  (branco/preto/cinza de fundo ficam de fora);
+* dá para fixar uma cor sem tocar no código: variável `ACCENT_COLOR=#5865F2`; `MENSAGEM_V2=false`
+  volta para o texto simples;
+* **nada disso pode custar a resposta**: qualquer falha (avatar exótico, API recusando a mensagem V2,
+  texto acima do limite) cai no envio em texto normal.
+
+Regressões novas: `tests/test_look.py` (23 testes — PNG RGB/RGBA com os 5 filtros, cor viva que ganha
+do fundo branco, cinza que cai na média, PNG inválido → cor de reserva, container com a cor medida,
+miniatura quando há avatar, limites de texto, configuração `ACCENT_COLOR`/`MENSAGEM_V2`) e mais
+4 testes de proteção do canal da conversa (`tests/test_confirmation.py`), que também tiveram os
+lotes de teste movidos para um canal separado — exatamente como deve ser no Discord real.

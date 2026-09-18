@@ -14,6 +14,19 @@ class ConfigError(Exception):
     pass
 
 
+def _parse_cor(value: str | None) -> int | None:
+    """Cor de destaque: aceita #RRGGBB, RRGGBB, 0xRRGGBB. Vazio ou 'auto' = medir do avatar."""
+    v = (value or "").strip().lower()
+    if not v or v in ("auto", "avatar", "automatico", "automático"):
+        return None
+    v = v.lstrip("#").removeprefix("0x")
+    try:
+        cor = int(v, 16)
+    except ValueError:
+        return None
+    return cor if 0 <= cor <= 0xFFFFFF else None
+
+
 def _parse_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
@@ -68,6 +81,10 @@ class Config:
     members_intent: bool = False
     message_content_intent: bool = False
     github_token: str = ""
+    # Cara das respostas: mensagem em Components V2 (organizada) com a cor do farol.
+    # ACCENT_COLOR vazio/"auto" = a cor é MEDIDA do avatar do bot; ou um hex (#5865F2).
+    accent_color: int | None = None
+    mensagem_v2: bool = True
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Config:
@@ -157,6 +174,8 @@ class Config:
         members_intent = _parse_bool(src.get("MEMBERS_INTENT"))
         message_content_intent = _parse_bool(src.get("MESSAGE_CONTENT_INTENT"))
         github_token = src.get("GITHUB_TOKEN", "").strip()
+        accent_color = _parse_cor(src.get("ACCENT_COLOR"))
+        mensagem_v2 = _parse_bool(src.get("MENSAGEM_V2", "true"), default=True)
 
         return cls(
             discord_token=raw_token,
@@ -182,4 +201,6 @@ class Config:
             members_intent=members_intent,
             message_content_intent=message_content_intent,
             github_token=github_token,
+            accent_color=accent_color,
+            mensagem_v2=mensagem_v2,
         )

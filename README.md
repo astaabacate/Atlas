@@ -66,14 +66,23 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 
 ### Passo 3: ⚠️ A REGRA DE OURO — A Hierarquia de Cargos no Servidor Discord
 
-> **A armadilha mais comum:** Mesmo que o bot tenha a permissão de "Administrador" ou "Gerenciar Cargos", a API do Discord **impede** qualquer usuário ou bot de modificar, atribuir ou excluir um cargo que esteja **acima ou na mesma posição** do cargo mais alto do bot.
+> **A armadilha mais comum:** Mesmo que o bot tenha a permissão de "Administrador" ou "Gerenciar Cargos", a API do Discord **impede** qualquer usuário ou bot de modificar, atribuir ou excluir um cargo que **não esteja estritamente abaixo** do cargo mais alto do bot. Cargo na MESMA posição também não vale — e o cargo de um bot nasce sempre no fundo da lista quando ele entra no servidor.
 
-**Como arrumar:**
-1. No seu servidor Discord, clique com o botão direito no ícone do servidor → **Configurações do Servidor** → **Cargos**.
-2. Encontre o cargo do **farol** (geralmente criado com o mesmo nome do bot).
-3. **Clique e arraste o cargo do farol para o topo da lista de cargos**, deixando-o abaixo apenas do cargo pessoal do Dono do Servidor.
-4. Salve as alterações.
-5. Agora o Farol conseguirá criar, colorir, dar, tirar e organizar todos os cargos abaixo dele sem nenhuma restrição!
+**Como arrumar (2 minutos):**
+1. No seu servidor Discord, abra **Configurações do Servidor** → **Cargos**.
+2. Encontre o cargo do **farol** (o mesmo nome do bot; é o que ele usa para falar).
+3. **Arraste o cargo do farol para cima** dos cargos que ele deve gerenciar.
+
+⚠️ **A direção da lista depende do aparelho** (isso confunde muita gente — e já confundiu o dono deste projeto):
+
+| Onde você está | Como a lista aparece | Para onde arrastar o farol |
+| --- | --- | --- |
+| **PC** (app ou navegador) | o cargo **mais forte** fica no **topo**, e o `@everyone` no **fim** | para **CIMA** |
+| **Celular** (Android/iOS) | a lista é **invertida**: o `@everyone` aparece **primeiro** e o mais forte no **fim** | para **BAIXO** (para o fim da lista) |
+
+> Se você está no celular e viu o `@everyone` no topo da lista, é essa tela invertida: ali o cargo que aparece em 3º lugar é o 3º **mais fraco**, não o 3º mais forte.
+4. Não existe botão de salvar: o Discord grava a nova ordem na hora.
+5. Pronto — o farol passa a criar, colorir, dar, tirar e apagar os cargos abaixo dele. Para conferir, peça "liste os cargos": os que estiverem **abaixo** do cargo dele são gerenciáveis.
 
 ---
 
@@ -88,29 +97,46 @@ O Farol possui uma **política de segurança de mão dupla** (`brain/policy.py`)
 | Cargos (criar, editar, excluir, dar, tirar, permissões) | `Gerenciar cargos` (`manage_roles`) |
 | Servidor (editar nome, alterar ícone, exportar estrutura) | `Gerenciar servidor` (`manage_guild`) |
 | Modelos (`apply_template`) e Backups (`import_structure`) | `Gerenciar canais` + `Gerenciar cargos` |
+
+---
+
+### Passo 4.1: A cara das respostas (`ACCENT_COLOR` e `MENSAGEM_V2`)
+
+O farol responde em **Components V2**: um container com a cor de destaque, que organiza o texto
+e mostra o avatar dele ao lado — em vez de um textão solto.
+
+* **`ACCENT_COLOR`** (variável de repositório / ambiente): vazio ou `auto` faz o farol **medir a
+  cor do próprio avatar** e usá-la (é o padrão — nada a configurar). Para fixar uma cor, use
+  `ACCENT_COLOR=#5865F2`.
+* **`MENSAGEM_V2`** (padrão `true`): `false` volta para o texto simples. Serve de plano B se
+  algum dia o Discord mudar o formato das mensagens V2.
+* Seja qual for a configuração, o envio em texto continua funcionando: a aparência **nunca**
+  impede a resposta de sair.
 | Consultas públicas (listar cargos, ver permissões, info, cores, emojis, tradução) | *Nenhuma (Livre para todos os membros)* |
 
 *Nota:* Administradores do servidor possuem bypass natural em suas próprias checagens, mas o Farol **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
 
 ---
 
-## ⚡ 3. As 27 Ferramentas do Farol
+## ⚡ 3. As 31 Ferramentas do Farol
 
-O Farol inclui 27 ferramentas com validação estrita de schemas e executores:
+O Farol inclui 31 ferramentas com validação estrita de schemas e executores:
 
 - **Canais (5):** `create_channels`, `edit_channel`, `delete_channels`, `move_channel`, `clone_channel`
-- **Cargos (6):** `create_roles`, `edit_role`, `delete_role`, `give_role`, `take_role`, `list_roles`
+- **Cargos (7):** `create_roles`, `edit_role`, `delete_role`, `delete_roles` (lote), `give_role`, `take_role`, `list_roles`
 - **Permissões (4):** `set_permissions`, `clear_permissions`, `sync_permissions`, `show_permissions`
 - **Servidor (3):** `edit_server`, `server_info`, `set_icon`
 - **Modelos Prontos (1):** `apply_template` (opções: `gamer`, `estudos`, `comunidade`)
 - **Backups (2):** `export_structure` (exporta JSON estruturado), `import_structure` (lê de texto ou anexo de arquivo)
 - **Utilidades Externas (5):** `color_palette`, `color_name`, `emoji_search`, `topic_suggest`, `translate_text`
-- **Sessão (1):** `conversation_clear` (limpa o histórico da memória deste canal)
+- **Sessão (4):** `conversation_clear` (limpa a memória do canal), `clear_messages` (apaga as mensagens),
+  `performance_report` ("quanto tempo você está levando?") e `diagnostic_report` (manda por DM um arquivo com a conversa + tempos)
 
 ### Confirmação Inteligente de Ações Destrutivas
 - **Exclusão de 1 canal nominal:** O usuário disse explicitamente `@farol apaga o canal #teste` → **Executa imediatamente** sem travar o fluxo.
 - **Exclusão em massa (2+ canais ou categoria inteira):** O bot calcula o dano, interrompe e avisa: *"Isso apaga 8 canais de **antiga** — posso confirmar?"*. Ao receber "sim" ou "confirmo", executa na mesma rodada.
 - **Exclusão de cargo:** Sempre solicita confirmação prévia para evitar perda acidental de permissões.
+- **O canal da conversa NUNCA é apagado:** se o pedido for "apague todos os canais menos esse" e a lista vier com o canal atual dentro, o farol tira ele da lista e avisa ("Mantive <#canal> fora da lista: é aqui que estamos conversando"). Pedir só esse canal é recusado, explicando o motivo e o caminho alternativo (`clear_messages`, para apagar as mensagens daqui).
 
 ---
 

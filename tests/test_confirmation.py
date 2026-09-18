@@ -22,6 +22,13 @@ class TestConfirmation(unittest.TestCase):
         self.actor = SimpleNamespace(id=1, guild_permissions=self.actor_perms)
         self.bot_member = SimpleNamespace(id=2, guild_permissions=self.bot_perms, top_role=SimpleNamespace(position=100))
 
+    def _conversa(self, *canais: SimpleNamespace, atual: SimpleNamespace | None = None,
+                  cauteloso: bool = False, categorias: list | None = None) -> ToolContext:
+        guild = SimpleNamespace(channels=list(canais), categories=categorias or [],
+                                me=self.bot_member, owner_id=1)
+        return ToolContext(guild=guild, channel=atual if atual is not None else canais[0],
+                           actor=self.actor, confirm_destructive=cauteloso)
+
     def test_single_nominal_channel_deletes_without_confirmation(self) -> None:
         deleted = False
 
@@ -29,17 +36,51 @@ class TestConfirmation(unittest.TestCase):
             nonlocal deleted
             deleted = True
 
-        ch = SimpleNamespace(id=101, name="canal-teste", delete=fake_delete, channels=None)
-        guild = SimpleNamespace(channels=[ch], categories=[], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=ch, actor=self.actor)
+        alvo = SimpleNamespace(id=101, name="canal-teste", delete=fake_delete, channels=None)
+        conversa = SimpleNamespace(id=100, name="geral", delete=lambda: None, channels=None)
+        ctx = self._conversa(conversa, alvo, atual=conversa)
 
         # confirmed=False (padrão)
         res = asyncio.run(op_delete_channels(ctx, ["canal-teste"], confirmed=False))
         self.assertTrue(deleted, "Canal único nominal deve ser excluído sem pedir confirmação")
         self.assertIn("Exclusão concluída", res)
 
+    def test_nunca_apaga_o_canal_onde_esta_a_conversa(self) -> None:
+        """Bug ao vivo (18/09): "apague todos os canais menos esse" apagou o canal da conversa."""
+        apagados: list[str] = []
+
+        def canal(cid: int, nome: str) -> SimpleNamespace:
+            ch = SimpleNamespace(id=cid, name=nome, channels=None)
+
+            async def delete(_n=nome):
+                apagados.append(_n)
+
+            ch.delete = delete
+            return ch
+
+        conversa = canal(100, "geral")
+        outro = canal(101, "off-topic")
+        ctx = self._conversa(conversa, outro, atual=conversa)
+
+        res = asyncio.run(op_delete_channels(ctx, ["geral", "off-topic"], confirmed=False))
+
+        self.assertEqual(apagados, ["off-topic"], "o canal da conversa nunca pode ser apagado")
+        self.assertIn("Mantive <#100> fora da lista", res)
+        self.assertIn("menos esse", res)
+
+    def test_pedido_para_apagar_so_o_canal_atual_recusa_com_motivo(self) -> None:
+        conversa = SimpleNamespace(id=100, name="geral", delete=lambda: None, channels=None)
+        ctx = self._conversa(conversa, atual=conversa)
+
+        with self.assertRaises(ToolError) as err_ctx:
+            asyncio.run(op_delete_channels(ctx, ["geral"], confirmed=False))
+
+        msg = str(err_ctx.exception)
+        self.assertIn("Não vou apagar o canal onde estamos conversando", msg)
+        self.assertIn("clear_messages", msg)
+
     def test_modo_direto_apaga_lote_e_categoria_sem_perguntar(self) -> None:
-        """Padrão: 'apague todos e deixe só esse' executa na hora."""
+        """Padrão: 'apague todos os canais MENOS esse' executa na hora (menos o da conversa)."""
         apagados: list[str] = []
 
         def canal(cid: int, nome: str) -> SimpleNamespace:
@@ -50,18 +91,18 @@ class TestConfirmation(unittest.TestCase):
             return ch
 
         c1, c2, c3 = canal(101, "canal-1"), canal(102, "canal-2"), canal(103, "canal-3")
-        guild = SimpleNamespace(channels=[c1, c2, c3], categories=[], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=c1, actor=self.actor)  # confirm_destructive=False
+        ctx = self._conversa(c1, c2, c3, atual=c1)  # confirm_destructive=False
 
         res = asyncio.run(op_delete_channels(ctx, ["canal-1", "canal-2"], confirmed=False))
-        self.assertEqual(sorted(apagados), ["canal-1", "canal-2"], "sem perguntar, apagando de verdade")
+        self.assertEqual(apagados, ["canal-2"], "apaga de verdade, mas nunca o canal da conversa")
         self.assertIn("Exclusão concluída", res)
+        self.assertIn("Mantive <#101>", res)
 
     def test_modo_cauteloso_ainda_pergunta(self) -> None:
+        conversa = SimpleNamespace(id=100, name="geral", delete=lambda: None, channels=None)
         ch1 = SimpleNamespace(id=101, name="canal-1", delete=lambda: None, channels=None)
         ch2 = SimpleNamespace(id=102, name="canal-2", delete=lambda: None, channels=None)
-        guild = SimpleNamespace(channels=[ch1, ch2], categories=[], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=ch1, actor=self.actor, confirm_destructive=True)
+        ctx = self._conversa(conversa, ch1, ch2, atual=conversa, cauteloso=True)
 
         # confirmed=False deve levantar ToolError pedindo confirmação
         with self.assertRaises(ToolError) as err_ctx:
@@ -78,10 +119,10 @@ class TestConfirmation(unittest.TestCase):
             nonlocal deleted_count
             deleted_count += 1
 
+        conversa = SimpleNamespace(id=100, name="geral", delete=fake_delete, channels=None)
         ch1 = SimpleNamespace(id=101, name="canal-1", delete=fake_delete, channels=None)
         ch2 = SimpleNamespace(id=102, name="canal-2", delete=fake_delete, channels=None)
-        guild = SimpleNamespace(channels=[ch1, ch2], categories=[], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=ch1, actor=self.actor)
+        ctx = self._conversa(conversa, ch1, ch2, atual=conversa)
 
         res = asyncio.run(op_delete_channels(ctx, ["canal-1", "canal-2"], confirmed=True))
         self.assertEqual(deleted_count, 2)
@@ -89,9 +130,9 @@ class TestConfirmation(unittest.TestCase):
 
     def test_category_requires_confirmation_no_modo_cauteloso(self) -> None:
         sub_ch = SimpleNamespace(id=101, name="sub", delete=lambda: None)
+        conversa = SimpleNamespace(id=100, name="geral", delete=lambda: None, channels=None)
         category = SimpleNamespace(id=200, name="Categoria Velha", delete=lambda: None, channels=[sub_ch])
-        guild = SimpleNamespace(channels=[sub_ch], categories=[category], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=sub_ch, actor=self.actor, confirm_destructive=True)
+        ctx = self._conversa(conversa, sub_ch, atual=conversa, cauteloso=True, categorias=[category])
 
         with self.assertRaises(ToolError) as err_ctx:
             asyncio.run(op_delete_channels(ctx, ["Categoria Velha"], confirmed=False))

@@ -142,26 +142,28 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
             ch.delete = delete
             return ch
 
-        servidor_a.channels = [canal_apagavel(8001, "a-1"), canal_apagavel(8003, "a-2")]  # lote do servidor A
-        servidor_b.channels = [canal_apagavel(8002, "b-1"), canal_apagavel(8004, "b-2")]  # lote do servidor B
+        # A conversa acontece em canal_a/canal_b (8001/8002): o lote que o bot apaga é o resto
+        servidor_a.channels = [canal_a, canal_apagavel(8003, "a-2"), canal_apagavel(8005, "a-3")]
+        servidor_b.channels = [canal_b, canal_apagavel(8004, "b-2"), canal_apagavel(8006, "b-3")]
         for servidor in (servidor_a, servidor_b):
             servidor.get_channel = lambda cid, s=servidor: next((c for c in s.channels if c.id == cid), None)
 
         # servidor A pede um lote e o bot pergunta (fica pendente)
         agente = Agent(confirm_destructive=True, llm_provider=FakeLLM([
             LLMResponse(content="", tool_calls=[ToolCall(id="c0", name="delete_channels",
-                                                         args={"channels": ["8001", "8003"]})]),
-            LLMResponse(content="Confirma que posso apagar a-1 e a-2?", tool_calls=[]),
+                                                         args={"channels": ["8003", "8005"]})]),
+            LLMResponse(content="Confirma que posso apagar a-2 e a-3?", tool_calls=[]),
         ]), memory=ChannelMemory())
         ator = SimpleNamespace(id=1, guild_permissions=SimpleNamespace(administrator=True))
         asyncio.run(agente.process_turn(guild=servidor_a, channel=canal_a, actor=ator,
                                         prompt="apague a-1 e a-2 de uma vez"))
         self.assertEqual(apagados, [], "o lote do servidor A não deveria apagar sem confirmação")
+        self.assertNotIn("geral", apagados, "a conversa jamais entra no lote")
 
         # o servidor B manda um "sim" e o modelo tenta se auto-confirmar com o lote DELE
         agente.llm = FakeLLM([
             LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
-                                                         args={"channels": ["8002", "8004"], "confirmed": True})]),
+                                                         args={"channels": ["8004", "8006"], "confirmed": True})]),
             LLMResponse(content="nada feito", tool_calls=[]),
         ])
         asyncio.run(agente.process_turn(guild=servidor_b, channel=canal_b, actor=ator, prompt="sim"))
@@ -174,14 +176,14 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
         # e o 'sim' DENTRO do servidor A continua valendo: só o lote do A sai, o do B fica
         agente.llm = FakeLLM([
             LLMResponse(content="", tool_calls=[ToolCall(id="c2", name="delete_channels",
-                                                         args={"channels": ["8001", "8003"], "confirmed": True})]),
+                                                         args={"channels": ["8003", "8005"], "confirmed": True})]),
             LLMResponse(content="Pronto!", tool_calls=[]),
         ])
         asyncio.run(agente.process_turn(guild=servidor_a, channel=canal_a, actor=ator, prompt="sim, pode apagar"))
 
-        self.assertEqual(sorted(apagados), ["a-1", "a-2"], "o lote do próprio servidor A não foi apagado")
-        self.assertNotIn("b-1", apagados)
+        self.assertEqual(sorted(apagados), ["a-2", "a-3"], "o lote do próprio servidor A não foi apagado")
         self.assertNotIn("b-2", apagados)
+        self.assertNotIn("b-3", apagados)
         self.assertEqual(agente.pending_confirmation(memory_key(servidor_a.id, canal_a.id)), set())
         # o pedido do servidor B continua pendente lá (não foi afetado pelo "sim" do A)
         self.assertTrue(agente.pending_confirmation(memory_key(servidor_b.id, canal_b.id)))
@@ -200,13 +202,13 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
             ch.delete = delete
             return ch
 
-        servidor.channels = [canal_apagavel(8101, "x-1"), canal_apagavel(8102, "x-2")]
+        servidor.channels = [canal, canal_apagavel(8102, "x-2"), canal_apagavel(8103, "x-3")]
         servidor.get_channel = lambda cid: next((c for c in servidor.channels if c.id == cid), None)
 
         agente = Agent(confirm_destructive=True, llm_provider=FakeLLM([
             LLMResponse(content="", tool_calls=[ToolCall(id="c0", name="delete_channels",
-                                                         args={"channels": ["8101", "8102"]})]),
-            LLMResponse(content="Confirma que posso apagar x-1 e x-2?", tool_calls=[]),
+                                                         args={"channels": ["8102", "8103"]})]),
+            LLMResponse(content="Confirma que posso apagar x-2 e x-3?", tool_calls=[]),
         ]), memory=ChannelMemory())
         ator = SimpleNamespace(id=1, guild_permissions=SimpleNamespace(administrator=True))
         asyncio.run(agente.process_turn(guild=servidor, channel=canal, actor=ator,
@@ -215,12 +217,12 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
 
         agente.llm = FakeLLM([
             LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
-                                                         args={"channels": ["8101", "8102"], "confirmed": True})]),
+                                                         args={"channels": ["8102", "8103"], "confirmed": True})]),
             LLMResponse(content="Pronto!", tool_calls=[]),
         ])
         asyncio.run(agente.process_turn(guild=servidor, channel=canal, actor=ator, prompt="sim, pode apagar"))
 
-        self.assertEqual(sorted(apagados), ["x-1", "x-2"])
+        self.assertEqual(sorted(apagados), ["x-2", "x-3"])
 
     def test_pendencias_nao_crescem_sem_limite(self) -> None:
         agente = Agent(confirm_destructive=True, llm_provider=FakeLLM([]), memory=ChannelMemory())

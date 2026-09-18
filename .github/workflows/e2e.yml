@@ -75,6 +75,9 @@ jobs:
       KILOCODE_API_KEY: ${{ secrets.KILOCODE_API_KEY || '' }}
       LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '60' }}
       MAX_TOOL_ROUNDS: ${{ vars.MAX_TOOL_ROUNDS || '3' }}
+      # Cara das respostas: ACCENT_COLOR vazio = a cor é medida do avatar do bot.
+      ACCENT_COLOR: ${{ vars.ACCENT_COLOR || '' }}
+      MENSAGEM_V2: ${{ vars.MENSAGEM_V2 || 'true' }}
       HISTORY_LEN: ${{ vars.HISTORY_LEN || '10' }}
       API_TIMEOUT: ${{ vars.API_TIMEOUT || '10' }}
       LOG_LEVEL: "WARNING"

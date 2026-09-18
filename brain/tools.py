@@ -123,7 +123,9 @@ TOOLS: list[ToolDef] = [
     ),
     ToolDef(
         name="delete_channels",
-        description="Exclui um ou mais canais ou categorias. Deletar múltiplos canais requer confirmed=true.",
+        description=("Exclui um ou mais canais ou categorias. Deletar múltiplos canais requer "
+                     "confirmed=true. O canal onde a conversa acontece NUNCA é apagado: se o "
+                     "pedido disser \"menos esse\", não o inclua na lista."),
         parameters={
             "type": "object",
             "properties": {

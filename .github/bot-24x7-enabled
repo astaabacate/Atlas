@@ -174,3 +174,10 @@ RESTART PEDIDO EM 2026-09-18T12:20Z
 -------------------------------
 Motivo: conferir se o segredo DISCORD_TOKEN foi atualizado — este reinício tenta subir o bot
 com o token novo. Se o Discord recusar de novo, o token do segredo ainda é o antigo.
+
+RESTART PEDIDO EM 2026-09-18T12:55Z
+-------------------------------
+Motivo: (1) BUG — "apague todos os canais menos esse" apagava o canal da conversa; agora ele fica
+fora da lista, com aviso, e pedir só ele é recusado explicando o clear_messages. (2) CARA NOVA —
+as respostas passam a sair em Components V2 (container organizado) com a cor de destaque MEDIDA do
+avatar do farol (ACCENT_COLOR vazio = medir; ou fixe um hex). Substitui a pendência anterior.

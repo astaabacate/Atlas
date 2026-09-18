@@ -893,6 +893,10 @@ class Harness:
         phase = "spy"
         ctx, guild, category, canal = await self._spy_ctx()
         cid, catid = str(canal.id), str(category.id)
+        # "apague todos MENOS esse": o canal da conversa nunca entra na lista de exclusão (bug
+        # ao vivo de 18/09 — o bot apagou o canal onde estava falando).
+        descartavel = await guild.create_text_channel("descartavel-spy")
+        descartavel.calls.clear()
 
         await self.check(phase, "create_channels cria na raiz de verdade",
                          lambda: self.spy_check(phase, "create_channels cria na raiz de verdade", "create_channels", {
@@ -925,7 +929,10 @@ class Harness:
 
         await self.check(phase, "delete_channels apaga de verdade (1 canal)",
                          lambda: self.spy_check(phase, "delete_channels apaga de verdade (1 canal)",
-                                                "delete_channels", {"channels": [cid]}, ctx, guild, canal, "delete"))
+                                                "delete_channels", {"channels": [str(descartavel.id)]},
+                                                ctx, guild, descartavel, "delete"))
+        await self.check(phase, "delete_channels NUNCA apaga o canal da conversa",
+                         self._spy_canal_da_conversa_protegido)
 
         await self.check(phase, "delete_channels em lote: modo direto apaga na hora",
                          self._spy_bulk_direto, skip_when=None)
@@ -1036,15 +1043,53 @@ class Harness:
                          f"conversation_clear mentiu que limpou o chat: {limpo!r}")
         return "chat apagado com bulk delete e memória limpa sem mentir"
 
+    async def _spy_canal_da_conversa_protegido(self) -> str:
+        """
+        "Apague todos os canais menos esse": o canal da conversa fica de fora, sempre.
+
+        Foi o bug ao vivo de 18/09 (o dono pediu para manter o canal atual e o bot apagou ele).
+        """
+        from brain.executors import execute_tool
+        from brain.tools import ToolContext, ToolError
+
+        guild = SpyGuild()
+        conversa = await guild.create_text_channel("conversa")
+        outro = await guild.create_text_channel("outro")
+        ctx = ToolContext(guild=guild, channel=conversa, actor=guild.members[0])
+        conversa.calls.clear()
+        outro.calls.clear()
+
+        resultado = await execute_tool("delete_channels",
+                                       {"channels": [str(conversa.id), str(outro.id)]}, ctx)
+        self.assert_true("delete" not in conversa.actions(),
+                         "o canal da conversa foi apagado — é onde estamos falando")
+        self.assert_true("delete" in outro.actions(), "o outro canal deveria ter sido apagado")
+        self.assert_true("Mantive <#" in resultado and "menos esse" in resultado,
+                         f"a resposta não avisa que manteve o canal atual: {resultado!r}")
+
+        # e pedir SÓ o canal da conversa recusa, com o motivo e o caminho alternativo
+        try:
+            await execute_tool("delete_channels", {"channels": [str(conversa.id)]}, ctx)
+        except ToolError as exc:
+            self.assert_true("não vou apagar o canal onde estamos conversando" in str(exc).lower(),
+                             f"recusa sem explicar: {exc}")
+            self.assert_true("clear_messages" in str(exc),
+                             "a recusa devia indicar o clear_messages para limpar as mensagens")
+        else:
+            raise AssertionError("apagar o canal da própria conversa passou batido")
+        return ("canal da conversa preservado no lote, com aviso na resposta; pedido só dele "
+                "é recusado explicando o caminho (clear_messages)")
+
     async def _spy_bulk_direto(self) -> str:
         """Padrão do bot: o pedido já autoriza — 2 canais apagam direto, com o resultado na hora."""
         from brain.executors import execute_tool
         from brain.tools import ToolContext
 
         guild = SpyGuild()
+        conversa = await guild.create_text_channel("conversa")
         a = await guild.create_text_channel("direto-a")
         b = await guild.create_text_channel("direto-b")
-        ctx = ToolContext(guild=guild, channel=a, actor=guild.members[0])
+        ctx = ToolContext(guild=guild, channel=conversa, actor=guild.members[0])
         a.calls.clear()
         b.calls.clear()
         resultado = await execute_tool("delete_channels", {"channels": [str(a.id), str(b.id)]}, ctx)
@@ -1058,9 +1103,11 @@ class Harness:
         from brain.tools import ToolContext, ToolError
 
         guild = SpyGuild()
+        conversa = await guild.create_text_channel("conversa")
         a = await guild.create_text_channel("conf-a")
         b = await guild.create_text_channel("conf-b")
-        ctx = ToolContext(guild=guild, channel=a, actor=guild.members[0], confirm_destructive=True)
+        ctx = ToolContext(guild=guild, channel=conversa, actor=guild.members[0],
+                          confirm_destructive=True)
         a.calls.clear()
         b.calls.clear()
         try:
@@ -2105,6 +2152,14 @@ class Harness:
             return True
         return any(nome == k or nome.lower() == k.lower() for k in conhecidos)
 
+    @staticmethod
+    def _canal_da_conversa(guild: Any) -> Any:
+        """O canal onde o harness conversa com o bot (o de teste 🧪, quando existe)."""
+        for canal in getattr(guild, "text_channels", []) or []:
+            if str(getattr(canal, "name", "")).startswith(TEMP_MARK):
+                return canal
+        return None
+
     async def _api_state(self, guild: Any) -> tuple[dict[int, Any], dict[int, Any]]:
         canais = {c.id: c for c in await guild.fetch_channels()}
         cargos = {r.id: r for r in await guild.fetch_roles()}
@@ -3100,6 +3155,33 @@ class Harness:
         await self.check(phase, "canais: valores inválidos e limites (nada é criado por engano)",
                          canais_valores_invalidos)
 
+        async def canal_da_conversa_protegido_ao_vivo() -> str:
+            """
+            "Apague todos os canais menos esse" (bug do dono, 18/09): pedir o canal ONDE a
+            conversa acontece tem de ser recusado — sem tentar apagar nada no Discord.
+            """
+            # o alvo é EXATAMENTE o ctx.channel da matriz (o canal onde o bot "está falando")
+            # — nunca um canal escolhido por engano, para não apagar nada de verdade aqui.
+            alvo = getattr(estado.get("ctx"), "channel", None) or self._canal_da_conversa(guild)
+            if alvo is None:
+                self.rep.record(phase, "canais: o canal da conversa nunca entra na exclusão",
+                                SKIP, "não achei o canal de conversa desta rodada")
+                return "sem canal de conversa identificado"
+            try:
+                await ferramenta("delete_channels", {"channels": [str(alvo.id)]})
+            except ToolError as exc:
+                texto = str(exc).lower()
+                self.assert_true("conversando" in texto, f"recusa sem explicar: {exc}")
+                self.assert_true("clear_messages" in texto, "a recusa não indica o caminho alternativo")
+            else:
+                self.assert_true(False, "o bot aceitou apagar o canal onde está conversando")
+            ainda = await guild.fetch_channel(alvo.id)
+            self.assert_true(ainda is not None, "o canal da conversa sumiu do servidor")
+            return "recusado com explicação e o canal intacto (a API não foi chamada)"
+
+        await self.check(phase, "canais: o canal da conversa nunca entra na exclusão",
+                         canal_da_conversa_protegido_ao_vivo)
+
         # -------------------------------------------------------------- permissões
         async def permissoes_allow_deny_leitura_limpeza() -> str:
             canal = await novo("caps-perm")
@@ -3411,6 +3493,8 @@ class Harness:
                     self.id = anchor.id
                     self.reactions: list[str] = []
                     self.replies: list[str] = []
+                    self.views: list[Any] = []
+                    self.erros_de_view: list[str] = []
 
                 async def add_reaction(self, emoji: str) -> None:
                     self.reactions.append(emoji)
@@ -3423,11 +3507,24 @@ class Harness:
                     with contextlib.suppress(Exception):
                         await anchor.remove_reaction(emoji, member)
 
-                async def reply(self, content: str, mention_author: bool = True) -> Any:
-                    self.replies.append(content)
+                async def reply(self, content: str = "", mention_author: bool = True,
+                                view: Any = None) -> Any:
+                    if content:
+                        self.replies.append(content)
+                    if view is not None:
+                        self.views.append(view)
+                        # Envia DE VERDADE com o LayoutView: se a API do Discord recusar a
+                        # mensagem em Components V2, o erro aparece aqui (e o bot cai no texto).
+                        try:
+                            return await self.channel.send(view=view)
+                        except Exception as exc:  # noqa: BLE001
+                            self.erros_de_view.append(str(exc))
+                            return None
                     return await self.channel.send(content)
 
             chamadas: list[str] = []
+            vistas_da_resposta: list[Any] = []
+            erros_de_envio: list[str] = []
             done = asyncio.Event()
             original = bot._process_message_safe
 
@@ -3523,12 +3620,42 @@ class Harness:
                 texto = "\n".join(msg.replies)
                 self.assert_true(guild.name.lower() in texto.lower() or len(texto) > 20,
                                  f"resposta suspeita: {texto[:120]!r}")
+                vistas_da_resposta.extend(getattr(msg, "views", []))
+                erros_de_envio.extend(getattr(msg, "erros_de_view", []))
                 return (f"on_message → agente → resposta real no canal em **{gasto:.1f}s**: "
                         f"{texto.strip()[:100]!r}")
 
             permitidos = set(getattr(live.config, "allowed_channel_ids", set()) or set())
             config_permite_canal = not permitidos or canal.id in permitidos
             await self.check(phase, "menção dispara o agente e responde", menciona_dispara)
+
+            async def resposta_em_components_v2() -> str:
+                """A resposta chega como mensagem V2 (container) na cor MEDIDA do avatar?"""
+                import discord
+
+                if not getattr(bot, "aparencia", None) or not bot.aparencia.v2:
+                    self.rep.record(phase, "resposta em Components V2 com a cor do farol", WARN,
+                                    "MENSAGEM_V2 está desligado nesta configuração — a resposta "
+                                    "sai em texto simples (o padrão é ligado)")
+                    return "desligado por configuração"
+                if erros_de_envio:
+                    self.assert_true(False, f"a API do Discord recusou a mensagem V2: "
+                                            f"{erros_de_envio[0][:200]}")
+                if not vistas_da_resposta:
+                    self.assert_true(False, "a resposta não veio em Components V2 (container)")
+                container = vistas_da_resposta[-1].children[0]
+                cor_do_container = getattr(container, "accent_color", None)
+                self.assert_true(cor_do_container == bot.aparencia.cor,
+                                 f"a cor do container ({cor_do_container}) não é a do farol "
+                                 f"({bot.aparencia.cor})")
+                tem_miniatura = any(isinstance(filho, discord.ui.Section)
+                                    for filho in getattr(container, "children", []))
+                return (f"mensagem V2 aceita pelo Discord: container com a cor "
+                        f"#{cor_do_container:06X} (medida do avatar) e "
+                        f"{'com' if tem_miniatura else 'sem'} miniatura do avatar")
+
+            await self.check(phase, "resposta em Components V2 com a cor do farol",
+                             resposta_em_components_v2)
 
             async def tempo_ate_responder() -> str:
                 """

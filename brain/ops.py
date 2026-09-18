@@ -585,6 +585,18 @@ async def op_edit_channel(
     return f"Canal <#{cid}> atualizado com sucesso ({', '.join(mudancas)})."
 
 
+def _e_o_canal_da_conversa(ctx: ToolContext, ch: Any) -> bool:
+    """True quando o canal é AQUELE onde o pedido foi feito (a conversa em andamento)."""
+    atual = getattr(ctx, "channel", None)
+    if atual is None or ch is None:
+        return False
+    if ch is atual:
+        return True
+    id_atual = getattr(atual, "id", None)
+    id_alvo = getattr(ch, "id", None)
+    return id_atual is not None and id_atual == id_alvo
+
+
 async def op_delete_channels(
     ctx: ToolContext,
     channels: list[str],
@@ -596,14 +608,42 @@ async def op_delete_channels(
     guild = ctx.guild
     resolved_channels = []
     category_channels_count = 0
+    # Bug do dono (18/09): "apague todos os canais menos esse" — o modelo mandou a lista com o
+    # canal da conversa dentro e o bot apagou o canal onde estava falando (o pedido dizia o
+    # contrário e a resposta nem teria onde aparecer). Canal da conversa NUNCA entra na lista.
+    mantido: Any = None
 
     for q in channels:
         ch = resolve_channel(guild, q)
+        if _e_o_canal_da_conversa(ctx, ch):
+            mantido = ch
+            continue
         resolved_channels.append(ch)
         # Se for categoria, verificar quantos canais ela contém
         sub_channels = getattr(ch, "channels", None)
         if sub_channels:
             category_channels_count += len(sub_channels)
+
+    if mantido is None:
+        # Cinto de segurança: mesma proteção quando o alvo vem resolvido por outro caminho.
+        for ch in list(resolved_channels):
+            if _e_o_canal_da_conversa(ctx, ch):
+                mantido = ch
+                resolved_channels.remove(ch)
+                category_channels_count = 0
+                break
+    nota_do_canal_atual = ""
+    if mantido is not None:
+        id_mantido = getattr(mantido, "id", "")
+        nota_do_canal_atual = (f" Mantive <#{id_mantido}> fora da lista: "
+                               "é aqui que estamos conversando (menos esse).")
+
+    if not resolved_channels:
+        raise ToolError(
+            "Não vou apagar o canal onde estamos conversando: sem ele eu não teria como te "
+            "responder. Se for para apagar este canal, faça pelas configurações do Discord "
+            "(ou me peça para apagar as MENSAGENS daqui, com clear_messages)."
+        )
 
     total_damage = len(resolved_channels) + category_channels_count
     is_single_nominal = len(resolved_channels) == 1 and category_channels_count == 0
@@ -632,7 +672,7 @@ async def op_delete_channels(
         raise ToolError(f"Falha ao excluir canais: {err}")
 
     deleted_names = ", ".join(res.succeeded)
-    return f"🗑️ Exclusão concluída: {deleted_names} ({res.summary()})"
+    return f"🗑️ Exclusão concluída: {deleted_names} ({res.summary()}).{nota_do_canal_atual}"
 
 
 async def op_move_channel(

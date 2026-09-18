@@ -14,6 +14,7 @@ import discord
 
 from brain.memory import memory_key
 from core.helpers import split_message
+from core.look import Aparencia
 
 if TYPE_CHECKING:
     from config import Config
@@ -49,6 +50,9 @@ class FarolBot(discord.Client):
         # servidores e não pode acumular um lock por canal para sempre.
         self._channel_locks: dict[Any, asyncio.Lock] = {}
         self.max_channel_locks: int = 1000
+        # Cara das respostas: cor medida do próprio avatar + mensagem em Components V2.
+        self.aparencia = Aparencia(getattr(config, "accent_color", None),
+                                   v2=bool(getattr(config, "mensagem_v2", True)))
 
     def _lock_for(self, key: Any) -> asyncio.Lock:
         lock = self._channel_locks.get(key)
@@ -63,7 +67,28 @@ class FarolBot(discord.Client):
             self._channel_locks[key] = lock
         return lock
 
+    async def _responder(self, message: discord.Message, texto: str) -> None:
+        """
+        Responde com a mensagem V2 (container na cor do farol) e, se não der, em texto.
+
+        O enfeite é opcional por definição: qualquer falha aqui (API, versão, limite) cai no
+        envio simples — a resposta do bot nunca fica presa por causa da aparência.
+        """
+        view = self.aparencia.view(texto)
+        if view is not None:
+            try:
+                await message.reply(view=view, mention_author=False)
+                return
+            except Exception as exc:  # noqa: BLE001 - cai no texto simples
+                logger.debug("Envio em Components V2 falhou (%s); respondendo em texto.", exc)
+        await message.reply(texto, mention_author=False)
+
     async def on_ready(self) -> None:
+        # Mede a cor do avatar uma vez (só precisa de rede na primeira vez)
+        try:
+            await self.aparencia.preparar(self.user)
+        except Exception as exc:  # noqa: BLE001 - sem cor bonita o bot ainda responde
+            logger.debug("Não consegui preparar a aparência: %s", exc)
         logger.info(
             "FarolBot conectado com sucesso como %s (ID: %s) em %d servidores.",
             self.user,
@@ -140,6 +165,13 @@ class FarolBot(discord.Client):
                     # Remover menções ao bot do prompt
                     clean_text = re.sub(rf"<@!?{self.user.id}>", "", message.content).strip()
 
+                    if not self.aparencia.cor_medida:
+                        # Avatar trocado/sem medição ainda: mede agora (é a 1ª resposta)
+                        try:
+                            await self.aparencia.preparar(self.user)
+                        except Exception as exc:  # noqa: BLE001 - a resposta não depende disso
+                            logger.debug("Sem medir a cor do avatar: %s", exc)
+
                     reply_text = await self.agent.process_turn(
                         guild=message.guild,
                         channel=message.channel,
@@ -150,8 +182,8 @@ class FarolBot(discord.Client):
 
                     chunks = split_message(reply_text, limit=2000)
                     if chunks:
-                        # Primeiro bloco como resposta (reply)
-                        await message.reply(chunks[0], mention_author=False)
+                        # Primeiro bloco como resposta (reply), já com a cara do farol
+                        await self._responder(message, chunks[0])
                         # Demais blocos enviados sequencialmente no mesmo canal
                         for extra in chunks[1:]:
                             await message.channel.send(extra)
