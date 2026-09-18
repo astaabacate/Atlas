@@ -1,28 +1,25 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 108 · ❌ 0 · ⚠️ 8 · ⏭️ 1
+- **Resumo:** ✅ 45 · ❌ 9 · ⚠️ 0 · ⏭️ 7
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 8bed059
-- **execução:** 35336490465
+- **commit:** bd34fbe
+- **execução:** 35338995240
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
-
-## Anotações
-- conectado como Atlas#1985 em 1 servidor(es)
 
 ## Checagens estáticas (schemas ↔ executores)
 `static` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `27 ferramentas ↔ 27 executores` | 30 ferramentas e 30 executores casados |
-| PASS | `assinaturas ↔ schemas` | 30 assinaturas conferem com os schemas |
-| PASS | `toda ferramenta tem política` | as 30 ferramentas têm política declarada |
+| PASS | `27 ferramentas ↔ 27 executores` | 31 ferramentas e 31 executores casados |
+| PASS | `assinaturas ↔ schemas` | 31 assinaturas conferem com os schemas |
+| PASS | `toda ferramenta tem política` | as 31 ferramentas têm política declarada |
 | PASS | `qualidade dos schemas enviados ao LLM` | descrições e schemas bem formados para function calling |
 | PASS | `prompt de sistema completo` | prompt com os 7 blocos obrigatórios (regra de confirmação dinâmica) |
-| PASS | `tamanho do payload enviado ao LLM` | schema com 14455 chars + prompt de 2038 chars |
+| PASS | `tamanho do payload enviado ao LLM` | schema com 15015 chars + prompt de 2038 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
 `spy` — ✅ 22 · ❌ 0 · ⚠️ 0 · ⏭️ 0
@@ -73,124 +70,68 @@
 | PASS | `argumentos inválidos são rejeitados` | lista vazia rejeitada com ToolError: Nenhum canal foi informado para exclusão. |
 
 ## Conexão ao gateway do Discord
-`connect` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`connect` — ✅ 3 · ❌ 2 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `corredores de LLM na corrida` | kilo/tools |
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
-| PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 28ms |
-| PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
+| FAIL | `login e gateway` | LoginFailure: Improper token has been passed. |
+| FAIL | `servidor e autor do teste` | sem servidor para escolher autor |
 
 ## Diagnóstico de permissões e hierarquia no servidor
-`audit` — ✅ 5 · ❌ 0 · ⚠️ 1 · ⏭️ 0
+`audit` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
-| WARN | `cargos que o bot não consegue gerenciar` | 24 cargo(s) no nível ou acima do bot (Cupido, iTinder, Atlas, asta, asta): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
-| PASS | `hierarquia de cargos` | cargo do bot na posição 1 |
-| PASS | `estrutura do servidor` | 0 categorias · 1 texto · 0 voz · 25 cargos · 4 membros |
-| PASS | `snapshot do servidor` | snapshot com 31 linhas alimenta o prompt |
-| PASS | `estado local bate com a API` | cache local bate com a API REST (1 canais, 25 cargos) |
+| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
+| SKIP | `diagnóstico` | sem conexão ao Discord |
 
 ## Ferramentas somente-leitura em servidor real
-`tools` — ✅ 7 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`tools` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** <@1521612392105250836> · • **Membros:** 4 · • **Canais:** 1 · • **Cargos:** 25 · • **Criado em:** 2026-09-08 06:04:16.4570 |
-| PASS | `performance_report (tempo das respostas)` | Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). Me peça de novo depois de algumas tarefas. |
-| PASS | `list_roles` | listou os 25 cargos reais com menção e posição |
-| PASS | `export_structure (JSON válido e completo)` | servidor grande: JSON completo com 2366 chars no recorte AVISADO (aviso + balanço de canais/categorias/cargos exportados) |
-| PASS | `show_permissions` | O canal <#1550443811195461745> não possui permissões personalizadas configuradas. |
-| PASS | `resolve por ID e por menção` | 1 canais e 6 cargos resolvidos por ID e por menção |
-| PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
+| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
+| SKIP | `ferramentas de leitura` | sem conexão ao Discord |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 5 · ❌ 0 · ⚠️ 1 · ⏭️ 0
+`agent` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Recruta', 'Recruta'] |
-| PASS | `tempo de cada ida ao modelo` | 1 chamada(s) ao modelo: mediana **2.6s** (2.6s) · corredores que responderam: kilo |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso aplicar bans: meu foco exclusivo é montar e organizar a estrutura do servidor.' |
-| WARN | `agente: resposta com dados reais (sem listar nomes)` | o modelo respondeu com o resumo do servidor (dados reais conferidos na API) em vez de listar categorias/canais por nome |
-| PASS | `agente conhece a estrutura real` | respondeu com dados reais do servidor (nome do servidor (Pinguim), menção do dono, canais=1, cargos=25) |
-| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
+| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
+| SKIP | `agente` | sem conexão ao Discord |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 17 · ❌ 0 · ⚠️ 2 · ⏭️ 1
+`mutate` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
-| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-categoria', '🧪-raiz-texto']) |
-| PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
-| PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
-| PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
-| WARN | `cargo do farol no chão do servidor` | O cargo '🧪 teste-papel' (posição 1) está acima ou na mesma posição do meu cargo mais alto (posição 1). Suba o cargo do farol nas configurações de cargos do servidor. Ação do dono (README Passo 3): arraste o cargo do farol para cima dos outros — sem isso ele não edita nem os cargos que ele mesmo cria. |
-| PASS | `cargos: criar/editar/atribuir de verdade` | cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor |
-| PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
-| PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
-| PASS | `fluxo de confirmação em canais reais (modo cauteloso)` | 2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true |
-| PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
-| PASS | `clear_messages apaga mensagens reais do canal` | apagou 3 mensagem(ns) reais e o canal ficou vazio |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 6.6s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 46.4s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído' |
-| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o modelo nem tentou excluir os canais — o provedor gratuito não cooperou nesta rodada ('Confirme a exclusão de <#1550459235702284288> e <#1550459235580510299>. Responda **sim**.'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
-| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | não conclusivo por causa do LLM gratuito: o modelo nem tentou excluir os canais |
-| PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
-| SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
-| PASS | `limpeza` | todos os objetos de teste foram removidos |
+| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
+| SKIP | `mutações reais` | sem conexão ao Discord |
 
 ## Matriz de capacidades: cada parâmetro, valor e combinação no Discord real
-`caps` — ✅ 17 · ❌ 0 · ⚠️ 4 · ⏭️ 0
+`caps` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `infra: categoria e canais da matriz` | categoria 🧪 caps + 🧪-caps-texto + 🧪-caps-voz prontos (tudo registrado para limpeza) |
-| PASS | `cargos: criar com nome, cor, hoist, mentionable e permissões` | cargo real com cor 0x5865f2, hoist, mentionable e 3 permissões conferidas na API (posição 1) |
-| WARN | `cargos: gerenciar o cargo criado` | o cargo criado ficou na posição 1: o Discord recusa a edição (recusa conferida como clara, sem alterar nada) (meu cargo mais alto está na posição 1) — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem em tests/test_capacidades.py) |
-| PASS | `cargos: editar cada propriedade e ver o efeito real` | não verificável neste servidor: o cargo criado ficou na posição 1: o Discord recusa a edição (recusa conferida como clara, sem alterar nada) (meu cargo mais alto está na posição 1) |
-| WARN | `cargos: gerenciar o cargo criado` | com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da validação de valor — sem cargo gerenciável não dá para provar valor inválido ao vivo (meu cargo mais alto está na posição 1) — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem em tests/test_capacidades.py) |
-| PASS | `cargos: valores inválidos, @everyone e hierarquia` | não verificável neste servidor: com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da validação de valor — sem cargo gerenciável não dá para provar valor inválido ao vivo (meu cargo mais alto está na posição 1) |
-| WARN | `cargos: gerenciar o cargo criado` | não posso atribuir cargo que ficou na altura do meu topo (meu cargo mais alto está na posição 1) — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem em tests/test_capacidades.py) |
-| PASS | `cargos: dar e tirar de um membro (estado real)` | não verificável neste servidor: não posso atribuir cargo que ficou na altura do meu topo (meu cargo mais alto está na posição 1) |
-| WARN | `canais: tipo stage` | stage: Falha ao criar canais: canal de palco (stage) só existe em servidor com o recurso **Comunidade** ativado — sem isso o Discord recusa a criação. |
-| PASS | `canais: todos os tipos suportados (tipo real na API)` | tipos reais conferidos na API: text→text, voice→voice, category→category, forum→forum |
-| PASS | `canais: tópico, NSFW, slowmode, bitrate e limite na criação` | texto: tópico, nsfw, slowmode 30s, categoria · voz: bitrate 96000, limite 4 — tudo conferido na API |
-| PASS | `canais: editar cada propriedade e ver o efeito real` | nome; tópico; nsfw+slowmode; categoria (sair e voltar); voz: bitrate 96000, limite 7 |
-| PASS | `canais: mover, clonar e excluir (estado real)` | mover por categoria e posição, clonar levando tópico+nsfw+slowmode+categoria e apagar só a cópia — tudo conferido na API |
-| PASS | `canais: valores inválidos e limites (nada é criado por engano)` | valores inválidos recusados sem criar/alterar nada: não existe, slowmode, bitrate, limite, vazio, slowmode, bitrate, Nenhum parâmetro, negativa |
-| PASS | `permissões: allow, deny, conflito, leitura e limpeza` | allow e deny em português viraram permissões reais (view_channel/send_messages/mention_everyone), conflito recusado e limpeza conferida na API |
-| PASS | `permissões: sincronizar canal com a categoria` | permissão da categoria copiada para o canal filho (conferido na API) |
-| PASS | `permissões: autor sem permissão é barrado antes da API` | 4 ferramentas recusadas ANTES de tocar no Discord (autor sem permissão) e nenhum objeto criado ou apagado |
-| PASS | `estrutura: export guarda as capacidades reais` | export grande: recorte AVISADO (não serve para importar), com o balanço de canais/categorias/cargos exportados (as chaves que caem fora do recorte não podem ser cobradas do pedaço; o round-trip completo é verificado na fase de import e nos testes offline) |
-| PASS | `estrutura: import recria com os mesmos campos (round-trip)` | import recriou cargo (cor, hoist, mentionable, permissões) e canais (tópico, nsfw, slowmode, bitrate, limite, categoria e sem categoria) — conferido na API · '✅ Estrutura importada: 1 cargo(s) e 3 canal(is) recriados com tipo, tópico, nsfw, slowmode, bitrate,' |
-| PASS | `repetição: mesma ordem várias vezes não quebra nem duplica efeito` | 3 ordens iguais = 1 canal (sem duplicata), lote com nome repetido = 1 canal, nome novo nasce normalmente e a edição continua pegando |
-| PASS | `limpeza` | todos os objetos de teste foram removidos |
+| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
+| SKIP | `matriz de capacidades` | sem conexão ao Discord |
 
 ## core.bot.FarolBot: on_message → resposta real no Discord
-`botloop` — ✅ 8 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`botloop` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550460305342070836) criado |
-| PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
-| PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
-| PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal em **9.2s**: 'Pinguim' |
-| PASS | `tempo até responder (mensagem → resposta)` | o cliente espera **5.2s** (mediana de 3) entre mandar e receber: 4.1s, 5.2s, 6.7s |
-| PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
-| PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
+| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
+| SKIP | `loop do bot` | sem conexão ao Discord |
 
 ## Varredura de sobras de teste
-`sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`sweep` — ✅ 0 · ❌ 1 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `varredura de sobras` | 3 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot) |
+| FAIL | `conexão` | LoginFailure: Improper token has been passed. |
+| SKIP | `varredura` | sem conexão ao Discord |
