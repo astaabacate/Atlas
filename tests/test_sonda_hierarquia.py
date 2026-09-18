@@ -54,26 +54,32 @@ class FakeAPI:
 class RoteiroDeRespostas:
     """Respostas fixas do Discord + registro das chamadas feitas."""
 
-    def __init__(self, *, apagar: tuple[int, Any] = (403, {"code": 50013, "message": "Missing Permissions"}),
-                 editar: tuple[int, Any] = (403, {"code": 50013, "message": "Missing Permissions"}),
-                 mover: tuple[int, Any] = (403, {"code": 50013, "message": "Missing Permissions"}),
-                 apagar_depois_de_mover: tuple[int, Any] = (204, None),
-                 empate: tuple[int, Any] = (403, {"code": 50013, "message": "Missing Permissions"}),
-                 editar_empatado: tuple[int, Any] = (403, {"code": 50013, "message": "Missing Permissions"}),
-                 apagar_empatado: tuple[int, Any] = (403, {"code": 50013, "message": "Missing Permissions"})) -> None:
-        self.apagar = apagar
-        self.editar = editar
-        self.mover = mover
-        self.apagar_depois_de_mover = apagar_depois_de_mover
-        self.empate = empate
-        self.editar_empatado = editar_empatado
-        self.apagar_empatado = apagar_empatado
+    RECUSA = (403, {"code": 50013, "message": "Missing Permissions"})
+
+    def __init__(self, *, editar: tuple[int, Any] | None = None,
+                 apagar: tuple[int, Any] | None = None,
+                 empate: tuple[int, Any] | None = None,
+                 editar_empatado: tuple[int, Any] | None = None,
+                 apagar_empatado: tuple[int, Any] | None = None,
+                 mover: tuple[int, Any] | None = None,
+                 apagar_depois_de_mover: tuple[int, Any] | None = None) -> None:
+        # O padrão é o cenário do relato do dono: o Discord recusa TUDO por hierarquia.
+        self.editar = editar or self.RECUSA
+        self.apagar = apagar or self.RECUSA
+        self.empate = empate or self.RECUSA
+        self.editar_empatado = editar_empatado or self.RECUSA
+        self.apagar_empatado = apagar_empatado or self.RECUSA
+        self.mover = mover or self.RECUSA
+        self.apagar_depois_de_mover = apagar_depois_de_mover or (204, None)
         self.chamadas: list[tuple[str, str]] = []
-        self.apagou = False
-        self.apagou_empatado = False
+        self.edicoes = 0
         self.movimentos = 0
         self.exclusoes = 0
         self.empate_aceito = False
+        self.apagou = False
+        self.apagou_empatado = False
+        self.fase = "inicial"
+        self.sobra = True
 
     def __call__(self, metodo: str, caminho: str, kwargs: dict[str, Any]) -> tuple[int, Any]:
         self.chamadas.append((metodo, caminho))
@@ -91,26 +97,33 @@ class RoteiroDeRespostas:
             return 200, {"owner_id": "999", "name": "Pinguim"}
         if metodo == "POST" and caminho == "/guilds/777/roles":
             return 201, {"id": "42", "name": kwargs["json"]["name"], "position": 1}
+        if metodo == "PATCH" and caminho == "/guilds/777/roles/42":
+            self.edicoes += 1
+            return self.editar_empatado if self.fase == "empate" else self.editar
+        if metodo == "PATCH" and caminho == "/guilds/777/roles":
+            posicao = int(kwargs["json"][0]["position"])
+            if posicao > 0:  # mover para a MESMA posição do topo do bot = forçar o empate
+                self.empate_aceito = self.empate[0] < 400
+                if self.empate_aceito:
+                    self.fase = "empate"
+                return self.empate
+            self.fase = "apos_mover"
+            return self.mover
         if metodo == "DELETE" and caminho == "/guilds/777/roles/42":
             self.exclusoes += 1
-            if self.exclusoes == 1:
-                self.apagou = True
-                return self.apagar
-            if self.exclusoes == 2 and self.empate_aceito and not self.apagou_empatado:
+            if self.fase == "empate" and not self.apagou_empatado:
                 self.apagou_empatado = True
+                if self.apagar_empatado[0] < 400:
+                    self.sobra = False
                 return self.apagar_empatado
+            if not self.apagou:
+                self.apagou = True
+                if self.apagar[0] < 400:
+                    self.sobra = False
+                return self.apagar
+            if self.apagar_depois_de_mover[0] < 400:
+                self.sobra = False
             return self.apagar_depois_de_mover
-        if metodo == "PATCH" and caminho == "/guilds/777/roles/42":
-            if self.movimentos >= 1:
-                return self.editar_empatado
-            return self.editar
-        if metodo == "PATCH" and caminho == "/guilds/777/roles":
-            self.movimentos += 1
-            if self.movimentos == 1:
-                resposta = self.empate  # mover para a MESMA posição do topo do bot
-                self.empate_aceito = resposta[0] < 400
-                return resposta
-            return self.mover
         raise AssertionError(f"chamada não prevista no roteiro: {metodo} {caminho}")
 
 
@@ -157,16 +170,17 @@ class TestSondaAoVivoComDuplo(unittest.TestCase):
         return rc, texto, dados
 
     def test_recusa_em_tudo_deixa_o_cargo_preso_registrado(self) -> None:
+        """Cenário do relato: o cargo do bot no fundo — o Discord recusa tudo (e a sonda diz)."""
         rc, texto, dados = self._rodar(RoteiroDeRespostas())
         self.assertEqual(rc, 0)
-        self.assertIn("RENOMEAR: o Discord **RECUSOU**", texto)
+        self.assertIn("Renomear ABAIXO do meu topo: recusado", texto)
         self.assertIn("APAGAR: o Discord **RECUSOU**", texto)
         self.assertIn("Sobrou o cargo de teste", texto)
         self.assertEqual(dados["guilds"][0]["experimento"]["sobra"]["id"], "42")
         self.assertNotIn("token-falso-de-teste", texto)
 
     def test_apagar_aceito_nao_deixa_sobra(self) -> None:
-        rc, texto, dados = self._rodar(RoteiroDeRespostas(apagar=(204, None)))
+        rc, texto, dados = self._rodar(RoteiroDeRespostas(editar=(200, None), apagar=(204, None)))
         self.assertEqual(rc, 0)
         self.assertIn("APAGAR: o Discord ACEITOU", texto)
         self.assertIsNone(dados["guilds"][0]["experimento"]["sobra"])
@@ -183,7 +197,8 @@ class TestSondaAoVivoComDuplo(unittest.TestCase):
     def test_empate_apagar_aceito_prova_que_a_regra_nao_bloqueia_posicao_igual(self) -> None:
         """O caso do dono: cargo na MESMA posição do topo do bot — o Discord aceita apagar?"""
         roteiro = RoteiroDeRespostas(
-            empate=(200, None), editar_empatado=(200, None), apagar_empatado=(204, None))
+            editar=(200, None), empate=(200, None), editar_empatado=(200, None),
+            apagar_empatado=(204, None))
         rc, texto, dados = self._rodar(roteiro)
         exp = dados["guilds"][0]["experimento"]
         self.assertEqual(rc, 0)
@@ -194,8 +209,7 @@ class TestSondaAoVivoComDuplo(unittest.TestCase):
 
     def test_empate_recusado_cai_para_mover_e_apagar(self) -> None:
         roteiro = RoteiroDeRespostas(
-            empate=(200, None), editar_empatado=(403, {"code": 50013, "message": "Missing Permissions"}),
-            apagar_empatado=(403, {"code": 50013, "message": "Missing Permissions"}),
+            editar=(200, None), empate=(200, None), editar_empatado=None, apagar_empatado=None,
             mover=(200, None), apagar_depois_de_mover=(204, None))
         rc, texto, dados = self._rodar(roteiro)
         self.assertEqual(rc, 0)

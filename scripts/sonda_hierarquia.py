@@ -289,19 +289,18 @@ async def _experimento(api: "Sondagem", gid: str, pos_bot: int) -> dict[str, Any
     else:
         linhas.append(f"- ✏️ RENOMEAR: o Discord **RECUSOU** — HTTP {st} · {_erro(corpo)}")
 
-    st, corpo = await api.pedir("DELETE", f"/guilds/{gid}/roles/{rid}")
-    dados["apagar"] = {"status": st, "corpo": _erro(corpo) if st >= 400 else "ok"}
-    apagado = st in (200, 204)
-    if apagado:
-        linhas.append("- 🗑️ **APAGAR: o Discord ACEITOU** o cargo criado por mim.")
-        dados["sobra"] = None
-        linhas.append("")
-        return {"linhas": linhas, "dados": dados}
-    linhas.append(f"- 🗑️ APAGAR: o Discord **RECUSOU** — HTTP {st} · {_erro(corpo)}")
+    # O caso-limite que o dono levantou (1ª parte): o cargo criado nasce no fundo, ABAIXO do
+    # topo do bot — o Discord simplesmente aceita?
+    st, corpo = await api.pedir("PATCH", f"/guilds/{gid}/roles/{rid}",
+                                json={"name": nome + "-abaixo"})
+    dados["editar_abaixo"] = {"status": st, "corpo": _erro(corpo) if st >= 400 else "ok"}
+    if st < 400:
+        linhas.append("- ✏️ Renomear ABAIXO do meu topo: o Discord **ACEITOU**.")
+    else:
+        linhas.append(f"- ✏️ Renomear ABAIXO do meu topo: recusado — HTTP {st} · {_erro(corpo)}")
 
-    # O caso-limite que o dono levantou: o cargo do bot está no chão e o cargo criado nasce
-    # na MESMA posição — o Discord aceita ou recusa mexer em cargo empatado? Aqui forçamos o
-    # empate de propósito (mover o cargo de teste para a posição do topo do bot) e tentamos.
+    # 2ª parte, a que o dono levantou: e se o cargo estiver EXATAMENTE na posição do meu topo?
+    # Empate é o caso em que o produto recusava por conta própria — aqui a pergunta vai à API.
     st_e, corpo_e = await api.pedir("PATCH", f"/guilds/{gid}/roles",
                                     json=[{"id": rid, "position": pos_bot}])
     dados["mover_para_empate"] = {"status": st_e,
@@ -330,6 +329,15 @@ async def _experimento(api: "Sondagem", gid: str, pos_bot: int) -> dict[str, Any
     else:
         linhas.append(f"- ⬆️ Mover para a posição {pos_bot} (empate): recusado — "
                       f"HTTP {st_e} · {_erro(corpo_e)}")
+
+    st, corpo = await api.pedir("DELETE", f"/guilds/{gid}/roles/{rid}")
+    dados["apagar"] = {"status": st, "corpo": _erro(corpo) if st >= 400 else "ok"}
+    if st in (200, 204):
+        linhas.append("- 🗑️ **APAGAR: o Discord ACEITOU** o cargo criado por mim.")
+        dados["sobra"] = None
+        linhas.append("")
+        return {"linhas": linhas, "dados": dados}
+    linhas.append(f"- 🗑️ APAGAR: o Discord **RECUSOU** — HTTP {st} · {_erro(corpo)}")
 
     st, corpo = await api.pedir("PATCH", f"/guilds/{gid}/roles",
                                 json=[{"id": rid, "position": 0}])
