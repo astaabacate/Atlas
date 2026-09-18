@@ -405,6 +405,37 @@ class TestClassificacaoLLM(unittest.TestCase):
         self.assertEqual(rep.counts()[e2e.FAIL], 0)
 
 
+class TestCoberturaDaMatrizDeCapacidades(unittest.TestCase):
+    """A matriz tem que dizer o que NÃO testou — lacuna invisível vira ✅ de fachada."""
+
+    def _fonte_da_fase(self, nome: str) -> str:
+        import ast
+
+        caminho = ROOT / "scripts" / "e2e_live.py"
+        fonte = caminho.read_text(encoding="utf-8")
+        for no in ast.walk(ast.parse(fonte)):
+            if isinstance(no, ast.AsyncFunctionDef) and no.name == nome:
+                return ast.get_source_segment(fonte, no) or ""
+        raise AssertionError(f"não achei a fase {nome}")
+
+    def test_toda_chamada_da_matriz_passa_pelo_contador(self) -> None:
+        fonte = self._fonte_da_fase("phase_caps")
+        self.assertIn("usadas[nome] = usadas.get(nome, 0) + 1", fonte,
+                      "sem isso a cobertura não sabe o que foi exercitado")
+        self.assertIn("from brain.executors import execute_tool", fonte)
+        diretas = [linha.strip() for linha in fonte.splitlines() if "execute_tool(" in linha]
+        self.assertEqual(diretas, ["return await execute_tool(nome, args, ctx_qualquer)"],
+                         "toda chamada da matriz tem que passar pelo contador "
+                         "(inclusive as que usam autor sem permissão)")
+
+    def test_a_matriz_fecha_com_o_que_ficou_de_fora(self) -> None:
+        fonte = self._fonte_da_fase("phase_caps")
+        self.assertIn("quais ferramentas foram exercitadas ao vivo", fonte)
+        self.assertIn("não exercitadas nesta rodada", fonte,
+                      "o que a matriz não tocou tem que aparecer no relatório")
+        self.assertIn("tool_names()", fonte, "a comparação é com o conjunto real de ferramentas")
+
+
 if __name__ == "__main__":
     unittest.main()
 

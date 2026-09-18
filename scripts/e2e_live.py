@@ -7,7 +7,7 @@ tempo. O relatório sai em JSON + Markdown; em GitHub Actions também vira anota
 check-run (::error::/::warning::) e Step Summary.
 
 Fases:
-  static  — coerência entre os schemas das 27 ferramentas e os executores (offline)
+  static  — coerência entre os schemas das ferramentas e os executores (offline)
   spy     — "a ferramenta promete, a ferramenta faz?": duplos de teste que registram
             chamadas de API. Detecta sucesso falso (retorna ✅ sem tocar no Discord). (offline)
   policy  — permissões do autor/bot, hierarquia de cargos e trava de confirmação. (offline)
@@ -793,7 +793,8 @@ class Harness:
             self.assert_true(set(tool_names()) == set(_OPS), "conjunto de schemas difere do conjunto de executores")
             return f"{len(TOOLS)} ferramentas e {len(_OPS)} executores casados"
 
-        await self.check(phase, "27 ferramentas ↔ 27 executores", schemas_and_ops_match)
+        await self.check(phase, f"{len(TOOLS)} ferramentas ↔ {len(_OPS)} executores",
+                         schemas_and_ops_match)
 
         async def signature_alignment() -> tuple[str, dict[str, Any]]:
             problemas, nao_usados = [], []
@@ -2029,7 +2030,7 @@ class Harness:
             self.assert_true(bool(resposta.strip()), "agente devolveu resposta vazia")
             chamadas_feitas = [n for c in chamadas for n in c["ferramentas_chamadas"]]
             if not chamadas_feitas:
-                # as 27 ferramentas foram oferecidas e o bot repassou tudo; quem não chamou foi o modelo
+                # todas as ferramentas foram oferecidas e o bot repassou tudo; quem não chamou foi o modelo
                 return (self.degradar_llm(phase, "prompt → ferramenta → resposta coerente",
                                           f"o LLM não chamou nenhuma ferramenta (rodadas: {chamadas})", resposta),
                         {"ferramentas": []})
@@ -2728,8 +2729,17 @@ class Harness:
         texto = estado["texto"]
         voz = estado["voz"]
 
+        usadas: dict[str, int] = {}
+
+        async def ferramenta_com(ctx_qualquer: Any, nome: str, args: dict[str, Any]) -> str:
+            # Anota o que a matriz REALMENTE exercitou: no fim da fase isso vira a linha de
+            # cobertura (o que não passou por aqui não foi testado ao vivo nesta rodada).
+            # Vale também para as chamadas com autor sem permissão: a recusa é capacidade testada.
+            usadas[nome] = usadas.get(nome, 0) + 1
+            return await execute_tool(nome, args, ctx_qualquer)
+
         async def ferramenta(nome: str, args: dict[str, Any]) -> str:
-            return await execute_tool(nome, args, ctx)
+            return await ferramenta_com(ctx, nome, args)
 
         async def novo(prefixo: str) -> Any:
             """Cria um canal de texto marcado e devolve o objeto fresco do servidor."""
@@ -3266,7 +3276,7 @@ class Harness:
                                ("delete_channels", {"channels": [str(texto.id)], "confirmed": True}),
                                ("clear_messages", {"channel": str(texto.id), "limit": 5})):
                 try:
-                    await execute_tool(nome, args, ctx_fraco)
+                    await ferramenta_com(ctx_fraco, nome, args)
                     self.assert_true(False, f"autor sem permissão conseguiu usar {nome}")
                 except ToolError as exc:
                     self.assert_true("permissão" in str(exc).lower(),
@@ -3423,6 +3433,27 @@ class Harness:
 
         await self.check(phase, "repetição: mesma ordem várias vezes não quebra nem duplica efeito",
                          repeticao_sem_efeito_colateral)
+
+        async def cobertura_das_ferramentas() -> tuple[str, dict[str, Any]]:
+            """Fecha a matriz dizendo o que ficou de fora — em vez de deixar a lacuna invisível."""
+            from brain.tools import tool_names
+
+            todas = set(tool_names())
+            exercitadas = set(usadas)
+            faltando = sorted(todas - exercitadas)
+            self.assert_true(bool(exercitadas), "a matriz não chamou ferramenta nenhuma")
+            if faltando:
+                # Algumas nunca podem ser testadas aqui de propósito (set_icon mexe na
+                # identidade do bot, diagnostic_report manda DM). Fica registrado, não escondido.
+                self.rep.record(phase, "matriz: cobertura das ferramentas", WARN,
+                                f"não exercitadas nesta rodada: {', '.join(faltando)} — "
+                                "cada uma tem o motivo na própria linha (ou é de propósito, como "
+                                "set_icon, que mexe na identidade do farol)")
+            return (f"{len(exercitadas)}/{len(todas)} ferramentas exercitadas ao vivo "
+                    f"({sum(usadas.values())} chamadas)", {"ferramentas": sorted(exercitadas)})
+
+        await self.check(phase, "matriz: quais ferramentas foram exercitadas ao vivo",
+                         cobertura_das_ferramentas)
 
         await self._cleanup(guild, phase)
 

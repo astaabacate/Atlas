@@ -49,7 +49,7 @@ class ToolDef:
         }
 
 
-# As 27 ferramentas do farol
+# As ferramentas do farol (o número sai de len(TOOLS), não de um comentário)
 TOOLS: list[ToolDef] = [
     # Canais (5)
     ToolDef(

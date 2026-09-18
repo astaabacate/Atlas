@@ -411,7 +411,7 @@ Os testes acima são offline (duplos de teste fiéis ao `discord.py`). Para prov
 
 | Fase | O que verifica |
 | --- | --- |
-| `static` | 27 ferramentas ↔ 27 executores ↔ 27 políticas, schemas e prompt de sistema |
+| `static` | ferramentas ↔ executores ↔ políticas (conjuntos idênticos), schemas e prompt |
 | `spy` | cada ferramenta "promete e cumpre": duplos que imitam o discord.py 2.7.1 |
 | `policy` | permissões do autor/bot, `@everyone`, cargos gerenciados, hierarquia, confirmação |
 | `connect` / `audit` | login no gateway, corrida de LLMs, permissões e cache vs API |
