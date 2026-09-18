@@ -37,7 +37,7 @@
 
 ### Experimento cru (sem passar pelo produto)
 
-- Criei **🧪 sonda-hierarquia-1789760611** (`1550593133954211890`) → o Discord colocou na **posição 1** (meu cargo está na 27).
+- Criei **🧪 sonda-hierarquia-1789760803** (`1550593939478941809`) → o Discord colocou na **posição 1** (meu cargo está na 27).
 - ✏️ Renomear o cargo recém-criado: o Discord **ACEITOU**.
 - ✏️ Renomear ABAIXO do meu topo: o Discord **ACEITOU**.
 - ⬆️ Pedi para mover o cargo de teste para a posição 27 (a MESMA do meu topo) e conferi na API: o Discord NÃO mantém empate: colocou na posição 26, logo abaixo do meu topo — pedir a minha própria posição vira "logo abaixo".
