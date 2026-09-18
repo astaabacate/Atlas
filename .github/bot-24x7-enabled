@@ -162,3 +162,10 @@ Motivo: a instrução de hierarquia passa a dizer o NOME REAL do cargo do farol 
 Esta fatia leva tudo da anterior (delete_roles em lote, motivo por cargo bloqueado, empate de
 posição tenta a exclusão de verdade, fim do "Feito!" quando nada foi feito). Substitui a
 execução ainda pendente.
+
+RESTART PEDIDO EM 2026-09-18T12:05Z
+-------------------------------
+Motivo: LIGAR o bot com o token novo (o dono atualizou/resetou). Leva tudo: exclusão de cargos
+em lote (delete_roles), instrução de hierarquia com o nome real do cargo e a direção certa da
+lista (celular é invertido), fim do "Feito!" quando nada foi feito, hedge da fila de LLM e a
+recusa honesta quando o Discord não deixa mexer.
