@@ -576,21 +576,22 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
         self.assertGreater(pedidos[1], pedidos[0], "a repetição precisa de mais espaço")
         self.assertGreaterEqual(pedidos[1], 1024, "mínimo generoso para raciocínio")
 
-    def test_vazio_comum_nao_repete_o_modelo(self) -> None:
-        chamadas = {"n": 0}
+    def test_vazio_seco_repete_uma_vez_depois_troca_de_modelo(self) -> None:
+        """Roteador grátis às vezes devolve nada: repetir o modelo e, se insistir, trocar."""
+        vistos: list[str] = []
 
         def fake_session() -> Any:
             return None
 
         provider = OpenAICompatibleHttpProvider(
-            name="corredor-mudo",
+            name="corredor-roteador",
             endpoint_url="https://exemplo.invalido/v1/chat/completions",
-            models=["modelo-mudo"],
+            models=["modelo-a", "modelo-b"],
             session_factory=fake_session,
         )
 
         async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
-            chamadas["n"] += 1
+            vistos.append(model)
             raise ProviderError(
                 provider=provider.name,
                 message=f"{provider.name}: resposta vazia ({model})",
@@ -600,9 +601,42 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
             )
 
         provider._post = fake_post  # type: ignore[assignment]
-        with self.assertRaises(ProviderError):
+        with self.assertRaises(ProviderError) as ctx:
             asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}], timeout=5, max_tokens=100))
-        self.assertEqual(chamadas["n"], 1, "sem teto estourado, repetir só queimaria cota")
+
+        self.assertTrue(ctx.exception.is_transient, "vazio tem que contar como falha passageira")
+        self.assertEqual(vistos, ["modelo-a", "modelo-a", "modelo-b", "modelo-b"],
+                         "cada modelo ganha uma segunda chance antes de passar a vez")
+
+    def test_vazio_seco_resolve_na_repeticao(self) -> None:
+        tentativas = {"n": 0}
+
+        def fake_session() -> Any:
+            return None
+
+        provider = OpenAICompatibleHttpProvider(
+            name="corredor-roteador",
+            endpoint_url="https://exemplo.invalido/v1/chat/completions",
+            models=["modelo-a"],
+            session_factory=fake_session,
+        )
+
+        async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
+            tentativas["n"] += 1
+            if tentativas["n"] == 1:
+                raise ProviderError(
+                    provider=provider.name,
+                    message=f"{provider.name}: resposta vazia ({model})",
+                    model=model,
+                    empty_response=True,
+                    truncated=False,
+                )
+            return LLMResponse(content="achei o caminho")
+
+        provider._post = fake_post  # type: ignore[assignment]
+        resposta = asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}], timeout=5, max_tokens=100))
+        self.assertEqual(resposta.content, "achei o caminho")
+        self.assertEqual(tentativas["n"], 2)
 
 
 class TestFreePool(unittest.TestCase):

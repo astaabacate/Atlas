@@ -60,7 +60,9 @@ class ProviderError(RuntimeError):
     @property
     def is_transient(self) -> bool:
         """Falha passageira: vale repetir a corrida depois de uma pausa curta."""
-        if self.is_rate_limited:
+        if self.is_rate_limited or self.empty_response:
+            # Resposta vazia de gateway/roteador grátis costuma ser o modelo do momento
+            # devolvendo nada: a próxima onda pode cair noutro modelo do mesmo corredor.
             return True
         if self.status is not None and self.status >= 500:
             return True

@@ -337,12 +337,26 @@ class OpenAICompatibleHttpProvider(ChatProvider):
                                 raise
                             exc = retry_exc
 
+                if exc.is_empty_response and not exc.truncated and model not in ampliados:
+                    # Vazio "seco": pode ser o modelo do momento (roteador grátis). Uma repetição
+                    # curta do MESMO modelo resolve na maioria das vezes; se voltar vazio de novo,
+                    # a vez passa para o próximo modelo da lista.
+                    ampliados.add(model)
+                    logger.debug("[%s] %s devolveu resposta vazia; repetindo uma vez", self.name, model)
+                    indice -= 1
+                    continue
+
                 if exc.is_empty_response and exc.truncated and model not in ampliados:
                     ampliados.add(model)
                     max_tokens = min(max(max_tokens * 2, MIN_AMPLIACAO_TOKENS), MAX_AMPLIACAO_TOKENS)
                     logger.debug("[%s] %s devolveu nada no teto de tokens; repetindo com %d",
                                  self.name, model, max_tokens)
                     indice -= 1
+                    continue
+
+                if exc.is_empty_response:
+                    # Já repetiu este modelo e continua vazio: tenta o próximo do corredor.
+                    logger.debug("[%s] %s segue vazio; trocando de modelo", self.name, model)
                     continue
 
                 if exc.is_tools_rejection and not self.native_tools_rejected:
