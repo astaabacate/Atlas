@@ -63,3 +63,15 @@ RESTART PEDIDO EM 2026-09-18T03:35Z
 -------------------------------
 Motivo: fila do corredor kilo reordenada por MEDIANA medida (3 amostras/rodada + histórico),
 para o bot pegar o modelo que de fato responde primeiro.
+
+RESTART PEDIDO EM 2026-09-18T05:50Z
+-------------------------------
+Motivo: subir o bot no código da auditoria de capacidades (matriz ao vivo ✅104 · ❌0).
+Entram: recusa de cargo medida na API (cache do discord.py não bloqueia mais o bot), segunda
+tentativa automática em erro 5xx do Discord (criar cargo/canal/fórum e apagar mensagens),
+bitrate validado contra o teto real do servidor, palco sem recurso Comunidade explicado em
+português, export avisando quando o JSON não cabe, posição real relatada no mover/editar,
+membro buscado na API quando o cache está vazio, e as respostas honestas de server_info,
+color_name, translate_text, emoji_search e topic_suggest. O reinício entra na fila e assume
+quando a fatia atual terminar.
+
