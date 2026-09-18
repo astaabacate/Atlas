@@ -1,6 +1,6 @@
 # 🛰️ Sonda ao vivo dos provedores LLM
 
-- executada em: 2026-09-18T00:18:48Z
+- executada em: 2026-09-18T00:21:57Z
 - python: 3.11.16
 
 Pool gratuito ativo: kilo
@@ -21,14 +21,14 @@ Corredores sondados: kilo (AutoProvider.create_default)
 
 | corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
 |---|---:|---|---:|:---:|---|---|---|
-| kilo | 200 | kilo-auto/free | 5581 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
+| kilo | 200 | kilo-auto/free | 6236 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
 
 Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):
 
 | corredor | GET /models | nº modelos | chat PT | tools nativo | fallback textual | 3 consecutivas | Retry-After |
 |---|---|---:|---|---|---|---|---|
-| kilo | 200 | 380 | 200 | sim | sim | 200/200/- | - |
+| kilo | 200 | 380 | 200 | sim | sim | -/-/- | - |
 
 
 Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
-🟢 TESTADOS E FUNCIONANDO AGORA (protocolo completo): kilo (kilo-auto/free)
+🟡 RESPONDERAM, MAS COM RESSALVA NESTA RODADA: kilo (catálogo=200, consecutivas=-/-/-)
