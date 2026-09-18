@@ -1,6 +1,6 @@
 # 🛰️ Sonda ao vivo dos provedores LLM
 
-- executada em: 2026-09-18T01:05:12Z
+- executada em: 2026-09-18T01:09:51Z
 - python: 3.11.16
 
 Pool gratuito ativo: kilo
@@ -21,17 +21,17 @@ Corredores sondados: kilo (AutoProvider.create_default)
 
 | corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
 |---|---:|---|---:|:---:|---|---|---|
-| kilo | 200 | kilo-auto/free | 11070 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
+| kilo | 200 | thinkingmachines/inkling-small:free | 19306 ms | sim | 1M (vários) · 512K · 262K · 65K mínimo | 200 req/h por IP (anônimo) | - |
 
 Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):
 
 | corredor | GET /models | nº modelos | chat PT | tools nativo | fallback textual | 3 consecutivas | Retry-After |
 |---|---|---:|---|---|---|---|---|
-| kilo | 200 | 380 | 200 | sim | sim | 200/200/200 | - |
+| kilo | 200 | 381 | 200 | sim | sim | 200/200/200 | - |
 
 
 Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
-🟢 TESTADOS E FUNCIONANDO AGORA (protocolo completo): kilo (kilo-auto/free)
+🟢 TESTADOS E FUNCIONANDO AGORA (protocolo completo): kilo (thinkingmachines/inkling-small:free)
 
 ### Candidatos sem credencial (entram no pool só com 200 ao vivo)
 
