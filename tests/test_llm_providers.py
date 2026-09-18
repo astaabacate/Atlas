@@ -707,12 +707,21 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
         )
         self.assertLess(info["ms"], 5000, f"o primeiro da fila tem mediana de {info['ms'] / 1000:.2f}s")
 
-        # 2) e estar entre os 3 mais rápidos dentre os que já responderam com conteúdo
-        fila = sorted(com_conteudo, key=lambda m: (resumo[m]["ms"], -resumo[m]["taxa_conteudo"]))
+        # 2) e estar entre os 3 melhores do ranking medido: mais rodadas com conteúdo primeiro,
+        #    mediana como desempate (só mediana deixaria um modelo que acertou 1 de 4 na frente)
+        fila = sorted(com_conteudo, key=lambda m: (-resumo[m]["taxa_conteudo"], resumo[m]["ms"]))
         self.assertIn(primeiro, fila[:3],
-                      f"o primeiro da fila devia estar entre os 3 mais rápidos: {fila[:3]}")
+                      f"o primeiro da fila devia estar entre os 3 melhores do ranking: {fila[:3]}")
 
-        # 3) nenhum modelo que NUNCA devolveu conteúdo pode vir antes de um que devolveu:
+        # 3) a fila inteira tem que respeitar o ranking medido: taxa de conteúdo não-decrescente
+        #    ao longo dela. Assim um modelo confiável nunca fica atrás de um que quase nunca
+        #    responde — e se a medição virar, a CI mostra em vez de o dono descobrir no Discord.
+        taxas = [resumo[m]["taxa_conteudo"] for m in conhecidos]
+        self.assertEqual(taxas, sorted(taxas, reverse=True),
+                         f"fila fora de ordem pelo ranking medido: "
+                         f"{[(m, resumo[m]['taxa_conteudo']) for m in conhecidos]}")
+
+        # 4) nenhum modelo que NUNCA devolveu conteúdo pode vir antes de um que devolveu:
         #    seria gastar a primeira tentativa (e o tempo do usuário) em quem não responde.
         zeros = {m for m in conhecidos if resumo[m]["com_conteudo"] == 0}
         achou_zero = False

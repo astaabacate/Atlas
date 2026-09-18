@@ -12,13 +12,13 @@ vem do histórico (`reports/kilo-latencia-historico.json`), não de um pico.
 
 | modelo | resposta com conteúdo | mediana | amostras |
 |---|---|---:|---:|
-| `nvidia/nemotron-3-super-120b-a12b:free` | 75% (3/4) | 0.84s | 3 com conteúdo |
 | `nvidia/nemotron-3-ultra-550b-a55b:free` | 100% (4/4) | 1.30s | 4 com conteúdo |
+| `nex-agi/nex-n2.5-pro:free` | 100% (4/4) | 2.13s | 4 com conteúdo |
+| `nvidia/nemotron-3.5-lightning:free` | 100% (4/4) | 2.20s | 4 com conteúdo |
+| `nvidia/nemotron-3-super-120b-a12b:free` | 75% (3/4) | 0.84s | 3 com conteúdo |
 | `dots-studio/dots-3-note-preview:free` | 75% (3/4) | 1.43s | 3 com conteúdo |
 | `kilo-auto/free` | 50% (2/4) | 1.55s | 2 com conteúdo |
 | `liquid/lfm-2.5-2.6b:free` | 50% (2/4) | 1.62s | 2 com conteúdo |
-| `nex-agi/nex-n2.5-pro:free` | 100% (4/4) | 2.13s | 4 com conteúdo |
-| `nvidia/nemotron-3.5-lightning:free` | 100% (4/4) | 2.20s | 4 com conteúdo |
 | `stepfun/step-3.7-flash:free` | 50% (2/4) | 2.30s | 2 com conteúdo |
 | `cohere/north-mini-code:free` | 25% (1/4) | 0.62s | 1 com conteúdo |
 | `thinkingmachines/inkling-small:free` | 0% (0/4) | - | 0 com conteúdo |

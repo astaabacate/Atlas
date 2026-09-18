@@ -518,32 +518,31 @@ FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
         # reports/kilo-modelos-free.md (21 ":free" de 380).
         #
         # ORDEM = MEDIÇÃO, não chute: o smoke mede cada modelo 3× por rodada e guarda o
-        # histórico em reports/kilo-latencia-historico.json; a mediana agregada (e a taxa de
-        # resposta com conteúdo) está em reports/kilo-latencia-modelos.md. Critério:
-        #   1) grupo A (≥50% das rodadas com conteúdo) antes do grupo B (às vezes responde)
-        #      e dos que nunca responderam (0%);
-        #   2) dentro do grupo, mediana de latência crescente;
-        #   3) empate técnico → o de maior contexto;
-        #   4) o roteador `kilo-auto` fica por último (é o que mais devolve vazio; só existe
-        #      para o caso de todos os nomeados falharem).
-        # O bot usa o primeiro que responder, então rapidez percebida > contexto gigante.
-        # Números do agregado de 18/09 (3 rodadas, 3 amostras por rodada):
+        # histórico em reports/kilo-latencia-historico.json; a mediana e a taxa de resposta com
+        # conteúdo estão em reports/kilo-latencia-modelos.md. Critério (confiabilidade antes de
+        # velocidade — de nada adianta ir rápido e devolver vazio):
+        #   1) maior taxa de rodadas com conteúdo na frente (mediana de 4 rodadas × 3 amostras);
+        #   2) empate de taxa → menor mediana de latência;
+        #   3) quem nunca devolveu conteúdo fica no fim, como reserva, e pode subir no próximo
+        #      smoke (a lista é revisada a cada rodada medida);
+        #   4) o roteador `kilo-auto` é sempre o último (só existe para o caso de todos os
+        #      nomeados falharem).
+        # Medido em 18/09 (4 rodadas, 3 amostras por rodada):
         modelos=(
-            "nex-agi/nex-n2.5-pro:free",                  # 100% · 0,78 s · 262K
             "nvidia/nemotron-3-ultra-550b-a55b:free",     # 100% · 1,30 s · 1M
-            "dots-studio/dots-3-note-preview:free",       #  67% · 1,81 s · 512K
-            "nvidia/nemotron-3-super-120b-a12b:free",     #  67% · 1,89 s · 262K
-            "nvidia/nemotron-3.5-lightning:free",         # 100% · 2,15 s · 1M
-            # -- grupo B: responderam com conteúdo em pelo menos uma rodada, mas não são
-            #    confiáveis ainda; disputam a fila quando os de cima falham.
-            "liquid/lfm-2.5-2.6b:free",                   #  33% · 0,57 s · 65.536 (emergência)
-            "stepfun/step-3.7-flash:free",                #  33% · 2,21 s · 262K
-            # -- reservas: ainda não devolveram conteúdo nas rodadas medidas, mas continuam
-            #    na fila e podem subir no próximo smoke.
+            "nex-agi/nex-n2.5-pro:free",                  # 100% · 2,13 s · 262K
+            "nvidia/nemotron-3.5-lightning:free",         # 100% · 2,20 s · 1M
+            "nvidia/nemotron-3-super-120b-a12b:free",     #  75% · 0,84 s · 262K
+            "dots-studio/dots-3-note-preview:free",       #  75% · 1,43 s · 512K
+            # -- responderam com conteúdo em metade/metade das rodadas: entram quando os de
+            #    cima falham, mas ainda não são primeira escolha.
+            "liquid/lfm-2.5-2.6b:free",                   #  50% · 1,62 s · 65.536 (emergência)
+            "stepfun/step-3.7-flash:free",                #  50% · 2,30 s · 262K
+            "cohere/north-mini-code:free",                #  25% · 0,62 s · 256K
+            # -- reservas: ainda não devolveram conteúdo nas rodadas medidas.
             "thinkingmachines/inkling-small:free",        # 1.048.576
             "qwen/qwen3.8-27b:free",                      # 262.144
             "poolside/laguna-s-2.1:free",                 # 262.144
-            "cohere/north-mini-code:free",                # 256.000
             "kilo-auto/free",                             # roteador do gateway (por último)
         ),
         headers=(("Authorization", "Bearer anonymous"),),

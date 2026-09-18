@@ -189,35 +189,33 @@ Correção (dado, não sorte):
   conteúdo** vem antes de quem nunca devolveu; (2) o primeiro da fila precisa ter ≥ 50% de
   conteúdo e mediana < 5 s; (3) `kilo-auto` por último (é o que mais devolve vazio).
 
-| posição | modelo | escrita com conteúdo | mediana |
+| posição | modelo | rodadas com conteúdo | mediana |
 |---:|---|---:|---:|
-| 1 | `nex-agi/nex-n2.5-pro:free` | 100% (3/3) | 0,78 s |
-| 2 | `nvidia/nemotron-3-ultra-550b-a55b:free` | 100% (3/3) | 1,30 s |
-| 3 | `dots-studio/dots-3-note-preview:free` | 67% (2/3) | 1,81 s |
-| 4 | `nvidia/nemotron-3-super-120b-a12b:free` | 67% (2/3) | 1,89 s |
-| 5 | `nvidia/nemotron-3.5-lightning:free` | 100% (3/3) | 2,15 s |
-| 6 | `liquid/lfm-2.5-2.6b:free` | 33% (1/3) | 0,57 s |
-| 7 | `stepfun/step-3.7-flash:free` | 33% (1/3) | 2,21 s |
-| 8-11 | inkling-small, qwen3.8-27b, laguna-s-2.1, north-mini-code | 0% (0/3) | — |
-| 12 | `kilo-auto/free` | último por regra (roteador) | — |
+| 1 | `nvidia/nemotron-3-ultra-550b-a55b:free` | 100% (4/4) | 1,30 s |
+| 2 | `nex-agi/nex-n2.5-pro:free` | 100% (4/4) | 2,13 s |
+| 3 | `nvidia/nemotron-3.5-lightning:free` | 100% (4/4) | 2,20 s |
+| 4 | `nvidia/nemotron-3-super-120b-a12b:free` | 75% (3/4) | 0,84 s |
+| 5 | `dots-studio/dots-3-note-preview:free` | 75% (3/4) | 1,43 s |
+| 6 | `liquid/lfm-2.5-2.6b:free` | 50% (2/4) | 1,62 s |
+| 7 | `stepfun/step-3.7-flash:free` | 50% (2/4) | 2,30 s |
+| 8 | `cohere/north-mini-code:free` | 25% (1/4) | 0,62 s |
+| 9-11 | inkling-small, qwen3.8-27b, laguna-s-2.1 | 0% (0/4) | — |
+| 12 | `kilo-auto/free` | roteador: último por regra | — |
 
-(Agregado da rodada `03:16Z`, que já mede **3 amostras por modelo**; a mediana usa só as
-amostras em que o modelo respondeu com conteúdo, e empate de contagem fica com a mais lenta.)
+**Critério (confiabilidade antes de velocidade):** maior taxa de rodadas com conteúdo primeiro,
+mediana como desempate, reservas (0%) no fim e o roteador `kilo-auto` sempre por último. Ranquear
+só por mediana era enganoso: o `north-mini-code` ficava em 1º por uma única resposta rápida em
+quatro rodadas — responder sempre vale mais que responder rápido às vezes. O teste da fila agora
+cobra a fila inteira: taxa não-decrescente ao longo dela, primeiro com ≥50% de conteúdo e mediana
+< 5 s, e nenhum modelo sem conteúdo na frente de quem devolveu.
 
-Achado no caminho: a primeira versão dessa ordenação levantava `TypeError` quando **dois ou mais**
-modelos ficavam sem mediana (`None` comparado com `float`) — foi o que derrubou a sonda de
-`03:16Z`: o histórico era gravado, o relatório não, e o passo saía vermelho apesar de 1/1
-provedor ter respondido. Corrigido com chave de ordenação que manda os sem-mediana para o fim,
-mais uma guarda para a medição de latência nunca derrubar o relatório da sonda (é evidência
-secundária). Regressão coberta por teste.
-
-Efeito no E2E: com o **único** corredor sem chave caindo (NVIDIA devolveu erro de upstream na
-rodada de 18/09), a corrida de LLMs e a checagem "agente conhece a estrutura real" saíam como
-❌ FAIL, ainda que a culpa fosse do provedor. Agora elas registram **⚠️ WARN** com a mensagem
-crua (`_culpa_do_llm` + `degradar_llm`), como as outras checagens dependentes de LLM. E o E2E
-não depende mais de existir canal/categoria no servidor: quando o dono pede "apague tudo" o
-servidor fica vazio, então as checagens de canal/permissão criam estrutura temporária e a
-apagam no fim.
+Achado no caminho (vale para quem mantiver isso): a primeira versão da ordenação levantava
+`TypeError` quando **dois ou mais** modelos ficavam sem mediana (`None` comparado com `float`) — foi
+o que derrubou a sonda de `03:16Z`: o histórico era gravado, o relatório não, e o passo saía
+vermelho apesar de 1/1 provedor ter respondido. Corrigido com chave de ordenação que manda os
+sem-mediana para o fim, mais uma guarda para a medição de latência nunca derrubar o relatório
+principal (é evidência secundária). A rodada seguinte (`03:22Z`) publicou normal e o histórico já
+tem 4 rodadas de 3 amostras. Regressão coberta por teste.
 
 ## 4) Realmente gratuitos (sem trial que expira)
 

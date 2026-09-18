@@ -173,12 +173,14 @@ A ordem vem da medição real do CI, não de chute: o smoke mede **3 amostras po
 guarda tudo em `reports/kilo-latencia-historico.json` e a fila sai da **mediana acumulada** +
 **taxa de resposta com conteúdo** (`reports/kilo-latencia-modelos.md`). Uma rodada isolada oscila
 (um modelo que respondeu em 0,66 s volta vazio na seguinte), então a decisão nunca é de uma amostra
-só. Critério: grupo A (respondeu com conteúdo em **≥50%** das rodadas) vem antes do grupo B (às
-vezes responde), que vem antes de quem nunca respondeu; dentro do grupo, mediana crescente; e o
-roteador `kilo-auto` (o que mais devolve vazio) é sempre o último. Agregado de 18/09 (3 rodadas
-× 3 amostras): `nex-n2.5-pro` (100% · 0,78 s) → `nemotron-3-ultra-550b` (100% · 1,30 s) →
-`dots-3-note-preview` (67% · 1,81 s) → `nemotron-3-super-120b` (67% · 1,89 s) →
-`nemotron-3.5-lightning` (100% · 2,15 s) → grupo B (`lfm-2.5`, `step-3.7-flash`) → reservas.
+só. Critério (confiabilidade antes de velocidade): maior **taxa de rodadas com conteúdo** primeiro,
+mediana de latência como desempate, reservas que nunca responderam no fim e o roteador `kilo-auto`
+(o que mais devolve vazio) sempre por último. Ranquear só por mediana era enganoso — um modelo que
+acertou 1 de 4 rodadas aparecia em 1º. Agregado de 18/09 (4 rodadas × 3 amostras):
+`nemotron-3-ultra-550b` (100% · 1,30 s) → `nex-n2.5-pro` (100% · 2,13 s) →
+`nemotron-3.5-lightning` (100% · 2,20 s) → `nemotron-3-super-120b` (75% · 0,84 s) →
+`dots-3-note-preview` (75% · 1,43 s) → metade/metade (`lfm-2.5`, `step-3.7-flash`) →
+`north-mini-code` (25%) → reservas.
 
 **Lista de modelos conferida ao vivo:** a ficha do `kilo` não é chute — cada id sai do catálogo real
 (`GET /api/gateway/models`, 380 modelos, 21 marcados `:free`), publicado pelo CI em
