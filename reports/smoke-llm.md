@@ -1,6 +1,6 @@
 # 🛰️ Sonda ao vivo dos provedores LLM
 
-- executada em: 2026-09-18T03:28:42Z
+- executada em: 2026-09-18T05:22:23Z
 - python: 3.11.16
 
 Pool gratuito ativo: kilo
@@ -21,13 +21,13 @@ Corredores sondados: kilo (AutoProvider.create_default)
 
 | corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
 |---|---:|---|---:|:---:|---|---|---|
-| kilo | 200 | nvidia/nemotron-3-ultra-550b-a55b:free | 40453 ms | sim | 262K nos rápidos · 1M nas reservas · 65… | 200 req/h por IP (anônimo) | - |
+| kilo | 200 | nvidia/nemotron-3-ultra-550b-a55b:free | 35239 ms | sim | 262K nos rápidos · 1M nas reservas · 65… | 200 req/h por IP (anônimo) | - |
 
 Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):
 
 | corredor | GET /models | nº modelos | chat PT | tools nativo | fallback textual | 3 consecutivas | Retry-After |
 |---|---|---:|---|---|---|---|---|
-| kilo | 200 | 381 | 200 | sim | sim | 200/200/200 | - |
+| kilo | 200 | 380 | 200 | sim | sim | 200/200/200 | - |
 
 
 Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
@@ -37,23 +37,23 @@ Resumo: 1/1 provedores responderam; 1 com tool_call nativo.
 
 | modelo | resultado | latência |
 |---|---|---:|
-| `thinkingmachines/inkling-small:free` | HTTP 429 | 0.41s |
-| `qwen/qwen3.8-27b:free` | HTTP 429 | 0.48s |
-| `cohere/north-mini-code:free` | 200 | 0.96s |
-| `nvidia/nemotron-3-super-120b-a12b:free` | 200 | 0.97s |
-| `dots-studio/dots-3-note-preview:free` | 200 | 1.45s |
-| `liquid/lfm-2.5-2.6b:free` | 200 | 1.50s |
-| `nex-agi/nex-n2.5-pro:free` | 200 | 1.56s |
-| `stepfun/step-3.7-flash:free` | 200 | 2.18s |
-| `nvidia/nemotron-3-ultra-550b-a55b:free` | 200 | 2.32s |
-| `poolside/laguna-s-2.1:free` | 200 vazio | 4.05s |
-| `nvidia/nemotron-3.5-lightning:free` | 200 | 4.61s |
-| `kilo-auto/free` | 200 vazio | 5.97s |
+| `thinkingmachines/inkling-small:free` | HTTP 429 | 0.38s |
+| `qwen/qwen3.8-27b:free` | HTTP 429 | 0.47s |
+| `poolside/laguna-s-2.1:free` | HTTP 429 | 0.74s |
+| `nex-agi/nex-n2.5-pro:free` | 200 | 0.79s |
+| `liquid/lfm-2.5-2.6b:free` | 200 | 0.80s |
+| `cohere/north-mini-code:free` | 200 | 0.80s |
+| `nvidia/nemotron-3-super-120b-a12b:free` | 200 | 0.84s |
+| `dots-studio/dots-3-note-preview:free` | 200 | 1.51s |
+| `kilo-auto/free` | 200 | 1.91s |
+| `nvidia/nemotron-3-ultra-550b-a55b:free` | 200 | 2.01s |
+| `stepfun/step-3.7-flash:free` | 200 | 2.02s |
+| `nvidia/nemotron-3.5-lightning:free` | 200 | 2.48s |
 
 ### Candidatos sem credencial (entram no pool só com 200 ao vivo)
 
 | candidato | GET /models | POST chat | resposta | erro |
 |---|---|---|---|---|
-| kilo-sem-header | 200 | 200/200 | Here's a thinking process: 1. **Analyze User Input:** The u… | - |
+| kilo-sem-header | 200 | 200 | OK · catálogo em reports/kilo-modelos-free.md | - |
 | opencode-zen | 200 | 400 | - | {"error":{"type":"server_error","message":"Error from provider (Console): Upstream request failed: Model is unavailable."}} |
 | opencode-zen-big-pickle | 200 | 403 | - | {"type":"error","error":{"type":"FreeTierError","message":"Error from provider (Console): OpenCode's free tier can only be used from within… |
