@@ -826,6 +826,23 @@ class TestErroTransitorioDoDiscord(unittest.TestCase):
         self.assertEqual(len(chamadas), 1, "403 não pode ser repetido")
         self.assertIn("Missing Permissions", msg)
 
+    def test_clear_messages_avisa_quando_sobram_mensagens_antigas(self) -> None:
+        """O bulk delete ignora o que tem mais de 14 dias: não pode dizer 'chat limpo'."""
+        ctx, servidor = contexto()
+        canal = servidor.channels[0]
+
+        async def history(limit: int = 1, oldest_first: bool = False) -> Any:
+            yield object()  # sobrou uma mensagem antiga
+
+        canal.history = history  # type: ignore[assignment]
+        saida = executar("clear_messages", {"channel": "geral", "limit": 3}, ctx)
+        self.assertIn("SOBRARAM", saida)
+        self.assertNotIn("chat está limpo", saida)
+
+        canal.history = None  # sem histórico: nada a afirmar (mantém o texto de sucesso)
+        saida = executar("clear_messages", {"channel": "geral", "limit": 3}, ctx)
+        self.assertIn("chat está limpo", saida)
+
     def test_clear_messages_repete_o_purge_no_503(self) -> None:
         """A rodada 35307204220 falhou em 'clear_messages apaga mensagens reais' com 503 do Discord."""
         ctx, servidor = contexto()

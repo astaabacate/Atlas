@@ -1754,4 +1754,20 @@ async def op_clear_messages(
     nome = getattr(alvo, "name", "canal")
     if total == 0:
         return f"🧹 Não havia mensagens para apagar em #{nome}."
+
+    # O bulk delete do Discord IGNORA mensagens com mais de 14 dias. Dizer "o chat está limpo"
+    # com mensagens antigas ainda ali seria mentira — então a resposta confere e avisa.
+    sobrou_antiga = False
+    historico = getattr(alvo, "history", None)
+    if callable(historico):
+        try:
+            async for _antiga in historico(limit=1, oldest_first=True):
+                sobrou_antiga = True
+                break
+        except Exception:  # noqa: BLE001 - se não der para conferir, não afirma nada
+            sobrou_antiga = False
+
+    if sobrou_antiga:
+        return (f"🗑️ Apaguei {total} mensagem(ns) em #{nome}. Ainda SOBRARAM mensagens antigas: "
+                "o Discord não apaga em lote nada com mais de 14 dias (só uma a uma).")
     return f"🗑️ Apaguei {total} mensagem(ns) em #{nome}. O chat está limpo."
