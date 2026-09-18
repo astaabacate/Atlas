@@ -53,3 +53,8 @@ RESTART PEDIDO EM 2026-09-18T02:45Z
 -------------------------------
 Motivo: 'exclua esse chat' apagava nada e o bot dizia que apagou. Entram a ferramenta
 clear_messages (bulk delete real) e a resposta honesta do conversation_clear.
+
+RESTART PEDIDO EM 2026-09-18T03:20Z
+-------------------------------
+Motivo: o bot mandou o rascunho interno do modelo (textão em inglês). Entram o corte de
+raciocínio no provedor e a barreira de resposta no agente (PT-BR, curto, nunca rascunho).

@@ -1754,9 +1754,28 @@ class Harness:
         await self.check(phase, "export_structure (JSON válido e completo)", export_structure)
 
         async def show_permissions() -> str:
-            if canal is None:
-                raise AssertionError("servidor sem canais para testar")
-            out = await execute_tool("show_permissions", {"channel": str(canal.id)}, ctx)
+            alvo = canal
+            if alvo is None:
+                # servidor pode ter ficado sem canais (o próprio bot apaga quando pedem):
+                # cria um temporário só para o teste e limpa no fim.
+                antes_sp = await self._api_state(guild)
+                await execute_tool("create_channels", {"channels": [
+                    {"name": f"{TEMP_MARK}-perm", "type": "text"}]}, ctx)
+                novos_sp = await self._capture_new(guild, antes_sp)
+                alvo = next((c for c in novos_sp if c.type.name == "text"), None)
+                self.assert_true(alvo is not None, "não consegui criar canal para testar permissões")
+                try:
+                    out = await execute_tool("show_permissions", {"channel": str(alvo.id)}, ctx)
+                    self.assert_true("Permissões" in out or "não possui permissões" in out,
+                                     f"resposta inesperada: {out[:120]}")
+                    return out.replace("\n", " · ")[:180]
+                finally:
+                    try:
+                        await alvo.delete()
+                        self.owned_channels.discard(alvo.id)
+                    except Exception:  # noqa: BLE001
+                        pass
+            out = await execute_tool("show_permissions", {"channel": str(alvo.id)}, ctx)
             self.assert_true("Permissões" in out or "não possui permissões" in out, f"resposta inesperada: {out[:120]}")
             return out.replace("\n", " · ")[:180]
 
@@ -1898,7 +1917,22 @@ class Harness:
             for ch in list(guild.categories) + list(guild.channels):
                 marcadores.append((ch.name, f"<#{ch.id}>"))
             if not marcadores:
-                raise AssertionError("servidor sem categorias/canais para checar")
+                # servidor esvaziado (o bot apaga de verdade quando pedem): cria estrutura
+                # temporária só para a checagem e registra para limpeza.
+                from brain.executors import execute_tool as _exec
+                from brain.tools import ToolContext as _Ctx
+
+                ctx_ce = _Ctx(guild=guild, channel=canal, actor=live.actor)
+                antes_ce = await self._api_state(guild)
+                await _exec("create_channels", {"channels": [
+                    {"name": f"{TEMP_MARK}-estrutura", "type": "category",
+                     "channels": [{"name": f"{TEMP_MARK}-dentro", "type": "text"}]}]}, ctx_ce)
+                criados = await self._capture_new(guild, antes_ce)
+                for ch in criados:
+                    marcadores.append((ch.name, f"<#{ch.id}>"))
+                    if ch.type.name == "text":
+                        self.owned_channels.add(ch.id)
+                self.assert_true(bool(marcadores), "não consegui criar estrutura para o teste")
             resposta = await perguntar("Liste as categorias e os canais deste servidor.", canal_novo())
             citados = [nome for nome, mencao in marcadores if nome in resposta or mencao in resposta]
             self.assert_true(bool(citados), f"não citou nada real do servidor (nem nome nem menção): {resposta[:160]!r}")
