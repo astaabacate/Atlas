@@ -43,7 +43,9 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 8 fases ao vivo (conexão, ferramentas, agente, mutações, matriz de capacidades, loop do
+    # bot e varredura) — 25 min não davam folga e a run morria no meio, perdendo o relatório.
+    timeout-minutes: 45
     env:
       PYTHONUNBUFFERED: "1"
       DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
