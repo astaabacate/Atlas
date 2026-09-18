@@ -166,7 +166,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         self.native_tools_rejected = False
 
         # Auto-descoberta de modelos: provedores gratuitos trocam de catálogo sem avisar
-        # (foi assim que o llm7 passou a devolver 400 "Model ... is currently unavailable").
+        # (já aconteceu com um corredor antigo devolvendo 400 "Model ... is currently unavailable").
         self.models_url = models_url or (
             endpoint_url[: -len("/chat/completions")] + "/models"
             if endpoint_url.endswith("/chat/completions")
@@ -219,7 +219,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         mantidos = [m for m in self.configured_models if m in disponiveis]
         novos = [m for m in ids if m not in mantidos and _looks_like_chat_model(m)]
         if not mantidos and not self.discovery_can_replace:
-            # Catálogo num namespace diferente do esperado (ex.: aliases do pollinations):
+            # Catálogo num namespace diferente do esperado (aliases em vez de nomes reais):
             # melhor manter a lista que funciona do que apostar em ids desconhecidos.
             self._models_refreshed_at = agora
             return self.models
