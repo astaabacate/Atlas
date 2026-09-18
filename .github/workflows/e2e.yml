@@ -44,8 +44,11 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     # 8 fases ao vivo (conexão, ferramentas, agente, mutações, matriz de capacidades, loop do
-    # bot e varredura) — 25 min não davam folga e a run morria no meio, perdendo o relatório.
-    timeout-minutes: 45
+    # bot e varredura). Cada fase tem limite PRÓPRIO (no harness, via asyncio.wait_for) e cada
+    # passo tem o seu aqui — uma fase travada é interrompida e registrada no relatório, em vez de
+    # matar a execução inteira e perder as evidências. O teto do job cobre a soma dos limites do
+    # harness (75 min), para o relatório SEMPRE ser publicado.
+    timeout-minutes: 80
     env:
       PYTHONUNBUFFERED: "1"
       DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
@@ -119,46 +122,55 @@ jobs:
           fi
 
       - name: "Fase 1 — offline: schemas, duplos de teste e política"
+        timeout-minutes: 7
         continue-on-error: true
         run: python scripts/e2e_live.py --phases static,spy,policy --outdir reports/parts --tag 1-offline
 
       - name: "Fase 2 — conexão real e diagnóstico do servidor"
+        timeout-minutes: 7
         if: always()
         continue-on-error: true
         run: python scripts/e2e_live.py --phases connect,audit --outdir reports/parts --tag 2-conexao
 
       - name: "Fase 3 — ferramentas somente-leitura no servidor real"
+        timeout-minutes: 7
         if: always()
         continue-on-error: true
         run: python scripts/e2e_live.py --phases tools --outdir reports/parts --tag 3-ferramentas
 
       - name: "Fase 4 — Agente + corrida de LLMs ao vivo"
+        timeout-minutes: 9
         if: always()
         continue-on-error: true
         run: python scripts/e2e_live.py --phases agent --outdir reports/parts --tag 4-agente
 
       - name: "Fase 5 — mutações reais em objetos de teste (criar/editar/apagar)"
+        timeout-minutes: 17
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
         run: python scripts/e2e_live.py --phases mutate --mutate --allow-template --outdir reports/parts --tag 5-mutacoes
 
       - name: "Fase 6 — matriz de capacidades (cada parâmetro, valor e combinação, no Discord real)"
+        timeout-minutes: 17
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
         run: python scripts/e2e_live.py --phases caps --mutate --outdir reports/parts --tag 6-capacidades
 
       - name: "Fase 7 — loop real do core.bot (on_message → resposta)"
+        timeout-minutes: 9
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
         run: python scripts/e2e_live.py --phases botloop --mutate --outdir reports/parts --tag 7-loop
 
       - name: "Fase 8 — varredura de sobras de teste"
+        timeout-minutes: 7
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
         run: python scripts/e2e_live.py --phases sweep --mutate --outdir reports/parts --tag 8-varredura
 
       - name: Consolidar relatório e publicar no branch
         if: always()
+        timeout-minutes: 8
         # Atenção: o runner executa `bash -e`; por isso cada comando é tratado aqui —
         # o merge sai com 1 quando existe falha de teste e NÃO pode abortar a publicação.
         run: |

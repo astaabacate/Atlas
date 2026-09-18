@@ -544,5 +544,53 @@ class TestFaseCapsNaoSeEngana(unittest.TestCase):
         self.assertIn("aviso_de_hierarquia", fonte)
         self.assertIn("culpa_do_discord", fonte,
                       "5xx do Discord não pode ser ❌ do produto")
+
+
+class TestGuardaDeTempoDasFases(unittest.TestCase):
+    """
+    Uma fase travada tem que ser interrompida — com o "onde" no relatório.
+
+    Aconteceu ao vivo (execução 35387325952): a fase de mutações ficou 20+ minutos presa numa
+    chamada e a execução inteira morreu no teto do job, levando as evidências embora.
+    """
+
+    def _fases_com_handler(self) -> set[str]:
+        return {nome[len("phase_"):] for nome in dir(e2e.Harness) if nome.startswith("phase_")}
+
+    def test_toda_fase_tem_limite_proprio(self) -> None:
+        faltando = self._fases_com_handler() - set(e2e.LIMITE_DA_FASE)
+        self.assertEqual(faltando, set(), "fase sem limite de tempo na tabela")
+
+    def test_fase_e_rodada_com_wait_for_e_interrupcao_registrada(self) -> None:
+        fonte = (ROOT / "scripts" / "e2e_live.py").read_text(encoding="utf-8")
+        self.assertIn("asyncio.wait_for(handler(), timeout=limite)", fonte)
+        self.assertIn("except asyncio.TimeoutError", fonte)
+        self.assertIn("fase interrompida por tempo", fonte,
+                      "sem registro, uma fase travada desaparece do relatório")
+
+    def test_diz_onde_a_fase_estava_pendurada(self) -> None:
+        import asyncio
+
+        async def cenario() -> str:
+            async def travada() -> None:
+                await asyncio.sleep(30)  # simula a chamada que não volta
+
+            tarefa = asyncio.create_task(travada())
+            await asyncio.sleep(0.05)  # deixa a tarefa entrar no sleep
+            try:
+                return e2e.Harness._onde_esta_pendurado()
+            finally:
+                tarefa.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await tarefa
+
+        onde = asyncio.run(cenario())
+        self.assertIn("test_e2e_live.py:", onde, f"a pilha não aponta o ponto: {onde!r}")
+
+    def test_limite_pode_ser_forcado_pela_linha_de_comando(self) -> None:
+        args = e2e.parse_args(["--phases", "static", "--phase-timeout", "42"])
+        self.assertEqual(args.phase_timeout, 42.0)
+
+
 if __name__ == "__main__":
     unittest.main()

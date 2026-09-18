@@ -81,6 +81,17 @@ PHASE_TITLES = {
     "cobertura": "Cobertura: quais ferramentas foram exercitadas nesta execução",
 }
 
+# Limite de tempo por fase (segundos). A matriz e as mutações fazem centenas de chamadas reais
+# ao Discord e ao LLM; as outras são rápidas. Servem para uma fase travada NÃO engolir a execução
+# inteira: ela é interrompida, o relatório diz onde parou (com a pilha de onde estava) e as fases
+# seguintes (inclusive a varredura de sobras) ainda rodam.
+LIMITE_DA_FASE = {
+    "static": 180, "spy": 300, "policy": 180,
+    "connect": 300, "audit": 300, "tools": 300,
+    "agent": 420, "mutate": 900, "caps": 900, "botloop": 420, "sweep": 300,
+}
+LIMITE_PADRAO = 300
+
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("farol.e2e")
 
@@ -3862,6 +3873,32 @@ class Harness:
 
         executors.execute_tool = contando
 
+    def _limite_da_fase(self, phase: str) -> float:
+        """Limite da fase: --phase-timeout manda em tudo; senão, a tabela por fase."""
+        escolhido = float(getattr(self.args, "phase_timeout", 0) or 0)
+        if escolhido > 0:
+            return escolhido
+        return float(LIMITE_DA_FASE.get(phase, LIMITE_PADRAO))
+
+    @staticmethod
+    def _onde_esta_pendurado() -> str:
+        """
+        Onde as tarefas estavam paradas (arquivo:linha) quando a fase foi interrompida.
+
+        Sem isso, uma fase travada vira só "demorou" e a próxima investigação começa do zero.
+        """
+        pontos: list[str] = []
+        for tarefa in asyncio.all_tasks():
+            if tarefa.done():
+                continue
+            pilha = tarefa.get_stack()
+            if not pilha:
+                continue
+            quadro = pilha[-1]
+            pontos.append(f"{Path(quadro.f_code.co_filename).name}:{quadro.f_lineno}"
+                          f":{quadro.f_code.co_name}")
+        return ", ".join(sorted(set(pontos))[:6]) or "não consegui ler as pilhas das tarefas"
+
     async def _registrar_cobertura(self) -> None:
         """Fecha o relatório com o que NÃO foi exercitado — lacuna invisível vira ✅ de fachada."""
         from brain.tools import tool_names
@@ -3897,8 +3934,17 @@ class Harness:
             if handler is None:
                 self.rep.record(phase, "fase desconhecida", FAIL, f"não existe fase '{phase}'")
                 continue
+            limite = self._limite_da_fase(phase)
             try:
-                await handler()
+                await asyncio.wait_for(handler(), timeout=limite)
+            except asyncio.TimeoutError:
+                # Nada de travar em silêncio: diz o limite, onde parou e segue para a próxima fase.
+                onde = self._onde_esta_pendurado()
+                log.warning("Fase %s passou de %ss e foi interrompida (pendurada em %s)",
+                            phase, limite, onde)
+                self.rep.record(phase, "fase interrompida por tempo", WARN,
+                                f"passou de {limite}s e foi interrompida — o que aparece abaixo é "
+                                f"o que terminou; onde estava pendurada: {onde}")
             except Exception as exc:
                 log.exception("Fase %s explodiu", phase)
                 self.rep.record(phase, "erro inesperado na fase", FAIL, f"{type(exc).__name__}: {exc}")
@@ -3932,6 +3978,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--allow-template", dest="allow_template", action="store_true",
                         help="autoriza apply_template (cria ~16 objetos; a limpeza usa diff de IDs)")
     parser.add_argument("--connect-timeout", dest="connect_timeout", type=float, default=90.0)
+    parser.add_argument("--phase-timeout", dest="phase_timeout", type=float, default=0.0,
+                        help="limite em segundos para CADA fase (default: tabela interna por fase)")
     parser.add_argument("--llm-timeout", dest="llm_timeout", type=float, default=None)
     parser.add_argument("--merge", default="", help="mescla relatórios de um diretório e sai")
     parser.add_argument("--no-annotations", dest="annotations", action="store_false", default=True)
