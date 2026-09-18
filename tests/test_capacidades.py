@@ -843,6 +843,11 @@ class TestAchadosDaMatrizAoVivo(unittest.TestCase):
         self.assertIn("não cabe", saida)
         self.assertIn("daria", saida, "o aviso tem que dizer em quantas mensagens o JSON caberia")
         self.assertIn("por partes", saida)
+        # o recorte corta o JSON no meio: o aviso TEM que dizer o que ficou fora dele (os cargos,
+        # com as permissões, vêm depois dos canais e não aparecem no pedaço mostrado)
+        self.assertIn("cargo(s)", saida, "o aviso não conta os cargos exportados")
+        self.assertIn("permissões", saida, "o aviso não diz que os cargos vêm com as permissões")
+        self.assertIn("121 canal(is)", saida, "o aviso não conta os canais exportados")
 
         pequeno = Servidor()  # servidor pequeno: o JSON vem inteiro e parseável
         ctx_pequeno, _ = contexto(pequeno)

@@ -171,6 +171,29 @@ Evidência desta rodada: `python -m unittest discover -s tests` → **294 testes
 `e2e_live.py --phases static,spy,policy` → **✅ 42 · ❌ 0**; simulação dos 5 cenários do dono
 (recriar por clone, recriar por create+delete, cargo repetido, lote de 5 canais, ferramenta única).
 
+### Rodada 5: o FAIL que sobrou no relatório ao vivo (`export_structure` numa mensagem só)
+
+O relatório da execução `35317479297` (commit `12b3960`) fechou em ✅ 104 · ❌ 1 · ⚠️ 7 · ⏭️ 1. O
+único ❌ era `caps/estrutura: export guarda as capacidades reais` → *"export não guardou o campo
+permissions"*. **O export guarda** (o caminho de servidor pequeno confere a lista de permissões do
+cargo); o que faltava era o HARNESS: em servidor grande o JSON não cabe numa mensagem e o bot
+devolve um **recorte avisado** com os primeiros 1800 caracteres — e os cargos (com
+`permissions`/`hoist`/`mentionable`) vêm DEPOIS dos canais no JSON, ou seja, caem fora do pedaço.
+O teste cobrava as chaves de cargo de um texto que, por construção, não as contém.
+
+Correções: (1) o aviso do recorte agora diz **o que ficou fora dele** ("guardou N canal(is) em X
+categoria(s) e K cargo(s) — cada cargo com as permissões, hoist e mentionable dele"), então o dono
+sabe que o export pegou os cargos mesmo sem vê-los no pedaço; (2) o harness cobra, no caminho do
+recorte, o aviso e o balanço (não as chaves que não cabem — o round-trip completo é verificado na
+fase de import e nos testes offline); (3) teste offline novo `test_export_avisa_quando_o_json_nao_cabe_na_mensagem`
+agora exige o balanço.
+
+Limitação conhecida e documentada: o export/import cobre estrutura + capacidades de canal
+(tipo, tópico, NSFW, modo lento, bitrate, limite, categoria) e de cargo (cor, hoist, mentionable,
+permissões, posição) — **overwrites de canal não entram no JSON**; para isso existe `set_permissions`
+(capacidade verificada ao vivo na fase `caps`). Num servidor grande o backup "de uma vez" não cabe
+numa mensagem do Discord por limite da própria plataforma.
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o

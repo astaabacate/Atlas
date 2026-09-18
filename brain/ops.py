@@ -1632,9 +1632,16 @@ async def op_export_structure(ctx: ToolContext) -> str:
     if len(dumped) <= limite:
         return f"📦 Estrutura exportada ({len(dumped)} caracteres):\n```json\n{dumped}\n```"
     partes = (len(dumped) + limite - 1) // limite
+    n_canais = sum(len(c["channels"]) for c in structure["categories"])
+    n_canais += len(structure["uncategorized_channels"])
+    # O que fica FORA do recorte precisa ser dito: sem isso o dono não sabe se o export pegou os
+    # cargos e as permissões (eles vêm depois dos canais no JSON e caem no corte).
     return (f"📦 Estrutura exportada, mas o JSON completo tem {len(dumped)} caracteres e não cabe "
-            f"numa mensagem do Discord (limite ~2000; daria {partes} mensagens). Primeiros "
-            f"{limite} caracteres para conferência:\n```json\n{dumped[:limite]}\n```\n"
+            f"numa mensagem do Discord (limite ~2000; daria {partes} mensagens). No total, o "
+            f"export guardou {n_canais} canal(is) em {len(structure['categories'])} categoria(s) e "
+            f"{len(structure['roles'])} cargo(s) — cada cargo com as permissões, hoist e "
+            f"mentionable dele. Aqui vão os primeiros {limite} caracteres para conferência "
+            f"(os cargos ficam fora deste pedaço):\n```json\n{dumped[:limite]}\n```\n"
             "⚠️ **Este recorte NÃO serve para importar** (está cortado). Se o objetivo é "
             "backup/restauração, faça por partes (uma categoria por vez) — o Discord não aceita "
             "um JSON deste tamanho numa mensagem só.")

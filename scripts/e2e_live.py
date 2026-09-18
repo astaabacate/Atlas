@@ -3117,12 +3117,18 @@ class Harness:
                 # aviso explícito e os campos de capacidade no recorte — antes o JSON vinha
                 # cortado no meio, sem aviso, e o round-trip não podia ser feito.
                 self.assert_true("não cabe" in saida, "recorte sem explicação do tamanho")
-                for campo in ('"permissions"', '"mentionable"', '"hoist"', '"nsfw"',
-                              '"slowmode_delay"', '"user_limit"', '"bitrate"'):
-                    self.assert_true(campo in saida, f"export não guardou o campo {campo}")
-                return ("export grande: recorte AVISADO (não serve para importar) e os campos de "
-                        "capacidade (permissões, hoist, mentionable, nsfw, slowmode, bitrate, "
-                        "limite) presentes no JSON")
+                # O recorte mostra o COMEÇO do JSON: os cargos (com permissions/hoist/
+                # mentionable) vêm depois dos canais e caem fora do pedaço — então o que se cobra
+                # aqui é o AVISO e o balanço do que foi exportado, não as chaves que não couberam.
+                self.assert_true("NÃO serve para importar" in saida,
+                                 "recorte sem o aviso de que não serve para importar")
+                for info in ("cargo(s)", "permissões", "por partes"):
+                    self.assert_true(info in saida,
+                                     f"o aviso do recorte não diz o que ficou fora ({info})")
+                return ("export grande: recorte AVISADO (não serve para importar), com o balanço "
+                        "de canais/categorias/cargos exportados (as chaves que caem fora do "
+                        "recorte não podem ser cobradas do pedaço; o round-trip completo é "
+                        "verificado na fase de import e nos testes offline)")
             dados = json.loads(saida[saida.find("{"): saida.rfind("}") + 1])
 
             atual_papel = next(r for r in await guild.fetch_roles() if r.id == papel.id)
