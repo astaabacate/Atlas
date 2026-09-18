@@ -32,3 +32,9 @@ RESTART PEDIDO EM 2026-09-17T23:39Z
 Motivo: levar ao bot online a correção da corrida de LLMs gratuitos (429 / catálogo morto /
 fila cheia). O reinício entra na fila e assume quando a fatia atual terminar; se quiser
 imediato, cancele a execução em andamento na aba Actions.
+
+RESTART PEDIDO EM 2026-09-18T01:10Z
+-------------------------------
+Motivo: levar ao bot online a limpeza do LLM (llm7/OVH/Pollinations fora; pool gratuito
+FREE_PROVIDERS no lugar) e a repetição com mais tokens quando o modelo grátis devolve vazio.
+Entra na fila e assume quando a fatia atual terminar.
