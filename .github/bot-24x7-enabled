@@ -117,3 +117,11 @@ existe com o mesmo nome (recriação do que a mesma mensagem vai apagar continua
 (3) demora para agir — o atalho de resposta direta só valia para ferramentas "terminais": as
 outras obrigavam uma SEGUNDA ida ao modelo só para resumir o que já estava pronto (era o delay do
 lote de 5 canais); agora vale para qualquer ferramenta única. Esta execução substitui a pendente.
+
+RESTART PEDIDO EM 2026-09-18T09:25Z
+-------------------------------
+Motivo: o E2E ao vivo pegou mais uma duplicata REAL no lote — `run_bulk` roda concorrente (3 por
+vez) e o nome só era marcado como usado DEPOIS da criação, então dois itens com o mesmo nome
+numa chamada só criavam os dois (canais e cargos). Agora o nome é reservado ANTES do await (e
+liberado se a criação falhar). Substitui a pendência anterior: esta fatia já leva os 3 bugs do
+dono + esta corrida.
