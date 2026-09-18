@@ -73,6 +73,27 @@ class ProviderError(RuntimeError):
         )
 
     @property
+    def is_context_problem(self) -> bool:
+        """
+        True quando o pedido NÃO COUBE no modelo (contexto/tamanho) — não quando é bug.
+
+        Importa porque a corrida pode salvar o turno repetindo com menos histórico, em vez de
+        devolver "não consegui falar com nenhum modelo" para o cliente.
+        """
+        if self.status not in (400, 413, 422):
+            return False
+        blob = self.raw_message.lower()
+        return any(
+            marcador in blob
+            for marcador in (
+                "context length", "context_length", "maximum context", "context window",
+                "too many tokens", "token limit", "exceeds the maximum", "input is too long",
+                "prompt is too long", "payload too large", "request entity too large",
+                "request too large", "max_tokens", "tokens to keep",
+            )
+        )
+
+    @property
     def is_model_problem(self) -> bool:
         """True quando o provedor rejeitou o MODELO (vale tentar o próximo da lista)."""
         if self.status not in (400, 404, 422):
@@ -255,6 +276,24 @@ def parse_openai_tool_calls(raw_calls: list[dict[str, Any]]) -> list[ToolCall]:
         if name:
             result.append(ToolCall(id=call_id, name=name, args=args))
     return result
+
+
+def podar_mensagens(messages: list[dict[str, Any]], manter: int = 12) -> list[dict[str, Any]]:
+    """
+    Corta o histórico antigo mantendo o começo (system) e as últimas `manter` mensagens.
+
+    Usado quando o provedor recusa o pedido por TAMANHO: vale mais tentar de novo com menos
+    conversa do que responder "não consegui falar com nenhum modelo". Um resultado de ferramenta
+    órfão (role=tool sem a chamada que o pediu) é descartado porque provedor nenhum aceita isso.
+    """
+    if len(messages) <= manter:
+        return list(messages)
+    sistema = [m for m in messages if m.get("role") == "system"]
+    resto = [m for m in messages if m.get("role") != "system"]
+    recorte = resto[-manter:]
+    while recorte and recorte[0].get("role") == "tool":
+        recorte.pop(0)
+    return [*sistema, *recorte]
 
 
 def summarize_tools(tools: list[dict[str, Any]], limit: int | None = 40) -> str:

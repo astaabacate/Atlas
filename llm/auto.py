@@ -17,7 +17,7 @@ import random
 import time
 from typing import Any
 
-from llm.base import ChatProvider, LLMResponse, ProviderError, compact_error_text
+from llm.base import ChatProvider, LLMResponse, ProviderError, compact_error_text, podar_mensagens
 from llm.free_providers import (
     KNOWN_GATEWAYS,
     build_free_runners,
@@ -34,7 +34,7 @@ MAX_ERRORS_IN_MESSAGE = 6
 # Quantas ondas de corrida tentar antes de desistir do turno e quanto esperar entre elas.
 # Os gratuitos compartilham o IP do runner, então uma segunda tentativa curta costuma salvar
 # quando o erro é fila cheia (HTTP 429). Configurável por LLM_RACE_WAVES / LLM_RACE_DELAY.
-DEFAULT_MAX_WAVES = 2
+DEFAULT_MAX_WAVES = 3
 DEFAULT_WAVE_DELAY = 0.8
 
 # Quanto tempo um corredor fica "de castigo" depois de estourar o limite.
@@ -66,12 +66,18 @@ class LLMUnavailableError(RuntimeError):
     o bot usa isso para responder algo amigável em vez de despejar o erro técnico.
     """
 
-    def __init__(self, message: str, transient: bool = False) -> None:
+    def __init__(self, message: str, transient: bool = False, motivo: str = "") -> None:
         super().__init__(message)
         self.transient = transient
+        # "contexto" quando o pedido não coube no modelo mesmo depois de cortar o histórico.
+        self.motivo = motivo
 
     def resumo_para_usuario(self) -> str:
         """Uma linha em PT-BR para mandar no Discord."""
+        if self.motivo == "contexto":
+            return ("🤖 A conversa ficou comprida demais para os modelos gratuitos lerem de uma vez "
+                    "(mesmo depois de eu cortar o histórico). Use `limpar conversa` ou me peça em "
+                    "outro canal — assim eu volto a responder.")
         if self.transient:
             return ("🤖 Os modelos gratuitos estão com a fila cheia agora (limite de uso). "
                     "Tente de novo em alguns segundos — já tentei mais de uma vez.")
@@ -191,9 +197,17 @@ class AutoProvider(ChatProvider):
 
         erros: list[str] = []
         transitorio = False
+        problema_de_contexto = False
         limite = time.monotonic() + max(5.0, timeout)
 
-        for onda in range(1, self.max_waves + 1):
+        # O pedido pode ter sido recusado por TAMANHO. Nesse caso vale repetir com o histórico
+        # cortado — é o que salva "algumas tarefas específicas" que falhavam sempre. O corte é
+        # progressivo (12 → 6 → 3 → 2 mensagens) porque cada modelo tem um teto diferente.
+        mensagens_atuais = messages
+        manter = 12
+        podas = 0
+        onda = 1
+        while onda <= self.max_waves:
             restante = limite - time.monotonic()
             if restante <= 1.0:
                 break
@@ -205,8 +219,8 @@ class AutoProvider(ChatProvider):
                 break
 
             timeout_onda = min(timeout, max(10.0, restante * 0.8))
-            vencedor, erros_onda, transitorio_onda = await self._correr_onda(
-                candidatos, messages, tools, timeout_onda, max_tokens
+            vencedor, erros_onda, transitorio_onda, contexto_onda = await self._correr_onda(
+                candidatos, mensagens_atuais, tools, timeout_onda, max_tokens
             )
             erros.extend(erros_onda)
             transitorio = transitorio or transitorio_onda
@@ -219,14 +233,29 @@ class AutoProvider(ChatProvider):
                 logger.info("Corrida de LLMs vencida por: %s", nome)
                 return resposta
 
-            if onda < self.max_waves:
+            if contexto_onda and podas < 4:
+                problema_de_contexto = True
+                manter = max(2, manter // 2)
+                recorte = podar_mensagens(mensagens_atuais, manter=manter)
+                if len(recorte) < len(mensagens_atuais):
+                    logger.info(
+                        "Corrida de LLMs: pedido não coube no modelo; repetindo com %d de %d "
+                        "mensagens", len(recorte), len(mensagens_atuais))
+                    mensagens_atuais = recorte
+                    podas += 1
+                    continue  # não gasta onda: é a mesma tentativa com menos contexto
+
+            onda += 1
+            if onda <= self.max_waves:
                 pausa = min(self.wave_delay * onda, max(0.0, limite - time.monotonic()))
                 if pausa > 0:
                     await asyncio.sleep(pausa + random.uniform(0, 0.3))
-                logger.info("Corrida de LLMs: onda %d sem vencedor, tentando de novo", onda)
+                logger.info("Corrida de LLMs: onda %d sem vencedor, tentando de novo", onda - 1)
 
         self.last_failure_transient = transitorio
-        raise LLMUnavailableError(self.build_failure_message(erros), transient=transitorio)
+        motivo = "contexto" if problema_de_contexto else ""
+        raise LLMUnavailableError(self.build_failure_message(erros), transient=transitorio,
+                                  motivo=motivo)
 
     def _candidatos(self, ultima_onda: bool) -> list[ChatProvider]:
         """Corredores disponíveis agora; na última onda entram até os que estão de castigo."""
@@ -242,7 +271,7 @@ class AutoProvider(ChatProvider):
         tools: list[dict[str, Any]] | None,
         timeout: float,
         max_tokens: int,
-    ) -> tuple[tuple[str, bool, LLMResponse] | None, list[str], bool]:
+    ) -> tuple[tuple[str, bool, LLMResponse] | None, list[str], bool, bool]:
         """
         Dispara todos os candidatos em paralelo, numa passada só.
 
@@ -255,6 +284,7 @@ class AutoProvider(ChatProvider):
         }
         erros: list[str] = []
         transitorio = False
+        contexto = False
 
         pendentes = set(tarefas)
         try:
@@ -270,20 +300,22 @@ class AutoProvider(ChatProvider):
                         erros.append(self._anotar_falha(provider, exc))
                         if not isinstance(exc, ProviderError) or exc.is_transient:
                             transitorio = True
+                        if isinstance(exc, ProviderError) and exc.is_context_problem:
+                            contexto = True
                         continue
                     if resp and (resp.content or resp.has_tool_calls):
                         vencedores.append((nome, nativo, resp))
                     else:
                         erros.append(f"{provider.name}: resposta vazia")
                 if vencedores:
-                    return vencedores[0], erros, transitorio
+                    return vencedores[0], erros, transitorio, contexto
         finally:
             for tarefa in pendentes:
                 tarefa.cancel()
             if pendentes:
                 await asyncio.gather(*pendentes, return_exceptions=True)
 
-        return None, erros, transitorio
+        return None, erros, transitorio, contexto
 
     def _anotar_falha(self, provider: ChatProvider, exc: BaseException) -> str:
         """Classifica a falha do corredor e decide se ele merece um tempo de castigo."""

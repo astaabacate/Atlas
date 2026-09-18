@@ -1053,3 +1053,116 @@ class TestRaciocinioVazado(unittest.TestCase):
         resultado = asyncio.run(provider.chat(messages=[{"role": "user", "content": "apague"}], timeout=5))
 
         self.assertEqual(resultado.content, "Pronto, apaguei os 10 canais. 🗑️")
+
+class ProviderDeContexto(ChatProvider):
+    """Recusa por TAMANHO na primeira chamada (como os modelos grátis fazem) e depois responde."""
+
+    def __init__(self, name: str = "kilo", exige: int = 99) -> None:
+        self.name = name
+        self.exige = exige
+        self.chamadas = 0
+        self.mensagens_recebidas: list[int] = []
+
+    async def chat(self, messages, tools=None, timeout=60.0, max_tokens=1024):
+        self.chamadas += 1
+        self.mensagens_recebidas.append(len(messages))
+        if len(messages) > self.exige:
+            raise ProviderError(
+                self.name,
+                f"{self.name}: HTTP 400 (m) — This model's maximum context length is 65536 "
+                "tokens; however your messages resulted in too many tokens",
+                status=400, model="m",
+            )
+        return LLMResponse(content="coube agora")
+
+
+class TestErroDeContexto(unittest.TestCase):
+    """
+    "Não consegui falar com nenhum modelo" aparecia em tarefas específicas: quando o pedido não
+    cabia no modelo, o erro era tratado como definitivo. Vale tentar de novo com o histórico
+    cortado — e, se não couber de jeito nenhum, dizer o MOTIVO certo para o cliente.
+    """
+
+    def test_contexto_e_classificado_como_problema_de_tamanho(self) -> None:
+        de_contexto = [
+            ProviderError("kilo", "HTTP 400 — maximum context length is 65536 tokens", status=400),
+            ProviderError("kilo", "HTTP 400 — prompt is too long", status=400),
+            ProviderError("kilo", "HTTP 413 — payload too large", status=413),
+            ProviderError("kilo", "HTTP 400 — the input is too long for this model", status=400),
+        ]
+        for erro in de_contexto:
+            self.assertTrue(erro.is_context_problem, erro.raw_message)
+
+        nao_de_contexto = [
+            ProviderError("kilo", "HTTP 401 — Invalid API key", status=401),
+            ProviderError("kilo", "HTTP 429 — rate limit exceeded", status=429),
+            ProviderError("kilo", "HTTP 404 — model not found", status=404),
+        ]
+        for erro in nao_de_contexto:
+            self.assertFalse(erro.is_context_problem, erro.raw_message)
+
+    def test_corrida_repete_com_historico_cortado_e_vence(self) -> None:
+        provider = ProviderDeContexto(exige=8)
+        auto = corrida(provider, waves=2)
+        historico = [{"role": "user", "content": f"mensagem {i}"} for i in range(30)]
+
+        resposta = asyncio.run(auto.chat(messages=[{"role": "system", "content": "sistema"},
+                                                   *historico]))
+
+        self.assertEqual(resposta.content, "coube agora")
+        self.assertEqual(provider.chamadas, 2, "tinha que repetir uma vez com menos contexto")
+        self.assertGreater(provider.mensagens_recebidas[0], provider.mensagens_recebidas[1],
+                           "a segunda tentativa tem que mandar MENOS mensagens")
+        self.assertLessEqual(provider.mensagens_recebidas[1], 9)
+
+    def test_contexto_insuportavel_avisa_o_motivo_certo(self) -> None:
+        provider = ProviderDeContexto(exige=0)  # nunca cabe
+        auto = corrida(provider, waves=1)
+
+        with self.assertRaises(LLMUnavailableError) as ctx:
+            asyncio.run(auto.chat(messages=[{"role": "system", "content": "s"},
+                                            *[{"role": "user", "content": str(i)} for i in range(30)]]))
+
+        erro = ctx.exception
+        self.assertEqual(erro.motivo, "contexto")
+        from core.bot import FarolBot
+        mensagem = FarolBot._mensagem_de_erro(erro)
+        self.assertIn("comprida demais", mensagem)
+        self.assertIn("limpar conversa", mensagem)
+        self.assertNotIn("HTTP", mensagem)
+
+    def test_erro_comum_nao_vira_desculpa_de_contexto(self) -> None:
+        auto = corrida(AlwaysFailingProvider("kilo", 401, "Invalid API key"), waves=1)
+        with self.assertRaises(LLMUnavailableError) as ctx:
+            asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
+        self.assertEqual(ctx.exception.motivo, "")
+
+
+class TestPodaDeMensagens(unittest.TestCase):
+    def test_mantem_system_e_o_mais_recente(self) -> None:
+        from llm.base import podar_mensagens
+
+        msgs = [{"role": "system", "content": "s"},
+                *[{"role": "user", "content": str(i)} for i in range(20)]]
+        podado = podar_mensagens(msgs, manter=5)
+        self.assertEqual(podado[0]["role"], "system")
+        self.assertEqual(len(podado), 6)
+        self.assertEqual(podado[-1]["content"], "19")
+
+    def test_sem_historico_grande_nao_mexe(self) -> None:
+        from llm.base import podar_mensagens
+
+        msgs = [{"role": "user", "content": "oi"}]
+        self.assertEqual(podar_mensagens(msgs), msgs)
+
+    def test_resultado_de_ferramenta_orfa_e_descartado(self) -> None:
+        """Provedor nenhum aceita `role=tool` sem a chamada que o pediu."""
+        from llm.base import podar_mensagens
+
+        msgs = [{"role": "user", "content": str(i)} for i in range(20)]
+        msgs += [{"role": "tool", "content": "resultado"},
+                 {"role": "assistant", "content": "ok"},
+                 {"role": "user", "content": "e agora?"}]
+        podado = podar_mensagens(msgs, manter=3)
+        self.assertNotEqual(podado[0].get("role"), "tool")
+

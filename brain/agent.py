@@ -14,7 +14,7 @@ from typing import Any
 from brain.executors import execute_tool
 from brain.memory import ChannelMemory, memory_key
 from brain.snapshot import build_server_snapshot
-from brain.tools import ToolContext, ToolDef, ToolError, get_tool_definitions
+from brain.tools import ToolContext, ToolError, get_tool_definitions
 from llm.base import ChatProvider, parece_raciocinio, separar_raciocinio, LLMResponse, ToolCall
 
 logger = logging.getLogger("farol.brain.agent")
@@ -210,6 +210,32 @@ class Agent:
             return "inglês"
         return None
 
+    def _resumo_do_que_foi_feito(
+        self,
+        channel_id: Any,
+        execucoes: list[str],
+        execucoes_finais: list[str],
+    ) -> str:
+        """
+        Resposta honesta quando o LLM cai DEPOIS de a ação já ter sido executada.
+
+        O que não pode acontecer: o bot apagar/criar algo e responder "não consegui falar com
+        nenhum modelo" — o cliente acharia que nada aconteceu. Preferimos o resultado real da
+        ferramenta (já em português) e, sem ele, dizemos exatamente quais ações rodaram.
+        """
+        for resultado in reversed(execucoes_finais):
+            if resultado and not resultado.startswith("Erro") and self.resposta_ruim(resultado) is None:
+                self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
+                return resultado
+
+        acoes = ", ".join(dict.fromkeys(execucoes))
+        texto = (
+            f"✅ Fiz o que você pediu ({acoes}), mas os modelos gratuitos ficaram instáveis agora "
+            "e eu não consegui escrever o resumo. Confira no servidor e me diga se falta algo."
+        )
+        self.memory.add_message(channel_id, {"role": "assistant", "content": texto})
+        return texto
+
     async def _garantir_resposta_apresentavel(
         self,
         channel_id: Any,
@@ -346,11 +372,20 @@ class Agent:
         while rounds < self.max_tool_rounds:
             rounds += 1
 
-            response: LLMResponse = await self.llm.chat(
-                messages=messages,
-                tools=self.tools_schema,
-                timeout=self.llm_timeout,
-            )
+            response: LLMResponse
+            try:
+                response = await self.llm.chat(
+                    messages=messages,
+                    tools=self.tools_schema,
+                    timeout=self.llm_timeout,
+                )
+            except Exception as exc:  # noqa: BLE001 - o que já foi executado não pode sumir
+                if not execucoes:
+                    raise
+                logger.warning(
+                    "LLM caiu na rodada %d depois de executar %s (%s); respondendo com o "
+                    "resultado real", rounds, execucoes, exc)
+                return self._resumo_do_que_foi_feito(channel_id, execucoes, execucoes_finais)
 
             tool_calls = response.tool_calls
             # Se não houver tool_calls nativas, verificar fallback em texto
@@ -443,10 +478,7 @@ class Agent:
             if not execucoes:
                 raise
             logger.warning("Resumo final falhou (%s); respondendo com o que já foi executado", exc)
-            acoes = ", ".join(dict.fromkeys(execucoes))
-            return (f"✅ Fiz o que você pediu ({acoes}), mas os modelos gratuitos ficaram instáveis "
-                    "agora e eu não consegui escrever o resumo. Confira no servidor e me diga se "
-                    "falta algo.")
+            return self._resumo_do_que_foi_feito(channel_id, execucoes, execucoes_finais)
         limpa = await self._garantir_resposta_apresentavel(
             channel_id, (final_resp.content or "").strip(), execucoes_finais, messages)
         final_text = self._com_pergunta_de_confirmacao(channel_id, limpa)

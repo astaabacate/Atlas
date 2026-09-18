@@ -7,14 +7,12 @@ fallback de ferramentas em markdown (```tool), tratamento de erros e limite de r
 from __future__ import annotations
 
 import asyncio
-import json
 import unittest
 from types import SimpleNamespace
 from typing import Any
 
 from brain.agent import Agent, asks_for_confirmation, user_confirmed
 from brain.memory import ChannelMemory, memory_key
-from brain.tools import ToolError
 from llm.base import ChatProvider, LLMResponse, ToolCall
 
 
@@ -431,9 +429,44 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
 
         resposta = self._turno(agent, "cria o canal resumo")
 
-        self.assertIn("create_channels", resposta)
+        # o resultado REAL da ferramenta (em português) é melhor que uma desculpa genérica
+        self.assertIn("Criei 1 canal", resposta)
         self.assertNotIn("Nenhum dos", resposta)
-        self.assertIn("instáveis", resposta)
+        self.assertNotIn("Não consegui falar com nenhum modelo", resposta)
+
+    def test_llm_cai_no_meio_do_laco_e_o_trabalho_feito_nao_vira_erro(self) -> None:
+        """Ferramenta executada + LLM morrendo na rodada seguinte = resposta com o que foi feito."""
+        from llm.auto import LLMUnavailableError
+
+        canal = SimpleNamespace(id=888, name="meio-do-laco")
+
+        async def fake_create_text_channel(name, **kwargs):
+            return canal
+
+        self.guild.create_text_channel = fake_create_text_channel
+
+        class LLMQueMorreNaSegundaRodada(FakeLLM):
+            async def chat(self, messages, tools=None, timeout=60.0, max_tokens=1024):
+                self.call_history.append({"messages": messages, "tools": tools})
+                if len(self.call_history) >= 2:
+                    raise LLMUnavailableError("Nenhum dos 1 provedores de LLM respondeu (kilo)")
+                return LLMResponse(content="", tool_calls=[
+                    ToolCall(id="c1", name="create_channels", args={"channels": [{"name": "x"}]}),
+                    ToolCall(id="c2", name="edit_channel",
+                             args={"channel": "x", "topic": "novo tópico"}),
+                ])
+
+        llm = LLMQueMorreNaSegundaRodada([])
+        agent = Agent(llm_provider=llm, memory=ChannelMemory())
+        agent.max_tool_rounds = 3
+
+        resposta = self._turno(agent, "cria o canal x e põe um tópico")
+
+        self.assertNotIn("Não consegui falar com nenhum modelo", resposta)
+        self.assertNotIn("Nenhum dos", resposta)
+        self.assertTrue(resposta.strip(), "tem que responder algo em PT-BR")
+        self.assertTrue("Criei" in resposta or "atualizado" in resposta or "Fiz o que você pediu" in resposta,
+                        f"resposta inesperada: {resposta!r}")
 
     def test_helpers_de_confirmacao(self) -> None:
         self.assertTrue(user_confirmed("sim, pode apagar"))
