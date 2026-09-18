@@ -22,7 +22,7 @@ ele é reportado com o ID para o dono apagar na mão.
 Uso:
     DISCORD_TOKEN=... python scripts/sonda_hierarquia.py --outdir reports
 
-Rodada de 18/09 (12:05Z): redisparada para conferir o token novo e colher a resposta crua do
+Rodada de 18/09 (12:20Z): redisparada para conferir o token do segredo e colher a resposta crua do
 Discord sobre editar/apagar cargo na MESMA posição (empate) — a prova que faltava.
 """
 

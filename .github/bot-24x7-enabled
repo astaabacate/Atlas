@@ -169,3 +169,8 @@ Motivo: LIGAR o bot com o token novo (o dono atualizou/resetou). Leva tudo: excl
 em lote (delete_roles), instrução de hierarquia com o nome real do cargo e a direção certa da
 lista (celular é invertido), fim do "Feito!" quando nada foi feito, hedge da fila de LLM e a
 recusa honesta quando o Discord não deixa mexer.
+
+RESTART PEDIDO EM 2026-09-18T12:20Z
+-------------------------------
+Motivo: conferir se o segredo DISCORD_TOKEN foi atualizado — este reinício tenta subir o bot
+com o token novo. Se o Discord recusar de novo, o token do segredo ainda é o antigo.
