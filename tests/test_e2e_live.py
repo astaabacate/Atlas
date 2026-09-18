@@ -363,3 +363,97 @@ class TestClassificacaoLLM(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestHierarquiaMedidaNaAPI(unittest.TestCase):
+    """
+    Regressão do bug que a matriz acusou por 3 rodadas: o harness (e o produto) mediam a
+    hierarquia pelo cache do discord.py, que devolve @everyone (posição 0) quando o cache de
+    cargos do servidor está vazio — e aí "todo cargo parece acima do bot".
+    """
+
+    def test_helper_acha_a_posicao_real_com_cache_quebrado(self) -> None:
+        import asyncio
+        import types
+
+        modulo = _carregar_harness()
+
+        class Cargo:
+            def __init__(self, cid: int, pos: int) -> None:
+                self.id, self.position = cid, pos
+
+        servidor = types.SimpleNamespace()
+        servidor.me = types.SimpleNamespace(
+            top_role=types.SimpleNamespace(id=1, position=0, is_default=lambda: True),
+            roles=[],  # cache de cargos vazio: discord.py descarta os cargos do membro
+            _roles={999},
+        )
+
+        async def fetch_roles() -> list[Any]:
+            return [Cargo(1, 0), Cargo(999, 7), Cargo(500, 3)]
+
+        servidor.fetch_roles = fetch_roles
+        self.assertEqual(asyncio.run(modulo.posicao_do_topo_do_bot(servidor)), 7)
+
+    def test_helper_prefere_a_api_quando_os_cargos_resolvem(self) -> None:
+        import asyncio
+        import types
+
+        modulo = _carregar_harness()
+
+        class Cargo:
+            def __init__(self, cid: int, pos: int) -> None:
+                self.id, self.position = cid, pos
+
+        servidor = types.SimpleNamespace()
+        servidor.me = types.SimpleNamespace(top_role=Cargo(999, 2), roles=[Cargo(999, 2)],
+                                            _roles={999})
+
+        async def fetch_roles() -> list[Any]:
+            return [Cargo(999, 9)]  # a API diz outra coisa: a API manda
+
+        servidor.fetch_roles = fetch_roles
+        self.assertEqual(asyncio.run(modulo.posicao_do_topo_do_bot(servidor)), 9)
+
+    def test_sem_api_cai_no_cache_sem_explodir(self) -> None:
+        import asyncio
+        import types
+
+        modulo = _carregar_harness()
+        servidor = types.SimpleNamespace()
+        servidor.me = types.SimpleNamespace(
+            top_role=types.SimpleNamespace(id=1, position=0, is_default=lambda: True), roles=[])
+
+        async def fetch_roles() -> list[Any]:
+            raise RuntimeError("sem rede")
+
+        servidor.fetch_roles = fetch_roles
+        self.assertEqual(asyncio.run(modulo.posicao_do_topo_do_bot(servidor)), 0)
+
+
+class TestFaseCapsNaoSeEngana(unittest.TestCase):
+    """Guardas de leitura do fonte: o harness não pode voltar a medir pelo cache."""
+
+    def _fonte(self) -> str:
+        return (ROOT / "scripts" / "e2e_live.py").read_text(encoding="utf-8")
+
+    def test_caps_nao_usa_top_role_do_cache(self) -> None:
+        fonte = self._fonte()
+        inicio = fonte.index("async def phase_caps")
+        fim = fonte.index("async def phase_botloop")
+        trecho = fonte[inicio:fim]
+        self.assertNotIn("guild.me.top_role.position", trecho,
+                         "a matriz voltou a medir a hierarquia pelo cache do discord.py")
+        self.assertIn("posicao_do_topo_do_bot", trecho)
+
+    def test_captura_de_novos_aceita_cargos(self) -> None:
+        fonte = self._fonte()
+        self.assertIn("incluir_cargos: bool = False", fonte)
+        self.assertIn("incluir_cargos=True", fonte,
+                      "as verificações de cargo precisam pedir os cargos ao _capture_new")
+
+    def test_cargo_que_nao_nasce_vira_aviso_nao_cascata(self) -> None:
+        fonte = self._fonte()
+        self.assertIn("aviso_de_hierarquia", fonte)
+        self.assertIn("culpa_do_discord", fonte,
+                      "5xx do Discord não pode ser ❌ do produto")
+

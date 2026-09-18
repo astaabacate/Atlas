@@ -87,6 +87,28 @@ log = logging.getLogger("farol.e2e")
 # --------------------------------------------------------------------------- reporter
 
 
+async def posicao_do_topo_do_bot(guild: Any) -> int:
+    """
+    Posição do cargo mais alto do bot, MEDIDA na API.
+
+    `Member.top_role` é montado com `guild.get_role(id)`: com o cache de cargos vazio, os cargos
+    do membro são descartados e a posição cai no @everyone (0) — foi assim que a matriz acusou o
+    bot de não poder editar um cargo que ele mesmo tinha acabado de criar.
+    """
+    me = getattr(guild, "me", None)
+    ids = {getattr(r, "id", None) for r in (getattr(me, "roles", None) or [])}
+    ids.discard(None)
+    if not ids:
+        ids = {i for i in (getattr(me, "_roles", None) or ()) if isinstance(i, int)}
+    try:
+        frescos = await guild.fetch_roles()
+    except Exception:  # noqa: BLE001 - sem API, fica o que o cache disse
+        return int(getattr(getattr(me, "top_role", None), "position", 0) or 0)
+    if not ids:
+        return int(getattr(getattr(me, "top_role", None), "position", 0) or 0)
+    return max((int(r.position) for r in frescos if r.id in ids), default=0)
+
+
 @dataclass
 class Check:
     phase: str
@@ -1668,8 +1690,9 @@ class Harness:
         await self.check(phase, "permissões do bot no servidor", permissoes)
 
         async def hierarquia() -> tuple[str, dict[str, Any]]:
-            pos = guild.me.top_role.position
-            acima = [r for r in guild.roles if r.position >= pos and not r.is_default()]
+            pos = await posicao_do_topo_do_bot(guild)
+            cargos_api = await guild.fetch_roles()
+            acima = [r for r in cargos_api if r.position >= pos and not r.is_default()]
             data = {"posicao_cargo_bot": pos, "cargos_acima_ou_igual": [r.name for r in acima]}
             if acima:
                 self.rep.record(phase, "cargos que o bot não consegue gerenciar", WARN,
@@ -2571,14 +2594,7 @@ class Harness:
             return await guild.fetch_channel(canal.id)
 
         # -------------------------------------------------------------- cargos
-        async def topo_do_bot() -> int:
-            """Posição do cargo mais alto do bot, MEDIDA na API (o cache do discord.py engana)."""
-            ids = {getattr(r, "id", None) for r in (getattr(guild.me, "roles", None) or [])}
-            ids.discard(None)
-            if not ids:
-                ids = {i for i in (getattr(guild.me, "_roles", None) or ()) if isinstance(i, int)}
-            frescos = await guild.fetch_roles()
-            return max((int(r.position) for r in frescos if r.id in ids), default=0)
+        topo_do_bot = lambda: posicao_do_topo_do_bot(guild)  # noqa: E731 - alias curto do helper
 
         async def gerencia_cargos() -> bool:
             """O bot só mexe em cargo abaixo do cargo mais alto dele (regra do Discord)."""
@@ -2700,7 +2716,7 @@ class Harness:
             # a posição é limitada pela hierarquia do bot: conferimos e relatamos o real
             await ferramenta("edit_role", {"role": alvo, "position": 1})
             fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
-            posicao_bot = guild.me.top_role.position
+            posicao_bot = await topo_do_bot()  # MEDIDO na API: o cache do discord.py engana
             self.assert_true(fresco.position <= posicao_bot,
                              f"cargo ficou acima do meu topo ({fresco.position} > {posicao_bot})")
             conferidos.append(f"posição (pedida 1, ficou {fresco.position}, teto do bot {posicao_bot})")
@@ -2740,8 +2756,9 @@ class Harness:
                              "recusa mexeu no cargo (não deveria tocar em nada)")
 
             # hierarquia: cargo acima do bot precisa ser recusado com explicação
+            pos_bot_api = await topo_do_bot()
             acima = next((r for r in await guild.fetch_roles()
-                          if r.position >= guild.me.top_role.position and not r.is_default()), None)
+                          if r.position >= pos_bot_api and not r.is_default()), None)
             if acima is None:
                 self.rep.record(phase, "cargos: recusa de cargo acima do bot", WARN,
                                 "não existe cargo no nível do meu topo para testar a recusa "
