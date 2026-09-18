@@ -1,30 +1,32 @@
 {
   "schema": 1,
-  "started_at": "2026-09-18T12:07:28+00:00",
-  "finished_at": "2026-09-18T12:07:28.525902+00:00",
+  "started_at": "2026-09-18T21:03:37+00:00",
+  "finished_at": "2026-09-18T21:03:37.011541+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "1e78d0d",
-    "execução": "35343000591",
+    "commit": "3ae66cc",
+    "execução": "35391125443",
     "discord.py": "2.7.1",
     "fases": "static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep",
     "mutações reais": "sim"
   },
   "summary": {
-    "PASS": 45,
-    "FAIL": 9,
-    "WARN": 0,
-    "SKIP": 7
+    "PASS": 67,
+    "FAIL": 0,
+    "WARN": 7,
+    "SKIP": 6
   },
-  "notes": [],
+  "notes": [
+    "conectado como Atlas#1985 em 1 servidor(es)"
+  ],
   "phases": {
     "static": {
       "title": "Checagens estáticas (schemas ↔ executores)",
       "checks": [
         {
           "phase": "static",
-          "name": "27 ferramentas ↔ 27 executores",
+          "name": "31 ferramentas ↔ 31 executores",
           "status": "PASS",
           "detail": "31 ferramentas e 31 executores casados",
           "ms": 0,
@@ -35,7 +37,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "31 assinaturas conferem com os schemas",
-          "ms": 29,
+          "ms": 40,
           "data": {}
         },
         {
@@ -66,7 +68,7 @@
           "phase": "static",
           "name": "tamanho do payload enviado ao LLM",
           "status": "PASS",
-          "detail": "schema com 15015 chars + prompt de 2038 chars",
+          "detail": "schema com 15123 chars + prompt de 2322 chars",
           "ms": 0,
           "data": {}
         }
@@ -79,7 +81,7 @@
           "phase": "spy",
           "name": "create_channels cria na raiz de verdade",
           "status": "PASS",
-          "detail": "chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#1009> <#1010> <#1011> 🎉 (✅ 3/3 '",
+          "detail": "chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#1010> <#1011> <#1012> 🎉 (✅ 3/3 '",
           "ms": 0,
           "data": {}
         },
@@ -87,7 +89,7 @@
           "phase": "spy",
           "name": "create_channels cria DENTRO de categoria",
           "status": "PASS",
-          "detail": "chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#1012> <#1013> 🎉 (✅ 2/2 concluíd'",
+          "detail": "chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#1013> <#1014> 🎉 (✅ 2/2 concluíd'",
           "ms": 0,
           "data": {}
         },
@@ -111,7 +113,7 @@
           "phase": "spy",
           "name": "clone_channel clona de verdade",
           "status": "PASS",
-          "detail": "chamou clone() e respondeu 'Canal clonado: <#1014> 🎉 (copiei tópico, NSFW, modo lento, c'",
+          "detail": "chamou clone() e respondeu 'Canal clonado: <#1015> 🎉 (copiei tópico, NSFW, modo lento, c'",
           "ms": 0,
           "data": {}
         },
@@ -119,7 +121,15 @@
           "phase": "spy",
           "name": "delete_channels apaga de verdade (1 canal)",
           "status": "PASS",
-          "detail": "chamou delete() e respondeu '🗑️ Exclusão concluída: #canal-renomeado (✅ 1/1 concluídos co'",
+          "detail": "chamou delete() e respondeu '🗑️ Exclusão concluída: #descartavel-spy (✅ 1/1 concluídos co'",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "spy",
+          "name": "delete_channels NUNCA apaga o canal da conversa",
+          "status": "PASS",
+          "detail": "canal da conversa preservado no lote, com aviso na resposta; pedido só dele é recusado explicando o caminho (clear_messages)",
           "ms": 0,
           "data": {}
         },
@@ -160,7 +170,7 @@
           "name": "set_icon com estilo gera imagem sem rede",
           "status": "PASS",
           "detail": "gerou um PNG 256x256 sem tocar a rede",
-          "ms": 2,
+          "ms": 3,
           "data": {}
         },
         {
@@ -200,7 +210,7 @@
           "name": "permissões: set/clear/sync tocam a API",
           "status": "PASS",
           "detail": "set/clear/sync chamaram a API e show leu as permissões",
-          "ms": 6,
+          "ms": 12,
           "data": {}
         },
         {
@@ -208,7 +218,7 @@
           "name": "somente-leitura não muta nada",
           "status": "PASS",
           "detail": "8 ferramentas de leitura rodaram sem mutar nada",
-          "ms": 4,
+          "ms": 5,
           "data": {}
         },
         {
@@ -224,7 +234,7 @@
           "name": "conversa isolada por servidor (multi-servidor)",
           "status": "PASS",
           "detail": "conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal)",
-          "ms": 0,
+          "ms": 1,
           "data": {}
         },
         {
@@ -248,7 +258,7 @@
           "name": "agente não se auto-confirma (offline)",
           "status": "PASS",
           "detail": "sem confirmação do usuário nada é apagado; a pergunta sempre aparece; com o 'sim', apaga",
-          "ms": 10,
+          "ms": 1,
           "data": {}
         }
       ]
@@ -370,6 +380,75 @@
         }
       ]
     },
+    "cobertura": {
+      "title": "Cobertura: quais ferramentas foram exercitadas nesta execução",
+      "checks": [
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "WARN",
+          "detail": "29/31 ferramentas — não exercitadas: delete_roles, diagnostic_report, performance_report (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "SKIP",
+          "detail": "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "WARN",
+          "detail": "10/31 ferramentas — não exercitadas: apply_template, clear_messages, clear_permissions, clone_channel, conversation_clear, create_channels, create_roles, delete_channels, delete_role, delete_roles, diagnostic_report, edit_channel, edit_role, edit_server, give_role, import_structure, move_channel, set_icon, set_permissions, sync_permissions, take_role (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "SKIP",
+          "detail": "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "SKIP",
+          "detail": "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "SKIP",
+          "detail": "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "SKIP",
+          "detail": "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "cobertura",
+          "name": "ferramentas exercitadas nesta execução",
+          "status": "SKIP",
+          "detail": "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)",
+          "ms": 0,
+          "data": {}
+        }
+      ]
+    },
     "connect": {
       "title": "Conexão ao gateway do Discord",
       "checks": [
@@ -386,7 +465,7 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 13,
+          "ms": 4,
           "data": {}
         },
         {
@@ -394,25 +473,43 @@
           "name": "corrida de LLMs responde",
           "status": "PASS",
           "detail": "vencedor kilo (tools nativas: True) → 'pong'",
-          "ms": 969,
+          "ms": 798,
           "data": {
             "vencedor": "kilo"
           }
         },
         {
           "phase": "connect",
-          "name": "login e gateway",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 76,
+          "name": "servidores do bot",
+          "status": "PASS",
+          "detail": "1: Pinguim (1546763083005825084)",
+          "ms": 0,
           "data": {}
         },
         {
           "phase": "connect",
+          "name": "login e gateway",
+          "status": "PASS",
+          "detail": "conectado como Atlas#1985 · gateway em 45ms",
+          "ms": 2926,
+          "data": {
+            "usuario": "Atlas#1985",
+            "latencia_ms": 45,
+            "servidores": [
+              {
+                "nome": "Pinguim",
+                "id": 1546763083005825084,
+                "membros": 4
+              }
+            ]
+          }
+        },
+        {
+          "phase": "connect",
           "name": "servidor e autor do teste",
-          "status": "FAIL",
-          "detail": "sem servidor para escolher autor",
-          "ms": 0,
+          "status": "PASS",
+          "detail": "servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador)",
+          "ms": 222,
           "data": {}
         }
       ]
@@ -422,18 +519,67 @@
       "checks": [
         {
           "phase": "audit",
-          "name": "conexão",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 89,
+          "name": "permissões do bot no servidor",
+          "status": "PASS",
+          "detail": "OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages']",
+          "ms": 0,
+          "data": {
+            "manage_channels": true,
+            "manage_roles": true,
+            "manage_guild": true,
+            "administrator": true,
+            "send_messages": true
+          }
+        },
+        {
+          "phase": "audit",
+          "name": "cargos que o bot não consegue gerenciar",
+          "status": "WARN",
+          "detail": "1 cargo(s) no nível ou acima do bot (Atlas): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3).",
+          "ms": 0,
           "data": {}
         },
         {
           "phase": "audit",
-          "name": "diagnóstico",
-          "status": "SKIP",
-          "detail": "sem conexão ao Discord",
+          "name": "hierarquia de cargos",
+          "status": "PASS",
+          "detail": "cargo do bot na posição 27",
+          "ms": 379,
+          "data": {
+            "posicao_cargo_bot": 27,
+            "cargos_acima_ou_igual": [
+              "Atlas"
+            ]
+          }
+        },
+        {
+          "phase": "audit",
+          "name": "estrutura do servidor",
+          "status": "PASS",
+          "detail": "5 categorias · 0 texto · 0 voz · 27 cargos · 4 membros",
           "ms": 0,
+          "data": {
+            "categorias": 5,
+            "texto": 0,
+            "voz": 0,
+            "cargos": 27,
+            "membros": 4
+          }
+        },
+        {
+          "phase": "audit",
+          "name": "snapshot do servidor",
+          "status": "PASS",
+          "detail": "snapshot com 35 linhas alimenta o prompt",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "audit",
+          "name": "estado local bate com a API",
+          "status": "PASS",
+          "detail": "cache local bate com a API REST (5 canais, 27 cargos)",
+          "ms": 485,
           "data": {}
         }
       ]
@@ -443,19 +589,63 @@
       "checks": [
         {
           "phase": "tools",
-          "name": "conexão",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 79,
+          "name": "server_info",
+          "status": "PASS",
+          "detail": "📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** <@1521612392105250836> · • **Membros:** 4 · • **Canais:** 5 · • **Cargos:** 27 · • **Criado em:** 2026-09-08 06:04:16.4570",
+          "ms": 0,
           "data": {}
         },
         {
           "phase": "tools",
-          "name": "ferramentas de leitura",
-          "status": "SKIP",
-          "detail": "sem conexão ao Discord",
+          "name": "performance_report (tempo das respostas)",
+          "status": "PASS",
+          "detail": "Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). Me peça de novo depois de algumas tarefas.",
           "ms": 0,
           "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "list_roles",
+          "status": "PASS",
+          "detail": "listou os 27 cargos reais com menção e posição",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "export_structure (JSON válido e completo)",
+          "status": "PASS",
+          "detail": "servidor grande: JSON completo com 2366 chars no recorte AVISADO (aviso + balanço de canais/categorias/cargos exportados)",
+          "ms": 0,
+          "data": {
+            "truncado": true
+          }
+        },
+        {
+          "phase": "tools",
+          "name": "show_permissions",
+          "status": "PASS",
+          "detail": "O canal <#1550466167800598580> não possui permissões personalizadas configuradas.",
+          "ms": 160,
+          "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "resolve por ID e por menção",
+          "status": "PASS",
+          "detail": "5 canais e 6 cargos resolvidos por ID e por menção",
+          "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "tools",
+          "name": "APIs externas (cores/emojis/tópicos/tradução)",
+          "status": "PASS",
+          "detail": "5 APIs externas responderam",
+          "ms": 1379,
+          "data": {
+            "falhas": []
+          }
         }
       ]
     },
@@ -464,18 +654,57 @@
       "checks": [
         {
           "phase": "agent",
-          "name": "conexão",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 80,
+          "name": "prompt → ferramenta → resposta coerente",
+          "status": "PASS",
+          "detail": "ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', '🧪-caps-import-cargo', '🧪-caps-cargo']",
+          "ms": 2577,
+          "data": {
+            "ferramentas": [
+              "list_roles"
+            ],
+            "vencedor": "kilo"
+          }
+        },
+        {
+          "phase": "agent",
+          "name": "tempo de cada ida ao modelo",
+          "status": "PASS",
+          "detail": "1 chamada(s) ao modelo: mediana **2.6s** (2.6s) · corredores que responderam: kilo",
+          "ms": 0,
           "data": {}
         },
         {
           "phase": "agent",
-          "name": "agente",
-          "status": "SKIP",
-          "detail": "sem conexão ao Discord",
+          "name": "fora de escopo é recusado sem executar",
+          "status": "PASS",
+          "detail": "recusou moderação sem chamar ferramentas: 'Não posso aplicar banimentos ou punições; meu foco exclusivo é montar e organizar a estrut'",
+          "ms": 2718,
+          "data": {
+            "tool_calls": []
+          }
+        },
+        {
+          "phase": "agent",
+          "name": "agente: resposta com dados reais (sem listar nomes)",
+          "status": "WARN",
+          "detail": "o modelo respondeu com o resumo do servidor (dados reais conferidos na API) em vez de listar categorias/canais por nome",
           "ms": 0,
+          "data": {}
+        },
+        {
+          "phase": "agent",
+          "name": "agente conhece a estrutura real",
+          "status": "PASS",
+          "detail": "respondeu com dados reais do servidor (nome do servidor (Pinguim), menção do dono, canais=5, cargos=27)",
+          "ms": 2991,
+          "data": {}
+        },
+        {
+          "phase": "agent",
+          "name": "memória do canal entre turnos",
+          "status": "PASS",
+          "detail": "histórico do canal lembrado entre turnos",
+          "ms": 5601,
           "data": {}
         }
       ]
@@ -485,17 +714,9 @@
       "checks": [
         {
           "phase": "mutate",
-          "name": "conexão",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 91,
-          "data": {}
-        },
-        {
-          "phase": "mutate",
-          "name": "mutações reais",
-          "status": "SKIP",
-          "detail": "sem conexão ao Discord",
+          "name": "fase interrompida por tempo",
+          "status": "WARN",
+          "detail": "passou de 900.0s e foi interrompida — o que aparece abaixo é o que terminou; onde estava pendurada: client.py:731:connect, e2e_live.py:3942:run",
           "ms": 0,
           "data": {}
         }
@@ -506,17 +727,9 @@
       "checks": [
         {
           "phase": "caps",
-          "name": "conexão",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 85,
-          "data": {}
-        },
-        {
-          "phase": "caps",
-          "name": "matriz de capacidades",
-          "status": "SKIP",
-          "detail": "sem conexão ao Discord",
+          "name": "fase interrompida por tempo",
+          "status": "WARN",
+          "detail": "passou de 900.0s e foi interrompida — o que aparece abaixo é o que terminou; onde estava pendurada: client.py:731:connect, e2e_live.py:3942:run",
           "ms": 0,
           "data": {}
         }
@@ -527,17 +740,9 @@
       "checks": [
         {
           "phase": "botloop",
-          "name": "conexão",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 131,
-          "data": {}
-        },
-        {
-          "phase": "botloop",
-          "name": "loop do bot",
-          "status": "SKIP",
-          "detail": "sem conexão ao Discord",
+          "name": "fase interrompida por tempo",
+          "status": "WARN",
+          "detail": "passou de 420.0s e foi interrompida — o que aparece abaixo é o que terminou; onde estava pendurada: client.py:731:connect, e2e_live.py:3942:run",
           "ms": 0,
           "data": {}
         }
@@ -548,17 +753,9 @@
       "checks": [
         {
           "phase": "sweep",
-          "name": "conexão",
-          "status": "FAIL",
-          "detail": "LoginFailure: Improper token has been passed.",
-          "ms": 77,
-          "data": {}
-        },
-        {
-          "phase": "sweep",
-          "name": "varredura",
-          "status": "SKIP",
-          "detail": "sem conexão ao Discord",
+          "name": "varredura de sobras",
+          "status": "PASS",
+          "detail": "7 objeto(s) de teste removidos (#🧪 caps, #🧪-tipo-category, #🧪 caps-destino, #🧪 caps-sync, #🧪 caps-import, @🧪-caps-cargo, @🧪-caps-import-cargo)",
           "ms": 0,
           "data": {}
         }
