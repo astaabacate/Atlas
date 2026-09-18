@@ -216,12 +216,15 @@ def hex_da_cor(cor: int) -> str:
 # Teto de texto por mensagem em Components V2 (o Discord aceita 4000 no total). Acima disso,
 # é resposta comprida demais para um container: cai no envio em blocos de texto normal.
 LIMITE_V2 = 3800
+TITULO_V2 = "**🏮 Farol**"
 
 
 def montar_view(texto: str, cor: int, avatar_url: str | None = None) -> Any:
     """
-    Monta a resposta como mensagem em Components V2: um container com a cor do farol.
+    Monta a resposta como mensagem em Components V2: container com a cor do farol,
+    cabeçalho com o nome (e o avatar, quando conhecido), divisória e a mensagem.
 
+    Enfeite na medida: hierarquia de leitura, sem virar cartão de Natal.
     O `LayoutView` do discord.py liga sozinho a flag de Components V2 na mensagem. Se qualquer
     coisa falhar (versão do discord.py, texto fora do limite, componente exótico), devolve None
     e quem chamou responde em texto normal — enfeite nunca pode custar a resposta.
@@ -233,13 +236,18 @@ def montar_view(texto: str, cor: int, avatar_url: str | None = None) -> Any:
         return None
     try:
         view = discord.ui.LayoutView(timeout=None)
-        filho: Any
+        cabecalho: Any
         if avatar_url:
-            filho = discord.ui.Section(discord.ui.TextDisplay(conteudo),
-                                       accessory=discord.ui.Thumbnail(avatar_url))
+            cabecalho = discord.ui.Section(discord.ui.TextDisplay(TITULO_V2),
+                                           accessory=discord.ui.Thumbnail(avatar_url))
         else:
-            filho = discord.ui.TextDisplay(conteudo)
-        view.add_item(discord.ui.Container(filho, accent_color=int(cor)))
+            cabecalho = discord.ui.TextDisplay(TITULO_V2)
+        view.add_item(discord.ui.Container(
+            cabecalho,
+            discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small),
+            discord.ui.TextDisplay(conteudo),
+            accent_color=int(cor),
+        ))
         return view
     except Exception as exc:  # noqa: BLE001 - cai no texto simples
         logger.debug("Não consegui montar a mensagem V2 (%s); respondendo em texto.", exc)

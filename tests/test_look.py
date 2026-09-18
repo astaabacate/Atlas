@@ -154,16 +154,26 @@ class TestMensagemV2(unittest.TestCase):
         container = view.children[0]
         self.assertIsInstance(container, discord.ui.Container)
         self.assertEqual(container.accent_color, 0x5865F2)
+        # Hierarquia: cabeçalho ("Farol"), divisória e a mensagem.
         self.assertIsInstance(container.children[0], discord.ui.TextDisplay)
+        self.assertEqual(container.children[0].content, look.TITULO_V2)
+        self.assertIsInstance(container.children[1], discord.ui.Separator)
+        self.assertIsInstance(container.children[2], discord.ui.TextDisplay)
+        self.assertEqual(container.children[2].content, "🗑️ Apaguei 3 canais.")
 
     def test_com_avatar_usa_secao_com_miniatura(self) -> None:
         import discord
 
         view = look.montar_view("Pronto!", 0x112233, "https://cdn.discordapp.com/avatar.png")
         assert view is not None
-        secao = view.children[0].children[0]
-        self.assertIsInstance(secao, discord.ui.Section)
-        self.assertIsInstance(secao.accessory, discord.ui.Thumbnail)
+        cabecalho = view.children[0].children[0]
+        self.assertIsInstance(cabecalho, discord.ui.Section)
+        self.assertIsInstance(cabecalho.accessory, discord.ui.Thumbnail)
+        self.assertEqual(cabecalho.children[0].content, look.TITULO_V2)
+        # A mensagem continua no terceiro filho do container, após a divisória.
+        mensagem = view.children[0].children[2]
+        self.assertIsInstance(mensagem, discord.ui.TextDisplay)
+        self.assertEqual(mensagem.content, "Pronto!")
 
     def test_texto_longo_demais_nao_vira_container(self) -> None:
         self.assertIsNone(look.montar_view("x" * (look.LIMITE_V2 + 1), 0x112233))
