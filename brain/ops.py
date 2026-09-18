@@ -273,6 +273,56 @@ async def _create_guild_channel(
     return await creator_guild(name=name, **extra)
 
 
+async def _posicao_real(guild: Any, canal: Any, pedida: int) -> Any:
+    """Posição efetiva do canal depois da edição (o Discord ordena junto com os vizinhos)."""
+    cid = getattr(canal, "id", None)
+    fetcher = getattr(guild, "fetch_channel", None)
+    if cid is not None and fetcher is not None:
+        try:
+            fresco = await fetcher(cid)
+            return getattr(fresco, "position", pedida)
+        except Exception:  # noqa: BLE001 - sem rede/permissão, fica com o valor local
+            pass
+    return getattr(canal, "position", pedida)
+
+
+def _validar_bitrate(guild: Any, valor: Any) -> int:
+    """
+    Valida o bitrate contra o limite REAL do servidor.
+
+    O Discord recusa acima do teto do servidor (96 kbps sem boost, 128/256/384 com boosts) com
+    um `400 Invalid Form Body` cripto — a auditoria pegou isso ao pedir 128000 num servidor sem
+    boost. `Guild.bitrate_limit` diz o teto; sem ele, caímos no máximo teórico.
+    """
+    numero = _validar_faixa("bitrate", valor, 8000, 384_000)
+    teto = getattr(guild, "bitrate_limit", None)
+    try:
+        teto = int(teto) if teto is not None else 384_000
+    except (TypeError, ValueError):
+        teto = 384_000
+    if numero > teto:
+        raise ToolError(
+            f"O bitrate máximo deste servidor é {teto} bps ({teto // 1000} kbps) — pedi "
+            f"{numero}. Ele sobe com os boosts do servidor (128k/256k/384k)."
+        )
+    return numero
+
+
+def _traduzir_erro_de_canal(tipo: str, exc: Exception) -> str:
+    """Erro cru do Discord sobre tipo de canal vira explicação em português."""
+    texto = str(exc)
+    if "50024" in texto or "channel type" in texto.lower():
+        if tipo == "stage":
+            return ("canal de palco (stage) só existe em servidor com o recurso **Comunidade** "
+                    "ativado — sem isso o Discord recusa a criação.")
+        if tipo == "forum":
+            return ("canal de fórum precisa do recurso **Comunidade** ativado no servidor para o "
+                    "Discord aceitar.")
+        if tipo == "news":
+            return ("canal de anúncios exige o recurso **Comunidade** e permissão de anúncios.")
+    return texto
+
+
 def _validar_faixa(nome: str, valor: Any, minimo: int, maximo: int) -> int:
     """Valida faixa numérica com mensagem em português (o Discord devolve erro cru)."""
     rotulos = {"slowmode_delay": "modo lento (slowmode)", "bitrate": "bitrate",
@@ -353,7 +403,7 @@ async def _criar_canal_do_item(guild: Any, item: dict[str, Any]) -> Any:
         if item.get("user_limit") is not None:
             extras["user_limit"] = _validar_faixa("user_limit", item["user_limit"], 0, 99)
         if item.get("bitrate") is not None:
-            extras["bitrate"] = _validar_faixa("bitrate", item["bitrate"], 8000, 384_000)
+            extras["bitrate"] = _validar_bitrate(guild, item["bitrate"])
         if item.get("position") is not None:
             extras["position"] = int(item["position"])
         created = await _create_guild_channel(guild, parent_cat, "voice", name, **extras)
@@ -407,7 +457,8 @@ async def op_create_channels(ctx: ToolContext, channels: list[dict[str, Any]]) -
     res = await run_bulk(channels, _create_one, concurrency=3)
     if not res.succeeded and res.failed:
         err = res.failed[0][1]
-        raise ToolError(f"Falha ao criar canais: {err}")
+        tipo_pedido = str(channels[0].get("type", "text")).lower() if channels else "text"
+        raise ToolError(f"Falha ao criar canais: {_traduzir_erro_de_canal(tipo_pedido, err)}")
 
     created_links = " ".join(res.succeeded)
     return f"Pronto! Criei {len(res.succeeded)} canal(is): {created_links} 🎉 ({res.summary()})"
@@ -444,7 +495,7 @@ async def op_edit_channel(
     if nsfw is not None:
         kwargs["nsfw"] = bool(nsfw)
     if bitrate is not None:
-        kwargs["bitrate"] = _validar_faixa("bitrate", bitrate, 8000, 384_000)
+        kwargs["bitrate"] = _validar_bitrate(ctx.guild, bitrate)
     if user_limit is not None:
         kwargs["user_limit"] = _validar_faixa("user_limit", user_limit, 0, 99)
     if position is not None:
@@ -461,8 +512,12 @@ async def op_edit_channel(
 
     await editor(**kwargs)
     cid = getattr(ch, "id", "")
-    mudancas = ", ".join(sorted(kwargs))
-    return f"Canal <#{cid}> atualizado com sucesso ({mudancas})."
+    mudancas = sorted(kwargs)
+    if "position" in kwargs:
+        real = await _posicao_real(ctx.guild, ch, kwargs["position"])
+        return (f"Canal <#{cid}> atualizado com sucesso "
+                f"({', '.join(mudancas)}; posição pedida {kwargs['position']}, real {real}).")
+    return f"Canal <#{cid}> atualizado com sucesso ({', '.join(mudancas)})."
 
 
 async def op_delete_channels(
@@ -548,7 +603,8 @@ async def op_move_channel(
             alvo_cat = getattr(kwargs["category"], "name", "sem categoria")
             detalhe.append(f"categoria: {alvo_cat}")
         if "position" in kwargs:
-            detalhe.append(f"posição: {kwargs['position']}")
+            real = await _posicao_real(ctx.guild, ch, kwargs["position"])
+            detalhe.append(f"posição pedida {kwargs['position']}, real {real}")
         return f"Canal <#{cid}> movido com sucesso ({', '.join(detalhe)})."
     raise ToolError("Não foi possível mover o canal.")
 
@@ -1328,8 +1384,18 @@ async def op_export_structure(ctx: ToolContext) -> str:
                 "position": getattr(r, "position", None),
             })
 
-    dumped = json.dumps(structure, indent=2, ensure_ascii=False)
-    return f"📦 Estrutura do servidor exportada com sucesso!\n```json\n{dumped[:1500]}\n```"
+    # sem indentação o JSON fica ~40% menor e quase sempre cabe na mensagem do Discord; se
+    # ainda não couber, o aviso é EXPLÍCITO (antes o JSON era cortado no meio, sem aviso, e o
+    # resultado não podia ser importado de volta — a auditoria pegou isso no round-trip).
+    dumped = json.dumps(structure, ensure_ascii=False, separators=(",", ":"))
+    limite = 1800
+    if len(dumped) <= limite:
+        return f"📦 Estrutura exportada ({len(dumped)} caracteres):\n```json\n{dumped}\n```"
+    return (f"📦 Estrutura exportada, mas o JSON completo tem {len(dumped)} caracteres e não cabe "
+            f"numa mensagem do Discord (limite ~2000). Primeiros {limite} caracteres para "
+            f"conferência:\n```json\n{dumped[:limite]}\n```\n"
+            "⚠️ **Este recorte NÃO serve para importar** (está cortado). Para backup completo, "
+            "exporte por partes ou use um servidor menor por vez.")
 
 
 async def op_import_structure(ctx: ToolContext, structure_json: str | None = None) -> str:

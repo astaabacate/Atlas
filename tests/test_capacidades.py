@@ -154,6 +154,7 @@ class Servidor:
         self.categories: list[Any] = []
         self.roles = [Entidade("@everyone", 1, 0)]
         self.members: list[Any] = []
+        self.bitrate_limit = 96000  # sem boost, como no servidor real de teste
         self.criados: list[tuple[str, str, dict[str, Any]]] = []
         self.me = types.SimpleNamespace(id=999, name="farol",
                                         guild_permissions=FakePerms(administrator=True),
@@ -377,6 +378,7 @@ class TestCapacidadesDeCanal(unittest.TestCase):
 
     def test_voz_com_bitrate_e_limite(self) -> None:
         ctx, servidor = contexto()
+        servidor.bitrate_limit = 384000  # servidor com boosts: teto de 384 kbps
         executar("create_channels", {"channels": [{
             "name": "Sala", "type": "voice", "bitrate": 96000, "user_limit": 5,
         }]}, ctx)
@@ -426,8 +428,8 @@ class TestCapacidadesDeCanal(unittest.TestCase):
         ctx, servidor = contexto()
         voz = Canal("Sala", 321, "voice")
         servidor.channels.append(voz)
-        executar("edit_channel", {"channel": "Sala", "bitrate": 128000, "user_limit": 10}, ctx)
-        self.assertEqual(voz.bitrate, 128000)
+        executar("edit_channel", {"channel": "Sala", "bitrate": 64000, "user_limit": 10}, ctx)
+        self.assertEqual(voz.bitrate, 64000)
         self.assertEqual(voz.user_limit, 10)
 
     def test_editar_sem_propriedade_e_erro(self) -> None:
@@ -694,6 +696,80 @@ class TestApplyTemplateHonesto(unittest.TestCase):
         msg = falha("apply_template", {"template": "inexistente"}, ctx)
         self.assertIn("gamer", msg)
         self.assertIn("estudos", msg)
+
+
+class TestAchadosDaMatrizAoVivo(unittest.TestCase):
+    """Regressões dos achados da fase `caps` no Discord real (18/09)."""
+
+    def test_bitrate_acima_do_teto_do_servidor_e_explicado(self) -> None:
+        """O Discord recusa acima do teto do servidor (96 kbps sem boost): recusar com o número."""
+        ctx, servidor = contexto()
+        voz = Canal("Sala", 321, "voice")
+        servidor.channels.append(voz)
+        servidor.bitrate_limit = 96000
+
+        msg = falha("edit_channel", {"channel": "Sala", "bitrate": 128000}, ctx)
+        self.assertIn("96000", msg)
+        self.assertIn("boost", msg)
+        self.assertIsNone(voz.bitrate, "não pode ter aplicado nada antes de recusar")
+
+        msg = falha("create_channels", {"channels": [
+            {"name": "Voz2", "type": "voice", "bitrate": 128000}]}, ctx)
+        self.assertIn("96000", msg)
+
+        # dentro do teto continua funcionando
+        executar("edit_channel", {"channel": "Sala", "bitrate": 96000}, ctx)
+        self.assertEqual(voz.bitrate, 96000)
+
+    def test_stage_sem_comunidade_vira_explicacao_em_portugues(self) -> None:
+        ctx, servidor = contexto()
+
+        async def recusa(name: str, **kwargs: Any) -> Any:
+            raise Exception("400 Bad Request (error code: 50024): Cannot execute action on this "
+                            "channel type")
+
+        servidor.create_stage_channel = recusa  # type: ignore[assignment]
+        msg = falha("create_channels", {"channels": [{"name": "Palco", "type": "stage"}]}, ctx)
+        self.assertIn("Comunidade", msg)
+        self.assertIn("palco", msg.lower())
+
+    def test_export_avisa_quando_o_json_nao_cabe_na_mensagem(self) -> None:
+        """Antes o JSON era cortado no meio, sem aviso, e não podia ser importado de volta."""
+        ctx, servidor = contexto()
+        cat = Canal("📁 C", 900, "category")
+        servidor.categories.append(cat)
+        servidor.channels.append(cat)
+        for i in range(120):  # servidor grande: JSON maior que uma mensagem do Discord
+            canal = Canal(f"canal-{i:03d}-com-nome-longo", 1000 + i, "text", cat)
+            canal.topic = "tópico de teste " * 2
+            cat.channels.append(canal)
+            servidor.channels.append(canal)
+
+        saida = executar("export_structure", {}, ctx)
+        self.assertIn("NÃO serve para importar", saida)
+        self.assertIn("não cabe", saida)
+
+        pequeno = Servidor()  # servidor pequeno: o JSON vem inteiro e parseável
+        ctx_pequeno, _ = contexto(pequeno)
+        saida_ok = executar("export_structure", {}, ctx_pequeno)
+        dados = json.loads(saida_ok[saida_ok.find("{"): saida_ok.rfind("}") + 1])
+        self.assertIn("categories", dados)
+
+    def test_mover_relata_a_posicao_real_e_nao_so_a_pedida(self) -> None:
+        """O Discord ordena o canal junto com os vizinhos: a mensagem tem que dizer a real."""
+        ctx, servidor = contexto()
+        canal = servidor.channels[0]
+
+        async def edit_com_ordem_do_discord(**kwargs: Any) -> Any:
+            canal.edits.append(("edit", kwargs))
+            if "position" in kwargs:
+                canal.position = kwargs["position"] + 2  # vizinhos empurram, como acontece lá
+            return canal
+
+        canal.edit = edit_com_ordem_do_discord  # type: ignore[assignment]
+        saida = executar("move_channel", {"channel": "geral", "position": 0}, ctx)
+        self.assertIn("pedida 0", saida)
+        self.assertIn("real 2", saida)
 
 
 class TestCoerenciaSchemaExecucao(unittest.TestCase):

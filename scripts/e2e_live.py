@@ -1996,7 +1996,8 @@ class Harness:
 
     async def _capture_new(self, guild: Any,
                            before: tuple[dict[int, Any], dict[int, Any]],
-                           conhecidos: Iterable[str] = ()) -> list[Any]:
+                           conhecidos: Iterable[str] = (),
+                           incluir_cargos: bool = False) -> list[Any]:
         """Registra como nossos os objetos novos; ignora (com aviso) o que não bate com a marca."""
         canais, cargos = await self._api_state(guild)
         novos_canais = [c for cid, c in canais.items() if cid not in before[0]]
@@ -2011,7 +2012,9 @@ class Harness:
                 self.owned_roles.add(r.id)
             else:
                 self.rep.note(f"cargo novo NÃO é do teste (não vou mexer): @{r.name} ({r.id})")
-        return novos_canais
+        # quem precisa dos cargos pede explicitamente (as checagens antigas filtram por tipo
+        # de canal e não podem receber cargos no meio da lista)
+        return novos_canais + novos_cargos if incluir_cargos else novos_canais
 
     async def _cleanup(self, guild: Any, phase: str) -> None:
         sobras: list[str] = []
@@ -2575,7 +2578,7 @@ class Harness:
                 "mentionable": True, "permissions": ["ver canal", "gerenciar mensagens",
                                                      "enviar mensagens"],
             }]})
-            novos = await self._capture_new(guild, antes)
+            novos = await self._capture_new(guild, antes, incluir_cargos=True)
             papel = next((r for r in novos if r.name == f"{TEMP_MARK}-caps-cargo"), None)
             self.assert_true(papel is not None, "o cargo não apareceu no servidor")
             estado["cargo"] = papel
@@ -2802,10 +2805,12 @@ class Harness:
                 nova_voz = await guild.create_voice_channel(f"{TEMP_MARK}-caps-voz-editar",
                                                             category=categoria)
                 self.owned_channels.add(nova_voz.id)
+                teto = int(getattr(guild, "bitrate_limit", 96000) or 96000)
+                pedido = min(128000, teto)
                 await ferramenta("edit_channel", {"channel": str(nova_voz.id),
-                                                  "bitrate": 128000, "user_limit": 7})
+                                                  "bitrate": pedido, "user_limit": 7})
                 atual_v = await guild.fetch_channel(nova_voz.id)
-                self.assert_true(atual_v.bitrate == 128000 and atual_v.user_limit == 7,
+                self.assert_true(atual_v.bitrate == pedido and atual_v.user_limit == 7,
                                  f"voz: {atual_v.bitrate}/{atual_v.user_limit}")
                 return f"voz: bitrate {atual_v.bitrate}, limite {atual_v.user_limit}"
 
@@ -2832,9 +2837,12 @@ class Harness:
             movido = await guild.fetch_channel(canal.id)
             self.assert_true(movido.category_id == outra_cat.id,
                              f"não mudou de categoria: {movido.category_id} ≠ {outra_cat.id}")
-            await ferramenta("move_channel", {"channel": str(canal.id), "position": 2})
+            await ferramenta("move_channel", {"channel": str(canal.id), "position": 0})
             movido = await guild.fetch_channel(canal.id)
-            self.assert_true(movido.position == 2, f"posição real: {movido.position}")
+            # posição 0 = primeiro da categoria; o Discord ordena junto com os vizinhos, então o
+            # valor exato pode variar — o teste cobra o efeito (virou o primeiro) e relata o real.
+            self.assert_true(movido.position == 0,
+                             f"pedi posição 0 e a real foi {movido.position}")
 
             await ferramenta("clone_channel", {"channel": str(canal.id)})
             depois = await self._capture_new(guild, antes)
@@ -3042,7 +3050,7 @@ class Harness:
             }
             antes = await self._api_state(guild)
             saida = await ferramenta("import_structure", {"structure_json": json.dumps(estrutura)})
-            novos = await self._capture_new(guild, antes)
+            novos = await self._capture_new(guild, antes, incluir_cargos=True)
             self.assert_true("3 canal(is)" in saida, f"import não relatou os 3 canais: {saida[:120]!r}")
             _relato_import = saida[:100]
 
