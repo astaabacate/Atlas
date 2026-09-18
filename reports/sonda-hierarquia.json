@@ -1,4 +1,28 @@
 {
-  "gerado_em": "2026-09-18T12:09:39Z",
-  "guilds": []
+  "gerado_em": "2026-09-18T19:15:19Z",
+  "guilds": [
+    {
+      "id": "1546763083005825084",
+      "nome": "Pinguim",
+      "cargos": 27,
+      "pos_bot": 26,
+      "cargo_do_bot": "Atlas",
+      "pos_dono": null,
+      "experimento": {
+        "criado": {
+          "id": "1550586042573267004",
+          "posicao": 1
+        },
+        "editar": {
+          "status": 200,
+          "corpo": "ok"
+        },
+        "apagar": {
+          "status": 204,
+          "corpo": "ok"
+        },
+        "sobra": null
+      }
+    }
+  ]
 }
