@@ -286,11 +286,14 @@ E, para o dono, duas ferramentas novas no Discord:
 
 ### Rodada 8 (18/09): "pedi pra apagar todos os cargos e ele diz que não consegue"
 
-Relato do dono, e o diagnóstico é honesto: **não é o bot que se recusa — é o Discord**. A regra é
-"um bot só gerencia cargos estritamente ABAIXO do cargo mais alto dele". No servidor do dono o cargo
-**farol** está na **posição 1** (o mais baixo de todos), e os cargos criados pelo próprio bot nascem
-nessa mesma altura — então o Discord recusa até a exclusão do que ele mesmo criou. Medido no E2E:
-`O cargo '🧪 teste-papel' (posição 1) está acima ou na mesma posição do meu cargo mais alto (posição 1)`.
+Relato do dono. A regra do Discord é real e estrita — "um bot só gerencia cargos **estritamente
+ABAIXO** do cargo mais alto dele" (empate não vale; o cargo de bot nasce no **chão** da hierarquia) —
+e no servidor do dono o cargo **farol** está na **posição 1**, com tudo acima dele.
+
+**Mas o relatório ao vivo não provava nada disso** e a Rodada 9 corrigiu isso: o harness chamava a
+ferramenta do produto, o NOSSO gate de hierarquia recusava por posição e o relatório anotava
+"o Discord recusa" — o Discord nunca foi perguntado. Era o produto recusando por conta própria, e era
+esse texto que o dono lia como "ele diz que não consegue".
 
 O que estava **mal no produto** (e foi corrigido agora):
 
@@ -318,3 +321,25 @@ cargos" funciona de uma vez — e o cargo do bot passa a conseguir editar/apagar
   matriz registrar ⚠️ de novo, a mensagem agora traz as duas posições medidas na API.)
 - **Servidor de teste**: a matriz cria e apaga objetos marcados com 🧪. Sem um servidor onde o bot
   tenha "Gerenciar canais/cargos/mensagens", a fase fica em ⚠️ "não verificável" em vez de ✅.
+
+### Rodada 9 (18/09): "essa de posição tá errada" — o gate recusava sem perguntar ao Discord
+
+O dono desconfiou do diagnóstico ("como assim um bot não apaga um cargo que ele mesmo criou?") e
+mandou o token para eu testar por conta própria. A desconfiança estava certa **em parte**, e o que
+saiu desta rodada:
+
+| Achado | Consequência |
+| --- | --- |
+| O relatório ao vivo dizia "o Discord recusa a edição" **sem nunca ter perguntado ao Discord** | corrigido: em **empate de posição** a ferramenta agora **tenta de verdade** e traduz a resposta real da API (`O Discord recusou editar … (403 …): Missing Permissions`). Em posição rigorosamente acima, a recusa continua na hora — com o passo a passo |
+| O empate só tentava em `delete_role`/`delete_roles`; `edit_role`, `give_role` e `take_role` recusavam de chute | todas passam pelo mesmo gate (`_exige_cargo_gerenciavel`) e tentam no empate |
+| Não existia prova CRUA da regra de hierarquia no servidor do dono | nova sonda `scripts/sonda_hierarquia.py` + workflow **`sonda-hierarquia.yml`**: fala direto com a API do Discord (sem `brain/`, sem cache, sem LLM), cria UM cargo 🧪, tenta renomear, apagar e mover, e publica a resposta crua em `reports/sonda-hierarquia.md` |
+
+Regressões novas: `tests/test_hierarquia_empate.py` (10 testes — empate tenta e funciona; empate
+recusado traduz a resposta real; acima do bot **não gasta chamada**; lote; dar/tirar cargo; posição
+medida na API com cache vazio) e `tests/test_sonda_hierarquia.py` (13 testes — visão de posições,
+permissão, e que a sonda sempre deixa rastro, inclusive quando o token falha).
+
+**Bloqueio honesto:** o segredo `DISCORD_TOKEN` do repositório está respondendo **401 Unauthorized**
+(o token do bot foi resetado) — a sonda roda e publica o motivo, mas a prova crua ao vivo só sai
+quando o dono atualizar o segredo em Settings → Secrets and variables → Actions → `DISCORD_TOKEN`.
+O bot 24/7 também não sobe no próximo reinício enquanto o segredo estiver assim.

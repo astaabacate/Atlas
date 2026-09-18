@@ -2761,19 +2761,32 @@ class Harness:
             if papel is None:
                 self.assert_true(False, "sem cargo criado para editar")
             if not await gerencia_cargos():
-                # A recusa EM SI é verificável (e importante): confere que é clara e que nada mudou.
+                # A recusa EM SI é verificável (e importante): confere que é clara e que nada
+                # mudou. E agora diz QUEM recusou: em empate de posição a ferramenta pergunta
+                # DE VERDADE ao Discord, e a resposta real vem no texto do erro. Antes o relatório
+                # anotava "o Discord recusa" sem nunca ter falado com o Discord — a recusa era do
+                # nosso gate (foi assim que o dono leu "ele diz que não consegue").
                 antes_r = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+                topo = estado.get("topo_bot") or 0
+                texto = ""
                 try:
                     await ferramenta("edit_role", {"role": str(papel.id), "name": "x"})
-                    self.assert_true(False, "editou cargo na altura do topo do bot")
+                    self.assert_true(False, "editou cargo que o Discord não deixa")
                 except ToolError as exc:
-                    self.assert_true("posição" in str(exc) or "acima" in str(exc),
+                    texto = str(exc)
+                    self.assert_true("posição" in texto or "acima" in texto,
                                      f"recusa de hierarquia confusa: {exc}")
                 depois_r = next(r for r in await guild.fetch_roles() if r.id == papel.id)
                 self.assert_true(antes_r.name == depois_r.name, "a recusa mexeu no cargo")
+                if "O Discord recusou" in texto:
+                    return aviso_de_hierarquia(
+                        f"o cargo criado ficou na posição {papel.position} (a MESMA do meu topo, "
+                        f"{topo}): o bot perguntou ao Discord e o DISCORD recusou — resposta real "
+                        f"da API: {texto[:170]}")
                 return aviso_de_hierarquia(
-                    f"o cargo criado ficou na posição {papel.position}: o Discord recusa a edição "
-                    "(recusa conferida como clara, sem alterar nada)")
+                    f"o cargo criado ficou ACIMA do meu topo ({papel.position} > {topo}): recusou o "
+                    "nosso gate de hierarquia, o Discord NÃO foi consultado nesta checagem — para a "
+                    "prova crua existe scripts/sonda_hierarquia.py")
             alvo = str(papel.id)
             conferidos: list[str] = []
 

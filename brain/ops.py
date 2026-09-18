@@ -834,11 +834,9 @@ async def op_edit_role(
 ) -> str:
     r_obj = resolve_role(ctx.guild, role)
 
-    # Hierarquia
-    require("edit_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
-            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
-            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
+    # Hierarquia (empate = tenta de verdade e traduz o que o Discord responder)
+    pos_bot = await _posicao_do_topo(ctx, ctx.guild.me)
+    empatado = await _exige_cargo_gerenciavel(ctx, "edit_role", r_obj, pos_bot=pos_bot)
 
     kwargs: dict[str, Any] = {}
     if name is not None:
@@ -869,7 +867,12 @@ async def op_edit_role(
     if not editor:
         raise ToolError(f"Cargo '{role}' não pôde ser editado.")
 
-    await editor(**kwargs)
+    try:
+        await editor(**kwargs)
+    except Exception as exc:  # noqa: BLE001 - recusa do Discord: traduz e diz o que fazer
+        if empatado:
+            raise _recusa_do_discord(ctx, r_obj, exc, pos_bot, "editar") from exc
+        raise
     rid = getattr(r_obj, "id", "")
     mudancas = ", ".join(sorted(kwargs))
     return f"Cargo <@&{rid}> atualizado com sucesso ({mudancas})."
@@ -908,6 +911,58 @@ def _e_bloqueio_de_hierarquia(mensagem: str) -> bool:
     return _e_bloqueio_do_bot(mensagem) or "maior ou igual à do seu cargo mais alto" in mensagem
 
 
+async def _exige_cargo_gerenciavel(
+    ctx: ToolContext,
+    ferramenta: str,
+    cargo: Any,
+    *,
+    pos_bot: int | None = None,
+    pos_actor: int | None = None,
+) -> bool:
+    """
+    Confere permissões e hierarquia do cargo alvo; devolve True quando a MEDIÇÃO empatou.
+
+    Empate (cargo na MESMA posição do meu topo) NÃO é recusa provada: o cache de posições
+    pode estar velho e, acima de tudo, quem decide é o Discord. No empate devolvemos True
+    para o chamador tentar de verdade e traduzir a resposta real. Recusa por posição
+    rigorosamente ACIMA do meu topo continua bloqueada na hora, com o caminho da solução.
+
+    Bug que isto corrige (relato do dono, 18/09): o teste ao vivo anotava "o Discord
+    recusa" sem NUNCA ter perguntado ao Discord — a recusa era do nosso gate.
+    """
+    bot_pos = pos_bot if pos_bot is not None else await _posicao_do_topo(ctx, ctx.guild.me)
+    actor_pos = pos_actor if pos_actor is not None else await _posicao_do_topo(ctx, ctx.actor)
+    try:
+        require(ferramenta, ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
+                actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=cargo,
+                bot_top_position=bot_pos, actor_top_position=actor_pos)
+    except ToolError as exc:
+        mensagem = str(exc)
+        if not _e_bloqueio_de_hierarquia(mensagem):
+            raise
+        pos_alvo = int(getattr(cargo, "position", 0) or 0)
+        if _e_bloqueio_do_bot(mensagem):
+            if pos_alvo > bot_pos:
+                raise ToolError(
+                    f"{mensagem} {_instrucao_hierarquia(pos_alvo, bot_pos, _nome_do_meu_cargo(ctx))}"
+                )
+            return True  # mesma posição do meu topo: vale perguntar ao Discord
+        if pos_alvo > (actor_pos or 0):
+            raise  # acima do cargo de quem pediu: recusa clara, não é empate
+        return True  # mesma posição do autor: idem, quem decide é o Discord
+    return False
+
+
+def _recusa_do_discord(ctx: ToolContext, cargo: Any, exc: Exception, pos_bot: int,
+                       verbo: str) -> ToolError:
+    """Traduz a recusa REAL do Discord (com o corpo do erro) e diz o que fazer."""
+    nome = getattr(cargo, "name", "cargo")
+    return ToolError(
+        f"O Discord recusou {verbo} **{nome}** ({exc}). "
+        f"{_instrucao_hierarquia(getattr(cargo, 'position', 0), pos_bot, _nome_do_meu_cargo(ctx))}"
+    )
+
+
 async def op_delete_role(
     ctx: ToolContext,
     role: str,
@@ -916,22 +971,7 @@ async def op_delete_role(
     r_obj = resolve_role(ctx.guild, role)
 
     pos_bot = await _posicao_do_topo(ctx, ctx.guild.me)
-    empatado = False
-    try:
-        require("delete_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-                actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
-                bot_top_position=pos_bot,
-                actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
-    except ToolError as exc:
-        mensagem = str(exc)
-        if not _e_bloqueio_de_hierarquia(mensagem):
-            raise
-        pos_alvo = getattr(r_obj, "position", 0)
-        if _e_bloqueio_do_bot(mensagem) and pos_alvo > (pos_bot or 0):
-            raise ToolError(f"{mensagem} "
-                             f"{_instrucao_hierarquia(pos_alvo, pos_bot or 0, _nome_do_meu_cargo(ctx))}")
-        # Mesma posição: o cache do discord.py pode estar velho (já aconteceu). Tenta de verdade.
-        empatado = True
+    empatado = await _exige_cargo_gerenciavel(ctx, "delete_role", r_obj, pos_bot=pos_bot)
 
     name = getattr(r_obj, "name", str(role))
 
@@ -949,10 +989,7 @@ async def op_delete_role(
         await deleter()
     except Exception as exc:  # noqa: BLE001 - recusa do Discord: traduz e diz o que fazer
         if empatado:
-            raise ToolError(
-                f"O Discord recusou apagar **{name}** ({exc}). "
-                f"{_instrucao_hierarquia(getattr(r_obj, 'position', 0), pos_bot or 0, _nome_do_meu_cargo(ctx))}"
-            ) from exc
+            raise _recusa_do_discord(ctx, r_obj, exc, pos_bot, "apagar") from exc
         raise
     return f"🗑️ Cargo **{name}** excluído com sucesso."
 
@@ -1000,22 +1037,12 @@ async def op_delete_roles(
     apagados: list[str] = []
     for r_obj in resolvidos:
         nome = getattr(r_obj, "name", "cargo")
-        empatado = False
         try:
-            require("delete_role", ctx.actor.guild_permissions, guild.me.guild_permissions,
-                    actor=ctx.actor, bot_member=guild.me, guild=guild, target_role=r_obj,
-                    bot_top_position=pos_bot, actor_top_position=pos_actor)
+            empatado = await _exige_cargo_gerenciavel(
+                ctx, "delete_role", r_obj, pos_bot=pos_bot, pos_actor=pos_actor)
         except ToolError as exc:
-            mensagem = str(exc)
-            pos_alvo = getattr(r_obj, "position", 0)
-            if _e_bloqueio_do_bot(mensagem) and pos_alvo > (pos_bot or 0):
-                bloqueados.append((nome, f"{mensagem} "
-                                         f"{_instrucao_hierarquia(pos_alvo, pos_bot or 0, _nome_do_meu_cargo(ctx))}"))
-                continue
-            if not _e_bloqueio_de_hierarquia(mensagem):
-                bloqueados.append((nome, mensagem))
-                continue
-            empatado = True  # mesma posição: tenta de verdade (o cache pode estar velho)
+            bloqueados.append((nome, str(exc)))
+            continue
 
         deleter = getattr(r_obj, "delete", None)
         if not deleter:
@@ -1166,16 +1193,19 @@ async def op_give_role(ctx: ToolContext, member: str, role: str) -> str:
     m_obj = await _membro_do_servidor(ctx, member)
     r_obj = resolve_role(ctx.guild, role)
 
-    require("give_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
-            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
-            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
+    pos_bot = await _posicao_do_topo(ctx, ctx.guild.me)
+    empatado = await _exige_cargo_gerenciavel(ctx, "give_role", r_obj, pos_bot=pos_bot)
 
     adder = getattr(m_obj, "add_roles", None)
     if not adder:
         raise ToolError("Não foi possível atribuir o cargo ao membro.")
 
-    await adder(r_obj)
+    try:
+        await adder(r_obj)
+    except Exception as exc:  # noqa: BLE001 - recusa do Discord: traduz e diz o que fazer
+        if empatado:
+            raise _recusa_do_discord(ctx, r_obj, exc, pos_bot, "atribuir") from exc
+        raise
     mid = getattr(m_obj, "id", "")
     rid = getattr(r_obj, "id", "")
     return f"Cargo <@&{rid}> atribuído a <@{mid}> com sucesso!"
@@ -1185,16 +1215,19 @@ async def op_take_role(ctx: ToolContext, member: str, role: str) -> str:
     m_obj = await _membro_do_servidor(ctx, member)
     r_obj = resolve_role(ctx.guild, role)
 
-    require("take_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
-            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild, target_role=r_obj,
-            bot_top_position=await _posicao_do_topo(ctx, ctx.guild.me),
-            actor_top_position=await _posicao_do_topo(ctx, ctx.actor))
+    pos_bot = await _posicao_do_topo(ctx, ctx.guild.me)
+    empatado = await _exige_cargo_gerenciavel(ctx, "take_role", r_obj, pos_bot=pos_bot)
 
     remover = getattr(m_obj, "remove_roles", None)
     if not remover:
         raise ToolError("Não foi possível remover o cargo do membro.")
 
-    await remover(r_obj)
+    try:
+        await remover(r_obj)
+    except Exception as exc:  # noqa: BLE001 - recusa do Discord: traduz e diz o que fazer
+        if empatado:
+            raise _recusa_do_discord(ctx, r_obj, exc, pos_bot, "tirar") from exc
+        raise
     mid = getattr(m_obj, "id", "")
     rid = getattr(r_obj, "id", "")
     return f"Cargo <@&{rid}> removido de <@{mid}> com sucesso."
