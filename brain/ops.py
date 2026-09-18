@@ -1149,8 +1149,13 @@ async def op_server_info(ctx: ToolContext) -> str:
     g = ctx.guild
     name = getattr(g, "name", "Servidor")
     gid = getattr(g, "id", "N/A")
-    owner = getattr(g, "owner", getattr(g, "owner_id", "N/A"))
-    members_count = getattr(g, "member_count", len(getattr(g, "members", [])))
+    # `guild.owner` é None quando o membro não está no cache; aí aparecia "Dono: None".
+    # O ID sempre existe e vira menção — melhor que um "None" mentiroso.
+    owner_id = getattr(g, "owner_id", None)
+    owner = f"<@{owner_id}>" if owner_id else getattr(g, "owner", None) or "N/A"
+    # `member_count` é None quando o Discord não manda a contagem (sem intent de membros):
+    # aparecia "Membros: None". Aí vale o tamanho do cache, e "?" se nem isso houver.
+    members_count = (getattr(g, "member_count", None) or len(getattr(g, "members", [])) or "?")
     channels_count = len(getattr(g, "channels", []))
     roles_count = len(getattr(g, "roles", []))
     created_at = getattr(g, "created_at", "N/A")
@@ -1595,6 +1600,16 @@ async def op_color_palette(ctx: ToolContext, query: str = "gamer") -> str:
 
 
 async def op_color_name(ctx: ToolContext, hex_code: str) -> str:
+    # HEX inválido devolvia "A cor `zzzz` é conhecida como **Cor #ZZZZ**" — inventar nome para
+    # qualquer coisa não é resposta. Melhor recusar e mostrar o formato certo.
+    limpo = str(hex_code or "").strip().lstrip("#")
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", limpo) and not re.fullmatch(r"[0-9a-fA-F]{3}", limpo):
+        raise ToolError(
+            f"'{hex_code}' não é um código HEX válido — use 6 dígitos, como #5865F2 "
+            "(ou 3 dígitos, como #F0F)."
+        )
+    hex_code = f"#{limpo.upper()}"
+
     registry = ctx.api_registry
     if registry:
         from apis.colors import fallback_color_name, fetch_color_name
@@ -1615,8 +1630,9 @@ async def op_emoji_search(ctx: ToolContext, query: str) -> str:
         from apis.emojis import fallback_emoji_search
         emojis = fallback_emoji_search(query)
 
-    emojis_str = " ".join(emojis)
-    return f"Emojis encontrados para '{query}': {emojis_str}"
+    if not emojis:
+        return f"Não encontrei emojis para '{query}'. Tente uma palavra mais simples (ex.: 'festa', 'jogo')."
+    return f"Emojis encontrados para '{query}': {' '.join(emojis)}"
 
 
 async def op_topic_suggest(ctx: ToolContext, category: str = "geral") -> str:
@@ -1628,7 +1644,12 @@ async def op_topic_suggest(ctx: ToolContext, category: str = "geral") -> str:
         from apis.topics import fallback_topic_suggest
         topic = fallback_topic_suggest(category)
 
-    return f"Sugestão de tópico para canal de {category}:\n> {topic}"
+    from apis.topics import TOPICS_BY_CATEGORY
+
+    aviso = ""
+    if str(category or "").strip().lower() not in TOPICS_BY_CATEGORY:
+        aviso = f" (não conheço a categoria '{category}', usei o tom geral)"
+    return f"Sugestão de tópico para canal de {category}{aviso}:\n> {topic}"
 
 
 async def op_translate_text(ctx: ToolContext, text: str, target_lang: str = "pt") -> str:
@@ -1640,7 +1661,17 @@ async def op_translate_text(ctx: ToolContext, text: str, target_lang: str = "pt"
         from apis.translate import fallback_translate
         translated = fallback_translate(text, target_lang)
 
-    return f"Tradução: {translated}"
+    original = str(text or "").strip()
+    if not original:
+        raise ToolError("Não há texto para traduzir.")
+
+    traducao = str(translated or "").strip()
+    if traducao == original and target_lang.lower() not in ("pt", "pt-br", "português", "portugues"):
+        # o fallback dos tradutores devolve o PRÓPRIO texto: dizer "Tradução: <texto original>"
+        # seria mentir para o usuário. Melhor avisar que o tradutor não respondeu.
+        return (f"⚠️ Não consegui falar com o tradutor agora, então NÃO traduzi. "
+                f"Texto original:\n> {original}")
+    return f"Tradução: {traducao}"
 
 
 # --- 8. Sessão (1) ---

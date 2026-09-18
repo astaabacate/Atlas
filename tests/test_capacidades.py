@@ -954,6 +954,101 @@ class TestRecusaDeHierarquiaComNumeros(unittest.TestCase):
         self.assertIn("posição 40", msg)
 
 
+class TestFerramentasDeConsulta(unittest.TestCase):
+    """As ferramentas que não mexem em nada também têm capacidades — e limites."""
+
+    def test_server_info_mostra_dono_mesmo_sem_cache_de_membro(self) -> None:
+        """`guild.owner` é None quando o membro não está no cache: aparecia 'Dono: None'."""
+        ctx, servidor = contexto()
+        servidor.member_count = 42
+        servidor.owner_id = 1521612392105250836
+
+        saida = executar("server_info", {}, ctx)
+        self.assertIn("1521612392105250836", saida)
+        self.assertNotIn("None", saida)
+        self.assertIn("42", saida)
+        self.assertIn("Servidor Teste", saida)
+        self.assertIn("Cargos", saida)
+
+    def test_server_info_conta_canais_e_cargos_reais(self) -> None:
+        ctx, servidor = contexto()
+        servidor.member_count = None  # cai no len(members)
+        servidor.members = [object(), object()]
+        saida = executar("server_info", {}, ctx)
+        self.assertIn("**Membros:** 2", saida)
+        self.assertIn(f"**Canais:** {len(servidor.channels)}", saida)
+
+    def test_color_name_aceita_as_variacoes_de_hex(self) -> None:
+        ctx, _ = contexto()
+        for entrada in ("#5865F2", "5865f2", "#5865F2".lower()):
+            saida = executar("color_name", {"hex_code": entrada}, ctx)
+            self.assertIn("5865F2", saida.upper())
+
+    def test_color_name_recusa_o_que_nao_e_hex(self) -> None:
+        """Antes respondia 'A cor `zzzz` é conhecida como **Cor #ZZZZ**' — inventava nome."""
+        ctx, _ = contexto()
+        for ruim in ("zzzz", "", "roxo", "#12345", "#1234567"):
+            msg = falha("color_name", {"hex_code": ruim}, ctx)
+            self.assertIn("HEX", msg)
+
+    def test_color_palette_lista_hex_e_nomes(self) -> None:
+        ctx, _ = contexto()
+        saida = executar("color_palette", {"query": "gamer"}, ctx)
+        self.assertIn("gamer", saida)
+        self.assertIn("`#", saida)
+
+    def test_emoji_search_acha_e_avisa_quando_nao_acha(self) -> None:
+        ctx, _ = contexto()
+        saida = executar("emoji_search", {"query": "festa"}, ctx)
+        self.assertTrue(saida.strip(), "emoji_search devolveu vazio")
+
+        vazio = executar("emoji_search", {"query": "zzzznaoexiste"}, ctx)
+        self.assertTrue(vazio, "sem resultado tem que dizer algo")
+
+    def test_topic_suggest_avisa_categoria_desconhecida(self) -> None:
+        ctx, _ = contexto()
+        conhecida = executar("topic_suggest", {"category": "geral"}, ctx)
+        self.assertIn("geral", conhecida)
+        self.assertNotIn("não conheço a categoria", conhecida)
+
+        estranha = executar("topic_suggest", {"category": "aquarismo"}, ctx)
+        self.assertIn("não conheço a categoria", estranha)
+
+    def test_translate_nao_finge_quando_o_tradutor_nao_responde(self) -> None:
+        """O fallback devolve o próprio texto: dizer 'Tradução: <original>' seria mentira."""
+        ctx, _ = contexto()
+        saida = executar("translate_text", {"text": "hello world", "target_lang": "es"}, ctx)
+        self.assertIn("NÃO traduzi", saida)
+        self.assertIn("hello world", saida)
+
+    def test_translate_recusa_texto_vazio(self) -> None:
+        ctx, _ = contexto()
+        msg = falha("translate_text", {"text": "   ", "target_lang": "es"}, ctx)
+        self.assertIn("Não há texto", msg)
+
+    def test_edit_server_recusa_edicao_vazia(self) -> None:
+        ctx, servidor = contexto()
+        msg = falha("edit_server", {}, ctx)
+        self.assertIn("Nenhum dado", msg)
+        self.assertEqual(servidor.edits, [], "nada pode ter sido editado")
+
+        servidor.edit = None  # type: ignore[assignment]
+        msg = falha("edit_server", {"name": "Novo"}, ctx)
+        self.assertIn("não suporta", msg)
+
+    def test_edit_server_aplica_so_o_que_foi_pedido(self) -> None:
+        ctx, servidor = contexto()
+        edits: list[dict[str, Any]] = []
+
+        async def edit(**kwargs: Any) -> None:
+            edits.append(kwargs)
+
+        servidor.edit = edit  # type: ignore[assignment]
+        executar("edit_server", {"description": "só a descrição"}, ctx)
+        self.assertEqual(edits, [{"description": "só a descrição"}],
+                         "edit_server tem que mandar SÓ o campo pedido")
+
+
 class TestCoerenciaSchemaExecucao(unittest.TestCase):
     """
     Trava do inventário: schema, função e executor falam a mesma língua.
