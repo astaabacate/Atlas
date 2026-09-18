@@ -48,3 +48,8 @@ RESTART PEDIDO EM 2026-09-18T02:05Z
 -------------------------------
 Motivo: levar ao bot vivo o MODO DIRETO (não pergunta antes de apagar: o pedido já é a
 autorização) e o atalho de velocidade (resposta pronta da ferramenta não volta ao LLM).
+
+RESTART PEDIDO EM 2026-09-18T02:45Z
+-------------------------------
+Motivo: 'exclua esse chat' apagava nada e o bot dizia que apagou. Entram a ferramenta
+clear_messages (bulk delete real) e a resposta honesta do conversation_clear.
