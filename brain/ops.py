@@ -937,6 +937,12 @@ async def _exige_cargo_gerenciavel(
 
     Bug que isto corrige (relato do dono, 18/09): o teste ao vivo anotava "o Discord
     recusa" sem NUNCA ter perguntado ao Discord — a recusa era do nosso gate.
+
+    Medição crua de 18/09 (scripts/sonda_hierarquia.py, falando direto com a API): pedir para
+    pôr um cargo na MESMA posição do topo do bot não cria empate nenhum — o Discord o coloca
+    logo ABAIXO (posição 26 quando o topo era 27). Ou seja, a regra que vale é a mesma que
+    está aqui: estritamente abaixo. O empate só aparece com cache velho; nesse caso vale
+    tentar, porque quem decide é a API.
     """
     bot_pos = pos_bot if pos_bot is not None else await _posicao_do_topo(ctx, ctx.guild.me)
     actor_pos = pos_actor if pos_actor is not None else await _posicao_do_topo(ctx, ctx.actor)

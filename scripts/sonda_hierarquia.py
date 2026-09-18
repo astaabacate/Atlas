@@ -311,24 +311,33 @@ async def _experimento(api: "Sondagem", gid: str, pos_bot: int) -> dict[str, Any
         dados["posicao_depois_do_empate"] = pos_real
         onde = ("continua na MESMA posição do meu topo"
                 if pos_real == pos_bot else
-                f"o Discord na verdade colocou na posição {pos_real}")
+                f"o Discord NÃO mantém empate: colocou na posição {pos_real}, logo abaixo do meu "
+                f"topo — pedir a minha própria posição vira \"logo abaixo\"")
         linhas.append(f"- ⬆️ Pedi para mover o cargo de teste para a posição {pos_bot} "
                       f"(a MESMA do meu topo) e conferi na API: {onde}.")
         st_re, corpo_re = await api.pedir("PATCH", f"/guilds/{gid}/roles/{rid}",
                                           json={"name": nome + "-empatado"})
         dados["editar_empatado"] = {"status": st_re,
                                     "corpo": _erro(corpo_re) if st_re >= 400 else "ok"}
-        if st_re < 400:
+        if st_re < 400 and pos_real == pos_bot:
             linhas.append("- ✏️ **EMPATE: RENOMEAR foi ACEITO** — o Discord não recusa por posição "
                           "igual; quem recusava era o NOSSO gate.")
+        elif st_re < 400:
+            linhas.append("- ✏️ Depois desse movimento, renomear foi ACEITO (o cargo não estava "
+                          "mais na minha altura — o Discord o colocou logo ABAIXO).")
         else:
             linhas.append(f"- ✏️ **EMPATE: RENOMEAR RECUSADO** — HTTP {st_re} · {_erro(corpo_re)}")
         st_de, corpo_de = await api.pedir("DELETE", f"/guilds/{gid}/roles/{rid}")
         dados["apagar_empatado"] = {"status": st_de,
                                     "corpo": _erro(corpo_de) if st_de >= 400 else "ok"}
-        if st_de in (200, 204):
+        if st_de in (200, 204) and pos_real == pos_bot:
             linhas.append("- 🗑️ **EMPATE: APAGAR foi ACEITO** — a regra é estritamente ABAIXO; "
                           "cargo empatado é apagável, sim.")
+            dados["sobra"] = None
+            linhas.append("")
+            return {"linhas": linhas, "dados": dados}
+        if st_de in (200, 204):
+            linhas.append("- 🗑️ Apagar depois do movimento: ACEITO (cargo logo abaixo do meu topo).")
             dados["sobra"] = None
             linhas.append("")
             return {"linhas": linhas, "dados": dados}

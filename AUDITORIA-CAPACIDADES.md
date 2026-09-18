@@ -382,6 +382,15 @@ a resposta veio do Discord, não do gate do produto. A sonda também **força o 
 (move o cargo de teste para a MESMA posição do topo do bot) antes de tentar de novo, que é
 exatamente o caso-limite que o dono levantou.
 
+**O empate NÃO existe na API** (medido de verdade às 12:33Z): ao pedir para mover um cargo para a
+MESMA posição do topo do bot, o Discord **não mantém o empate** — ele coloca o cargo logo ABAIXO
+(pedi posição 27 com o topo em 27; a API respondeu 26). Aí renomear e apagar foram aceitos. Ou seja:
+
+* a regra do Discord é mesmo **estritamente abaixo**, e é o Discord que a aplica;
+* o produto tentar no empate continua certo (só acontece com cache velho, e quem decide é a API);
+* a leitura anterior "o Discord recusa cargo empatado" era do NOSSO gate — nunca foi medida no
+  Discord, e agora está medida: o Discord sequer deixa o cargo empatar.
+
 Erro da própria sonda corrigido nesta rodada: o cálculo de permissão ignorava o **bypass de
 Administrator** e imprimia "Gerenciar Cargos: NÃO" para um bot administrador (alarme falso). Agora
 a sonda imprime o número cru das permissões medidas e considera Administrator.
