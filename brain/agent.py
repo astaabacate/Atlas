@@ -197,11 +197,31 @@ class Agent:
             return pontos_en >= 2 and pontos_pt == 0
         return pontos_en > pontos_pt
 
+    # Marcas que só existem DENTRO do prompt/plumbing do bot: se aparecem na resposta, o modelo
+    # devolveu o contexto em vez de conversar (foi assim que um "oi" virou um textão).
+    _MARCADORES_INTERNOS = (
+        "[ação solicitada", "[acao solicitada", "```tool", "protocolo de ferramentas",
+        "tool_protocol", '"tool_calls"', '"type": "function"', "system prompt",
+        "ferramentas disponíveis",
+    )
+
+    @classmethod
+    def _eco_de_contexto(cls, texto: str) -> str:
+        """Devolve a marca encontrada quando a resposta é um eco do que o bot mandou ao modelo."""
+        baixo = texto.lower()
+        for marca in cls._MARCADORES_INTERNOS:
+            if marca in baixo:
+                return marca
+        return ""
+
     @classmethod
     def resposta_ruim(cls, texto: str) -> str | None:
         """Motivo pelo qual a resposta não pode ir pro Discord (ou None se está boa)."""
         if not texto or not texto.strip():
             return "vazia"
+        eco = cls._eco_de_contexto(texto)
+        if eco:
+            return f"eco do contexto interno ({eco})"
         if parece_raciocinio(texto):
             return "rascunho do modelo"
         if len(texto) > MAX_RESPOSTA_CHARS:

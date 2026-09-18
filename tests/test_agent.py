@@ -483,6 +483,45 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TestEcoDeContexto(unittest.TestCase):
+    """
+    O caso que o dono do servidor viu: falou "oi" e recebeu de volta o PLANEJAMENTO em inglês,
+    começando por "[Ação solicitada: edit_channel(...)]" — o modelo regurgitou o contexto que
+    o bot mandou (histórico + protocolo de ferramentas).
+    """
+
+    def test_eco_do_plumbing_e_barrado(self) -> None:
+        from brain.agent import Agent
+
+        textao = (
+            "[Ação solicitada: edit_channel({\"name\": \"dicas-freefire\"})]\n"
+            "Let's start by editing categories: we need to identify category IDs.\n"
+            "Then edit channels within. First COMUNIDADE, then JOGOS & VOZ."
+        )
+        self.assertIsNotNone(Agent.resposta_ruim(textao))
+
+    def test_bloco_de_protocolo_na_resposta_e_barrado(self) -> None:
+        from brain.agent import Agent
+
+        self.assertIsNotNone(Agent.resposta_ruim('```tool\n{"name": "edit_channel"}\n```'))
+        self.assertIsNotNone(Agent.resposta_ruim("Ferramentas disponíveis: - create_roles(...)"))
+
+    def test_resposta_normal_continua_passando(self) -> None:
+        from brain.agent import Agent
+
+        for boa in ("Feito! ✅ Canal renomeado para dicas-freefire.",
+                    "Pronto, criei a categoria 🎮 FREE FIRE com 3 canais.",
+                    "Não encontrei esse canal no servidor."):
+            self.assertIsNone(Agent.resposta_ruim(boa), boa)
+
+    def test_resultado_de_ferramenta_com_json_nao_e_eco(self) -> None:
+        """`export_structure` devolve JSON em ```json — isso é resposta legítima, não eco."""
+        from brain.agent import Agent
+
+        saida = '📦 Estrutura exportada\n```json\n{"roles": [], "categories": []}\n```'
+        self.assertIsNone(Agent.resposta_ruim(saida))
+
+
 class TestRespostaNuncaVazaRaciocinio(unittest.TestCase):
     """O dono recebeu um textão em inglês (rascunho do modelo). Nunca mais."""
 
