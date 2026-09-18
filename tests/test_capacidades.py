@@ -37,6 +37,7 @@ import asyncio
 import json
 import types
 import unittest
+import unittest.mock
 from typing import Any
 
 from brain import ops
@@ -784,6 +785,65 @@ class TestAchadosDaMatrizAoVivo(unittest.TestCase):
         saida = executar("move_channel", {"channel": "geral", "position": 0}, ctx)
         self.assertIn("pedida 0", saida)
         self.assertIn("real 2", saida)
+
+
+class TestErroTransitorioDoDiscord(unittest.TestCase):
+    """5xx do Discord não é defeito do pedido: uma segunda tentativa antes de desistir."""
+
+    def test_criacao_de_cargo_repete_uma_vez_no_503(self) -> None:
+        ctx, servidor = contexto()
+        original = servidor.create_role
+        chamadas: list[int] = []
+
+        class Erro503(Exception):
+            status = 503
+
+        async def instavel(name: str, **kwargs: Any) -> Any:
+            chamadas.append(1)
+            if len(chamadas) == 1:
+                raise Erro503("503 Service Unavailable (error code: 0): Service error -27")
+            return await original(name, **kwargs)
+
+        servidor.create_role = instavel  # type: ignore[assignment]
+        with unittest.mock.patch("brain.ops.asyncio.sleep", new=unittest.mock.AsyncMock()):
+            saida = executar("create_roles", {"roles": [{"name": "🧪-instavel"}]}, ctx)
+        self.assertEqual(len(chamadas), 2, "o 503 tinha que ter sido repetido uma vez")
+        self.assertIn("Criei 1 cargo", saida)
+
+    def test_erro_de_pedido_ruim_nao_e_repetido(self) -> None:
+        ctx, servidor = contexto()
+        chamadas: list[int] = []
+
+        class Erro403(Exception):
+            status = 403
+
+        async def recusa(name: str, **kwargs: Any) -> Any:
+            chamadas.append(1)
+            raise Erro403("403 Forbidden (50013): Missing Permissions")
+
+        servidor.create_role = recusa  # type: ignore[assignment]
+        msg = falha("create_roles", {"roles": [{"name": "🧪-proibido"}]}, ctx)
+        self.assertEqual(len(chamadas), 1, "403 não pode ser repetido")
+        self.assertIn("Missing Permissions", msg)
+
+    def test_5xx_na_criacao_de_canal_tambem_repete(self) -> None:
+        ctx, servidor = contexto()
+        original = servidor.create_text_channel
+        chamadas: list[int] = []
+
+        class Erro502(Exception):
+            status = 502
+
+        async def instavel(name: str, **kwargs: Any) -> Any:
+            chamadas.append(1)
+            if len(chamadas) == 1:
+                raise Erro502("502 Bad Gateway")
+            return await original(name, **kwargs)
+
+        servidor.create_text_channel = instavel  # type: ignore[assignment]
+        with unittest.mock.patch("brain.ops.asyncio.sleep", new=unittest.mock.AsyncMock()):
+            executar("create_channels", {"channels": [{"name": "🧪-gateway"}]}, ctx)
+        self.assertEqual(len(chamadas), 2)
 
 
 class TestMembroForaDoCache(unittest.TestCase):

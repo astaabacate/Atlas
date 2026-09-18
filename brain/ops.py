@@ -263,14 +263,14 @@ async def _create_guild_channel(
 
     creator_cat = getattr(parent_cat, nome_metodo, None) if parent_cat is not None else None
     if creator_cat is not None:
-        return await creator_cat(name=name, **extra)
+        return await _criar_com_retentativa(creator_cat, name=name, **extra)
 
     creator_guild = getattr(guild, nome_metodo, None)
     if creator_guild is None:
         return None
     if parent_cat is not None:
         extra["category"] = parent_cat
-    return await creator_guild(name=name, **extra)
+    return await _criar_com_retentativa(creator_guild, name=name, **extra)
 
 
 async def _posicao_real(guild: Any, canal: Any, pedida: int) -> Any:
@@ -397,7 +397,7 @@ async def _criar_canal_do_item(guild: Any, item: dict[str, Any]) -> Any:
             extras: dict[str, Any] = {}
             if item.get("position") is not None:
                 extras["position"] = int(item["position"])
-            created = await creator(name=name, **extras)
+            created = await _criar_com_retentativa(creator, name=name, **extras)
     elif ch_type == "voice":
         extras = {}
         if item.get("user_limit") is not None:
@@ -417,7 +417,7 @@ async def _criar_canal_do_item(guild: Any, item: dict[str, Any]) -> Any:
         criador_forum = getattr(guild, "create_forum", None)
         if criador_forum is None:
             raise ToolError("Este ambiente não sabe criar canal de fórum (discord.py sem `create_forum`).")
-        created = await criador_forum(name=name, **extras)
+        created = await _criar_com_retentativa(criador_forum, name=name, **extras)
     elif ch_type == "stage":
         created = await _create_guild_channel(guild, parent_cat, "stage", name)
     else:  # text / news
@@ -668,7 +668,7 @@ async def op_create_roles(
         if not creator:
             raise ToolError("Servidor não suporta criação de cargos.")
 
-        role_obj = await creator(**kwargs)
+        role_obj = await _criar_com_retentativa(creator, **kwargs)
         rid = getattr(role_obj, "id", "")
         return f"<@&{rid}>" if rid else f"@{name}"
 
@@ -796,6 +796,34 @@ def _cargos_do_membro(membro: Any) -> set[int]:
     if not ids:
         ids = {i for i in (getattr(membro, "_roles", None) or []) if isinstance(i, int)}
     return ids
+
+
+def _erro_transitorio(exc: Exception) -> bool:
+    """
+    Erro de infraestrutura do Discord (5xx), não de pedido ruim.
+
+    A matriz ao vivo pegou `503 Service Unavailable — Service error -27` na criação de um cargo:
+    o cargo não nasceu e as verificações seguintes caíram em cascata. Um 5xx do Discord significa
+    que a ação NÃO foi executada, então vale uma segunda tentativa antes de desistir.
+    """
+    status = getattr(exc, "status", None)
+    if isinstance(status, int) and status >= 500:
+        return True
+    texto = str(exc).lower()
+    return any(t in texto for t in ("service unavailable", "internal server error",
+                                    "bad gateway", "gateway timeout"))
+
+
+async def _criar_com_retentativa(criadora: Any, **kwargs: Any) -> Any:
+    """Cria o objeto; se o Discord responder 5xx, tenta UMA vez de novo."""
+    try:
+        return await criadora(**kwargs)
+    except Exception as exc:  # noqa: BLE001 - só reenvia se for erro de infraestrutura
+        if not _erro_transitorio(exc):
+            raise
+        logger.warning("Discord devolveu erro transitório (%s); tentando mais uma vez", exc)
+        await asyncio.sleep(1.0)
+        return await criadora(**kwargs)
 
 
 async def _posicao_do_topo(ctx: ToolContext, membro: Any) -> int:
