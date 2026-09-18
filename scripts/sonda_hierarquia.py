@@ -277,31 +277,41 @@ async def _cor_do_avatar(api: "Sondagem", eu: dict[str, Any], outdir: Path) -> i
 
     Devolve None se não der para medir — a sonda não pode falhar por causa de enfeite.
     """
+    def registrar(motivo: str) -> None:
+        """Deixa o resultado no branch MESMO quando não deu para medir (o log some rápido)."""
+        outdir.mkdir(parents=True, exist_ok=True)
+        (outdir / "cor-do-avatar.txt").write_text(
+            "# Cor do avatar do farol: NÃO MEDIDA\n\n"
+            f"Motivo: {motivo}\n\n"
+            "O farol segue respondendo com a cor de reserva "
+            "(e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).\n", encoding="utf-8")
+        print(f"::warning title=sonda::cor do avatar não medida ({motivo})")
+
     try:
         from core.look import cor_de_destaque, hex_da_cor, pixels_do_png
     except Exception as exc:  # noqa: BLE001 - sonda segue sem a cor
-        print(f"::warning title=sonda::não consegui importar o medidor de cor ({exc})")
+        registrar(f"não consegui importar o medidor de cor ({exc})")
         return None
     avatar = eu.get("avatar")
     if not avatar:
-        # Sem avatar próprio: usa o padrão do Discord (a imagem cinza), que não tem cor viva.
-        print("::notice title=sonda::o bot não tem avatar próprio — a cor fica na reserva")
+        # Sem foto própria: o Discord usa o avatar padrão (imagem neutra, sem cor viva).
+        registrar("o bot não tem foto de perfil própria (avatar padrão do Discord)")
         return None
     url = f"https://cdn.discordapp.com/avatars/{eu['id']}/{avatar}.png?size=64"
     try:
         assert api._sessao is not None  # noqa: SLF001 - mesma sessão da sonda
         async with api._sessao.get(url) as resp:  # noqa: SLF001
             if resp.status != 200:
-                print(f"::warning title=sonda::avatar devolveu HTTP {resp.status}")
+                registrar(f"a CDN do Discord devolveu HTTP {resp.status} para a foto")
                 return None
             dados = await resp.read()
         cor = cor_de_destaque(pixels_do_png(dados))
     except Exception as exc:  # noqa: BLE001 - enfeite não derruba a sonda
-        print(f"::warning title=sonda::não consegui medir a cor do avatar ({exc})")
+        registrar(f"falha ao baixar/decodificar a foto ({exc})")
         return None
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "cor-do-avatar.txt").write_text(
-        f"{hex_da_cor(cor)}\n\nCor de destaque medida do avatar do bot "
+        f"{hex_da_cor(cor)}\n\nCor de destaque medida da foto do bot "
         f"({eu.get('username')}). É a cor que o farol usa nas respostas em Components V2.\n"
         f"Para fixar outra: variável ACCENT_COLOR={hex_da_cor(cor)}\n", encoding="utf-8")
     print(f"::notice title=sonda::cor do avatar medida: {hex_da_cor(cor)}")
