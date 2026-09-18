@@ -143,7 +143,19 @@ async def rodar() -> int:
         canal = await _canal_por_nome(guild, args.criar_canal, res) if args.criar_canal else None
         if canal is None:
             canal = _escolher_canal(discord, guild, args.channel_id or os.environ.get("OI_CHANNEL_ID", ""), res)
-        enviada = await asyncio.wait_for(canal.send(args.mensagem), timeout=30)
+
+        # Mesma cara das respostas do farol: Components V2 com a cor medida do avatar.
+        from core.look import Aparencia
+
+        aparencia = Aparencia(getattr(config, "accent_color", None), v2=getattr(config, "mensagem_v2", True))
+        await aparencia.preparar(client.user)
+        view = aparencia.view(args.mensagem)
+        if view is not None:
+            res.nota(f"envio em Components V2, cor {aparencia.cor:06x}" + (" (medida do avatar)" if aparencia.cor_medida else " (reserva — bot sem foto)"))
+            enviada = await asyncio.wait_for(canal.send(view=view), timeout=30)
+        else:
+            res.nota("V2 indisponível (montar_view devolveu None); caindo para texto simples")
+            enviada = await asyncio.wait_for(canal.send(args.mensagem), timeout=30)
         res.sucesso = True
         res.resumo = f"mensagem {enviada.id} entregue em #{canal.name}"
         link = getattr(enviada, "jump_url", "")
