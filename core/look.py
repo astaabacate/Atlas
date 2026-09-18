@@ -217,12 +217,16 @@ def hex_da_cor(cor: int) -> str:
 # é resposta comprida demais para um container: cai no envio em blocos de texto normal.
 LIMITE_V2 = 3800
 TITULO_V2 = "**🏮 Farol**"
+RODAPE_V2 = "-# resposta automática do farol"
+# Capa do card (imagem hospedada no próprio repositório). TODO(merge): quando a PR da sessão
+# entrar na main, trocar a referência para o raw da main e apagar esta nota.
+URL_BANNER_V2 = "https://raw.githubusercontent.com/astaabacate/Atlas/arena/01a0b13c-atlas/assets/banner-farol.png"
 
 
 def montar_view(texto: str, cor: int, avatar_url: str | None = None) -> Any:
     """
-    Monta a resposta como mensagem em Components V2: container com a cor do farol,
-    cabeçalho com o nome (e o avatar, quando conhecido), divisória e a mensagem.
+    Monta a resposta como mensagem em Components V2: card com capa, cabeçalho com o nome
+    (e o avatar, quando conhecido), divisória, a mensagem e um rodapé discreto.
 
     Enfeite na medida: hierarquia de leitura, sem virar cartão de Natal.
     O `LayoutView` do discord.py liga sozinho a flag de Components V2 na mensagem. Se qualquer
@@ -236,18 +240,22 @@ def montar_view(texto: str, cor: int, avatar_url: str | None = None) -> Any:
         return None
     try:
         view = discord.ui.LayoutView(timeout=None)
+        filhos: list[Any] = []
+        if URL_BANNER_V2:
+            filhos.append(discord.ui.MediaGallery(
+                discord.MediaGalleryItem(URL_BANNER_V2, description="Farol")))
         cabecalho: Any
         if avatar_url:
             cabecalho = discord.ui.Section(discord.ui.TextDisplay(TITULO_V2),
                                            accessory=discord.ui.Thumbnail(avatar_url))
         else:
             cabecalho = discord.ui.TextDisplay(TITULO_V2)
-        view.add_item(discord.ui.Container(
-            cabecalho,
-            discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small),
-            discord.ui.TextDisplay(conteudo),
-            accent_color=int(cor),
-        ))
+        filhos.append(cabecalho)
+        filhos.append(discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
+        filhos.append(discord.ui.TextDisplay(conteudo))
+        filhos.append(discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
+        filhos.append(discord.ui.TextDisplay(RODAPE_V2))
+        view.add_item(discord.ui.Container(*filhos, accent_color=int(cor)))
         return view
     except Exception as exc:  # noqa: BLE001 - cai no texto simples
         logger.debug("Não consegui montar a mensagem V2 (%s); respondendo em texto.", exc)
