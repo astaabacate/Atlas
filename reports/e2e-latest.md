@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 100 · ❌ 4 · ⚠️ 7 · ⏭️ 1
+- **Resumo:** ✅ 103 · ❌ 2 · ⚠️ 6 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 0f57e5b
-- **execução:** 35306492767
+- **commit:** 7968d2d
+- **execução:** 35307204220
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
@@ -104,28 +104,28 @@
 | PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 0 · • **Cargos:** 14 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00 |
 | PASS | `list_roles` | listou os 14 cargos reais com menção e posição |
 | PASS | `export_structure (JSON válido e completo)` | 0 categorias, 0 canais e 13 cargos exportados em JSON válido |
-| PASS | `show_permissions` | O canal <#1550360550897360916> não possui permissões personalizadas configuradas. |
+| PASS | `show_permissions` | O canal <#1550363394958172265> não possui permissões personalizadas configuradas. |
 | PASS | `resolve por ID e por menção` | 0 canais e 6 cargos resolvidos por ID e por menção |
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 3 · ❌ 0 · ⚠️ 1 · ⏭️ 0
+`agent` — ✅ 4 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| WARN | `prompt → ferramenta → resposta coerente` | o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 28, 'ferramentas_chamadas': [], 'chars': 112, 'vencedor': 'kilo'}]) — o provedor gratuito não cooperou nesta rodada ('Cargos do servidor **Pinguim**:\n\n- @Cupido\n- @asta (10 cargos com o mesmo nome)\n- @Atlas\n- @iTinder\n- @@everyo'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento… |
+| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'asta', 'asta'] |
 | PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, permissõe' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (🧪-estrutura) |
 | PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 17 · ❌ 0 · ⚠️ 1 · ⏭️ 1
+`mutate` — ✅ 16 · ❌ 1 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-categoria', '🧪-raiz-texto']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -135,52 +135,52 @@
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais (modo cauteloso)` | 2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true |
 | PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
-| PASS | `clear_messages apaga mensagens reais do canal` | apagou 3 mensagem(ns) reais e o canal ficou vazio |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 49.9s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 4.2s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído' |
-| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | pediu confirmação e apagou depois do 'sim' ('Preciso da sua confirmação explícita ("sim") para apagar os ') |
+| FAIL | `clear_messages apaga mensagens reais do canal` | DiscordServerError: 503 Service Unavailable (error code: 0): upstream connect error or disconnect/reset before headers. retried and the latest reset reason: remote connection failure, transport failure reason: immediate connect error: No such file or directory |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 44.3s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
+| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 2.5s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído' |
+| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | pediu confirmação e apagou depois do 'sim' ('✅ **Resumo das exclusões realizadas:**\n- **#🧪-efemero** — ap') |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
 ## Matriz de capacidades: cada parâmetro, valor e combinação no Discord real
-`caps` — ✅ 13 · ❌ 4 · ⚠️ 4 · ⏭️ 0
+`caps` — ✅ 17 · ❌ 0 · ⚠️ 4 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais da matriz` | categoria 🧪 caps + 🧪-caps-texto + 🧪-caps-voz prontos (tudo registrado para limpeza) |
-| FAIL | `cargos: criar com nome, cor, hoist, mentionable e permissões` | DiscordServerError: 503 Service Unavailable (error code: 0):  <html><head> <meta http-equiv="content-type" content="text/html;charset=utf-8"> <title>503 Server Error</title> </head> <body text=#000000 bgcolor=#ffffff> <h1>Error: Server Error</h1> <h2>The service you requested is not available at this time.<p>Service error -27.</h2> <h2></h2> <script>(function(){function c(){var b=a.contentDocumen… |
-| FAIL | `cargos: editar cada propriedade e ver o efeito real` | sem cargo criado para editar |
-| WARN | `cargos: gerenciar o cargo criado` | com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da validação de valor — sem cargo gerenciável não dá para provar valor inválido ao vivo — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem cobertas por tests/test_capacidades.py) |
-| PASS | `cargos: valores inválidos, @everyone e hierarquia` | não verificável neste servidor: com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da validação de valor — sem cargo gerenciável não dá para provar valor inválido ao vivo |
-| WARN | `cargos: gerenciar o cargo criado` | não posso atribuir cargo que ficou na altura do meu topo — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem cobertas por tests/test_capacidades.py) |
-| PASS | `cargos: dar e tirar de um membro (estado real)` | não verificável neste servidor: não posso atribuir cargo que ficou na altura do meu topo |
+| PASS | `cargos: criar com nome, cor, hoist, mentionable e permissões` | cargo real com cor 0x5865f2, hoist, mentionable e 3 permissões conferidas na API (posição 1) |
+| WARN | `cargos: gerenciar o cargo criado` | o cargo criado ficou na posição 1: o Discord recusa a edição (recusa conferida como clara, sem alterar nada) (meu cargo mais alto está na posição 1) — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem em tests/test_capacidades.py) |
+| PASS | `cargos: editar cada propriedade e ver o efeito real` | não verificável neste servidor: o cargo criado ficou na posição 1: o Discord recusa a edição (recusa conferida como clara, sem alterar nada) (meu cargo mais alto está na posição 1) |
+| WARN | `cargos: gerenciar o cargo criado` | com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da validação de valor — sem cargo gerenciável não dá para provar valor inválido ao vivo (meu cargo mais alto está na posição 1) — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem em tests/test_capacidades.py) |
+| PASS | `cargos: valores inválidos, @everyone e hierarquia` | não verificável neste servidor: com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da validação de valor — sem cargo gerenciável não dá para provar valor inválido ao vivo (meu cargo mais alto está na posição 1) |
+| WARN | `cargos: gerenciar o cargo criado` | não posso atribuir cargo que ficou na altura do meu topo (meu cargo mais alto está na posição 1) — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem em tests/test_capacidades.py) |
+| PASS | `cargos: dar e tirar de um membro (estado real)` | não verificável neste servidor: não posso atribuir cargo que ficou na altura do meu topo (meu cargo mais alto está na posição 1) |
 | WARN | `canais: tipo stage` | stage: Falha ao criar canais: canal de palco (stage) só existe em servidor com o recurso **Comunidade** ativado — sem isso o Discord recusa a criação. |
 | PASS | `canais: todos os tipos suportados (tipo real na API)` | tipos reais conferidos na API: text→text, voice→voice, category→category, forum→forum |
 | PASS | `canais: tópico, NSFW, slowmode, bitrate e limite na criação` | texto: tópico, nsfw, slowmode 30s, categoria · voz: bitrate 96000, limite 4 — tudo conferido na API |
 | PASS | `canais: editar cada propriedade e ver o efeito real` | nome; tópico; nsfw+slowmode; categoria (sair e voltar); voz: bitrate 96000, limite 7 |
 | PASS | `canais: mover, clonar e excluir (estado real)` | mover por categoria e posição, clonar levando tópico+nsfw+slowmode+categoria e apagar só a cópia — tudo conferido na API |
 | PASS | `canais: valores inválidos e limites (nada é criado por engano)` | valores inválidos recusados sem criar/alterar nada: não existe, slowmode, bitrate, limite, vazio, slowmode, bitrate, Nenhum parâmetro, negativa |
-| FAIL | `permissões: allow, deny, conflito, leitura e limpeza` | AttributeError: 'NoneType' object has no attribute 'id' |
-| FAIL | `permissões: sincronizar canal com a categoria` | AttributeError: 'NoneType' object has no attribute 'id' |
+| PASS | `permissões: allow, deny, conflito, leitura e limpeza` | allow e deny em português viraram permissões reais (view_channel/send_messages/mention_everyone), conflito recusado e limpeza conferida na API |
+| PASS | `permissões: sincronizar canal com a categoria` | permissão da categoria copiada para o canal filho (conferido na API) |
 | PASS | `permissões: autor sem permissão é barrado antes da API` | 4 ferramentas recusadas ANTES de tocar no Discord (autor sem permissão) e nenhum objeto criado ou apagado |
-| WARN | `cargos: gerenciar o cargo criado` | sem cargo criado para exportar — suba o cargo do farol acima dos cargos de teste para a auditoria de cargos ficar completa ao vivo (as validações de valor, hierarquia e @everyone seguem cobertas por tests/test_capacidades.py) |
-| PASS | `estrutura: export guarda as capacidades reais` | não verificável neste servidor: sem cargo criado para exportar |
+| PASS | `estrutura: export guarda as capacidades reais` | export grande: recorte AVISADO (não serve para importar) e os campos de capacidade (permissões, hoist, mentionable, nsfw, slowmode, bitrate, limite) presentes no JSON |
 | PASS | `estrutura: import recria com os mesmos campos (round-trip)` | import recriou cargo (cor, hoist, mentionable, permissões) e canais (tópico, nsfw, slowmode, bitrate, limite, categoria e sem categoria) — conferido na API · '✅ Estrutura importada: 1 cargo(s) e 3 canal(is) recriados com tipo, tópico, nsfw, slowmode, bitrate,' |
 | PASS | `repetição: mesma ordem várias vezes não quebra nem duplica efeito` | 3 canais iguais criados e editados em sequência, todos com o estado esperado |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
 ## core.bot.FarolBot: on_message → resposta real no Discord
-`botloop` — ✅ 7 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`botloop` — ✅ 6 · ❌ 1 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550362130140889128) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550365390889164801) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'Pinguim' |
-| PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: '❌ Não consegui concluir seu pedido agora:\n`503 Service Unavailable (error code: 0): upstream connect' |
+| FAIL | `reações de feedback 👀→✅` | o bot não marcou ✅ (reações: ['❌']) |
 | PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
 
 ## Varredura de sobras de teste
@@ -188,4 +188,4 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `varredura de sobras` | 5 objeto(s) de teste removidos (#🧪-estrutura, #🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot, @🧪-caps-cargo) |
+| PASS | `varredura de sobras` | 4 objeto(s) de teste removidos (#🧪-estrutura, #🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot) |
