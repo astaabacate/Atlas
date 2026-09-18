@@ -62,7 +62,8 @@ class RoteiroDeRespostas:
                  editar_empatado: tuple[int, Any] | None = None,
                  apagar_empatado: tuple[int, Any] | None = None,
                  mover: tuple[int, Any] | None = None,
-                 apagar_depois_de_mover: tuple[int, Any] | None = None) -> None:
+                 apagar_depois_de_mover: tuple[int, Any] | None = None,
+                 posicao_depois_do_empate: int = 1) -> None:
         # O padrão é o cenário do relato do dono: o Discord recusa TUDO por hierarquia.
         self.editar = editar or self.RECUSA
         self.apagar = apagar or self.RECUSA
@@ -71,6 +72,8 @@ class RoteiroDeRespostas:
         self.apagar_empatado = apagar_empatado or self.RECUSA
         self.mover = mover or self.RECUSA
         self.apagar_depois_de_mover = apagar_depois_de_mover or (204, None)
+        # posição que a API devolve depois do empate (1 = a mesma do topo do bot em CARGOS)
+        self.posicao_lida = posicao_depois_do_empate
         self.chamadas: list[tuple[str, str]] = []
         self.edicoes = 0
         self.movimentos = 0
@@ -89,6 +92,8 @@ class RoteiroDeRespostas:
             return 200, [{"id": "777", "name": "Pinguim"}]
         if metodo == "GET" and caminho == "/guilds/777/roles":
             return 200, CARGOS
+        if metodo == "GET" and caminho == "/guilds/777/roles/42":
+            return 200, {"id": "42", "name": "x", "position": self.posicao_lida}
         if metodo == "GET" and caminho == "/guilds/777/members/555":
             return 200, {"roles": ["1"]}
         if metodo == "GET" and caminho == "/guilds/777/members/999":
@@ -204,6 +209,10 @@ class TestSondaAoVivoComDuplo(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("EMPATE: RENOMEAR foi ACEITO", texto)
         self.assertIn("EMPATE: APAGAR foi ACEITO", texto)
+        # confere a posição REAL depois do movimento: sem isso não se sabe se o Discord
+        # deixou o cargo empatado ou o empurrou para baixo
+        self.assertIn("continua na MESMA posição do meu topo", texto)
+        self.assertEqual(dados["guilds"][0]["experimento"]["posicao_depois_do_empate"], 1)
         self.assertIsNone(exp["sobra"])
         self.assertEqual(exp["mover_para_empate"]["status"], 200)
 

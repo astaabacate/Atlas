@@ -285,9 +285,9 @@ async def _experimento(api: "Sondagem", gid: str, pos_bot: int) -> dict[str, Any
                                 json={"name": nome + "-editado"})
     dados["editar"] = {"status": st, "corpo": _erro(corpo) if st >= 400 else "ok"}
     if st < 400:
-        linhas.append("- ✏️ **RENOMEAR: o Discord ACEITOU** mesmo na mesma posição.")
+        linhas.append("- ✏️ Renomear o cargo recém-criado: o Discord **ACEITOU**.")
     else:
-        linhas.append(f"- ✏️ RENOMEAR: o Discord **RECUSOU** — HTTP {st} · {_erro(corpo)}")
+        linhas.append(f"- ✏️ Renomear o cargo recém-criado: recusado — HTTP {st} · {_erro(corpo)}")
 
     # O caso-limite que o dono levantou (1ª parte): o cargo criado nasce no fundo, ABAIXO do
     # topo do bot — o Discord simplesmente aceita?
@@ -306,7 +306,14 @@ async def _experimento(api: "Sondagem", gid: str, pos_bot: int) -> dict[str, Any
     dados["mover_para_empate"] = {"status": st_e,
                                   "corpo": _erro(corpo_e) if st_e >= 400 else "ok"}
     if st_e < 400:
-        linhas.append(f"- ⬆️ Movi o cargo de teste para a posição {pos_bot} (a MESMA do meu topo).")
+        st_l, lido = await api.pedir("GET", f"/guilds/{gid}/roles/{rid}")
+        pos_real = int((lido or {}).get("position", -1)) if st_l == 200 else -1
+        dados["posicao_depois_do_empate"] = pos_real
+        onde = ("continua na MESMA posição do meu topo"
+                if pos_real == pos_bot else
+                f"o Discord na verdade colocou na posição {pos_real}")
+        linhas.append(f"- ⬆️ Pedi para mover o cargo de teste para a posição {pos_bot} "
+                      f"(a MESMA do meu topo) e conferi na API: {onde}.")
         st_re, corpo_re = await api.pedir("PATCH", f"/guilds/{gid}/roles/{rid}",
                                           json={"name": nome + "-empatado"})
         dados["editar_empatado"] = {"status": st_re,
