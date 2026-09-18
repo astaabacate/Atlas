@@ -147,6 +147,24 @@ Sim — e é no Actions que o pool é validado, porque é onde o bot roda 24/7:
 
 Última evidência: `git push` → run `35291065652` ✅ com `kilo` respondendo 200 no runner Ubuntu.
 
+## 9.1) E2E ao vivo no servidor real (mesma corrida)
+
+Execução [`35291259527`](https://github.com/astaabacate/Atlas/actions/runs/35291259527) no commit
+`47e9592`: **✅ 78 · ❌ 0 · ⚠️ 3 · ⏭️ 1**, com o agente conversando de verdade com o `kilo`:
+
+| Verificação | Resultado |
+| --- | --- |
+| `corredores de LLM na corrida` | `kilo/tools` |
+| `corrida de LLMs responde` | vencedor **kilo** (tools nativas: True) → `pong` |
+| `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
+| `menção dispara o agente e responde` | on_message → agente → resposta real no canal |
+| `agente apaga canal nominal sem travar` | canal de teste apagado pelo agente |
+
+A execução anterior (`c0a9029`) tinha **1 falha** justamente nesse ponto: o `kilo-auto` devolveu
+resposta vazia porque o modelo gastou o teto de tokens "pensando". Corrigido no commit `47e9592`:
+o `ProviderError` agora marca `empty_response`/`truncated` e o corredor **repete uma vez com o dobro
+de tokens** (1024→8192) antes de trocar de modelo — sem mexer na arquitetura da corrida.
+
 ## 10) Arquivos alterados
 
 ```
@@ -162,6 +180,8 @@ Sim — e é no Actions que o pool é validado, porque é onde o bot roda 24/7:
  tests/test_e2e_live.py      |  12 +-   (idem)
  tests/test_llm_providers.py | 233 +-   (37 testes do pool; exige que os mortos fiquem fora)
  reports/smoke-llm.md        |  novo    (evidência ao vivo, gerada pelo CI)
+ llm/base.py                 |  +      (ProviderError: empty_response/truncated)
+ .github/bot-24x7-enabled    |  +      (restart pedido para o bot pegar o pool novo)
  reports/pool-gratuito-llm-2026.md | este documento
 ```
 
@@ -226,6 +246,24 @@ O que a suíte garante (destaques de `tests/test_llm_providers.py`, 37 testes):
 - nenhuma conta falsa, proxy residencial ou rotação artificial de contas;
 - nada de pagar US$ 10 no OpenRouter para subir de 50 para 1.000 req/dia — o limite grátis é o limite;
 - o único corredor anônimo novo (Kilo) é acesso anônimo **oficial**, documentado pelo próprio gateway.
+
+## Como levar isso ao bot online (ação do dono)
+
+O bot roda em fatias de ~5h35m e **só pega código novo quando uma execução nova começa**. Na virada
+desta entrega a fila ficou assim: uma execução **em andamento** no código antigo e uma **na fila
+apontando para `main`** (código antigo, disparada pelo vigia). Como o agente não tem permissão de
+cancelar/disparar workflows (403 — só o dono tem), o caminho é:
+
+1. **Cancele** na aba Actions a execução em andamento (`35285581047`, código antigo) e a pendente
+   pinada em `main` (`35291961344`, código antigo);
+2. **Dispare** o bot no ramo da entrega: `gh workflow run "Farol Bot 24/7" --ref arena/01a0b13c-atlas`
+   (ou Actions → *Farol Bot 24/7* → *Run workflow* → escolher `arena/01a0b13c-atlas`).
+   A partir daí a corrente se reagenda sozinha **no mesmo ramo** (`--ref ${GITHUB_REF_NAME}`);
+3. para o vigia parar de reerguer o bot no `main` antigo, o merge do PR #4 precisa acontecer — a
+   partir dele `main` já carrega o pool novo e qualquer restart (inclusive por cron/vigia) sobe certo.
+
+Sem isso, o bot online continua no código velho (com `llm7`/`ovh`/`pollinations`), porque a execução
+em andamento foi iniciada antes desta limpeza.
 
 ## Pendências honestas
 
