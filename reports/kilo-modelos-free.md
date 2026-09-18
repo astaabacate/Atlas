@@ -1,7 +1,7 @@
 # Catálogo ao vivo do gateway Kilo (GET /api/gateway/models sem credencial)
 
-- executada em: 2026-09-18T01:05:12Z
-- total devolvido: 380 modelos
+- executada em: 2026-09-18T01:09:50Z
+- total devolvido: 381 modelos
 - campos de cada item: architecture, autoRouting, context_length, created, description, id, isFree, mayTrainOnYourPrompts, name, opencode, preferredIndex, pricing, supported_parameters, top_provider
 
 | id | free? | contexto |
@@ -72,6 +72,7 @@
 | `meta/muse-spark-1.2` | não | 1048576 |
 | `~deepseek/deepseek-v4-flash-latest` | não | 1310720 |
 | `deepseek/deepseek-v4-flash-0731` | não | 1310720 |
+| `deepseek/deepseek-v4-flash-0731:free` | sim | 1048576 |
 | `thinkingmachines/inkling-small` | não | 1048576 |
 | `thinkingmachines/inkling-small:free` | sim | 1048576 |
 | `qwen/qwen3.7-flash` | não | 1000000 |
