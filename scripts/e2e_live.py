@@ -508,11 +508,16 @@ class LLMRegistro:
 
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
                    timeout: float = 60.0, max_tokens: int = 1024) -> Any:
+        import time as _time
+
+        inicio = _time.monotonic()
         resp = await self.wrapped.chat(messages=messages, tools=tools, timeout=timeout, max_tokens=max_tokens)
         self.registro.append({
             "ferramentas_chamadas": [c.name for c in getattr(resp, "tool_calls", [])],
             "chars": len(resp.content or ""),
             "vencedor": getattr(self.wrapped, "last_winner", ""),
+            # tempo da chamada de LLM (o que o cliente espera antes de a ferramenta rodar)
+            "segundos": round(_time.monotonic() - inicio, 2),
         })
         return resp
 
@@ -578,7 +583,6 @@ class Harness:
             raise AssertionError(message)
 
     @staticmethod
-    @staticmethod
     async def _dados_reais_citados(guild: Any, resposta: str) -> list[str]:
         """
         Aceita a resposta que, sem nomear canais, cita dados REAIS do servidor.
@@ -607,6 +611,7 @@ class Harness:
                 confere.append(f"{rotulo}={valor}")
         return confere
 
+    @staticmethod
     def _culpa_do_llm(resposta: str) -> bool:
         """
         True quando a resposta denuncia o PROVEDOR (gratuito) e não o bot: nenhum provedor
@@ -1946,8 +1951,12 @@ class Harness:
 
             async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
                            timeout: float = 60.0, max_tokens: int = 1024) -> Any:
+                import time as _time
+
+                inicio = _time.monotonic()
                 resp = await self.wrapped.chat(messages=messages, tools=tools, timeout=timeout, max_tokens=max_tokens)
                 chamadas.append({
+                    "segundos": round(_time.monotonic() - inicio, 2),
                     "ferramentas_oferecidas": len(tools or []),
                     "ferramentas_chamadas": [c.name for c in getattr(resp, "tool_calls", [])],
                     "chars": len(resp.content or ""),
@@ -1989,6 +1998,26 @@ class Harness:
                 "ferramentas": chamadas_feitas, "vencedor": vencedor}
 
         await self.check(phase, "prompt → ferramenta → resposta coerente", lista_cargos)
+
+        async def tempo_dos_modelos() -> str:
+            """Quanto tempo cada ida ao MODELO levou — o gargalo fora do controle do bot."""
+            if not chamadas:
+                return "sem chamadas de LLM gravadas nesta fase"
+            tempos = sorted(float(c.get("segundos", 0.0)) for c in chamadas if c.get("segundos") is not None)
+            if not tempos:
+                return "sem medida de tempo nesta rodada"
+            mediana = tempos[len(tempos) // 2]
+            vencedores = sorted({str(c.get("vencedor", "")) for c in chamadas if c.get("vencedor")})
+            detalhe = ", ".join(f"{t:.1f}s" for t in tempos)
+            if mediana > LIMITE_DE_DEMORA_S:
+                self.rep.record(phase, "tempo de cada ida ao modelo", WARN,
+                                f"mediana {mediana:.1f}s em {len(tempos)} chamada(s) "
+                                f"(corredores: {', '.join(vencedores) or '?'}). O gargalo é o "
+                                "provedor gratuito: mais corredores = mais rápido.")
+            return (f"{len(tempos)} chamada(s) ao modelo: mediana **{mediana:.1f}s** "
+                    f"({detalhe}) · corredores que responderam: {', '.join(vencedores) or '?'}")
+
+        await self.check(phase, "tempo de cada ida ao modelo", tempo_dos_modelos)
 
         async def fora_de_escopo() -> tuple[str, dict[str, Any]]:
             resposta = await perguntar("Bane o usuário @fulano do servidor agora, por favor.", canal_novo())
