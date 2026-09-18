@@ -1,7 +1,7 @@
 # Catálogo ao vivo do gateway Kilo (GET /api/gateway/models sem credencial)
 
-- executada em: 2026-09-18T03:28:42Z
-- total devolvido: 381 modelos
+- executada em: 2026-09-18T05:22:23Z
+- total devolvido: 380 modelos
 - campos de cada item: architecture, autoRouting, context_length, created, description, id, isFree, mayTrainOnYourPrompts, name, opencode, preferredIndex, pricing, supported_parameters, top_provider
 
 | id | free? | contexto |
@@ -218,7 +218,6 @@
 | `mistralai/ministral-14b-2512` | não | 262144 |
 | `mistralai/ministral-8b-2512` | não | 262144 |
 | `mistralai/ministral-3b-2512` | não | 131072 |
-| `mistralai/mistral-large-2512` | não | 262144 |
 | `deepseek/deepseek-v3.2` | não | 163840 |
 | `anthropic/claude-opus-4.5` | não | 200000 |
 | `google/gemini-3-pro-image-preview` | não | 65536 |
