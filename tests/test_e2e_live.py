@@ -8,6 +8,7 @@ ao discord.py (é isso que faz a fase `spy` detectar "sucesso falso").
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import json
 import sys
@@ -405,39 +406,51 @@ class TestClassificacaoLLM(unittest.TestCase):
         self.assertEqual(rep.counts()[e2e.FAIL], 0)
 
 
-class TestCoberturaDaMatrizDeCapacidades(unittest.TestCase):
-    """A matriz tem que dizer o que NÃO testou — lacuna invisível vira ✅ de fachada."""
+class TestCoberturaDasFerramentas(unittest.TestCase):
+    """A execução tem que dizer o que NÃO testou — lacuna invisível vira ✅ de fachada."""
 
-    def _fonte_da_fase(self, nome: str) -> str:
-        import ast
+    def _fonte(self) -> str:
+        return (ROOT / "scripts" / "e2e_live.py").read_text(encoding="utf-8")
 
-        caminho = ROOT / "scripts" / "e2e_live.py"
-        fonte = caminho.read_text(encoding="utf-8")
-        for no in ast.walk(ast.parse(fonte)):
-            if isinstance(no, ast.AsyncFunctionDef) and no.name == nome:
-                return ast.get_source_segment(fonte, no) or ""
-        raise AssertionError(f"não achei a fase {nome}")
+    def test_o_contador_pega_todas_as_fases(self) -> None:
+        fonte = self._fonte()
+        self.assertIn("executors.execute_tool = contando", fonte,
+                      "o contador tem que entrar no MÓDULO: cada fase importa execute_tool dentro")
+        self.assertIn("self._contar_ferramentas()", fonte)
+        self.assertIn("usadas[nome] = usadas.get(nome, 0) + 1", fonte)
 
-    def test_toda_chamada_da_matriz_passa_pelo_contador(self) -> None:
-        fonte = self._fonte_da_fase("phase_caps")
-        self.assertIn("usadas[nome] = usadas.get(nome, 0) + 1", fonte,
-                      "sem isso a cobertura não sabe o que foi exercitado")
-        self.assertIn("from brain.executors import execute_tool", fonte)
-        diretas = [linha.strip() for linha in fonte.splitlines() if "execute_tool(" in linha]
-        self.assertEqual(diretas, ["return await execute_tool(nome, args, ctx_qualquer)"],
-                         "toda chamada da matriz tem que passar pelo contador "
-                         "(inclusive as que usam autor sem permissão)")
+    def test_a_execucao_fecha_com_o_que_ficou_de_fora(self) -> None:
+        fonte = self._fonte()
+        self.assertIn("await self._registrar_cobertura()", fonte,
+                      "sem isso o relatório termina sem dizer o que não foi exercitado")
+        self.assertIn("não exercitadas:", fonte)
+        self.assertIn("from brain.tools import tool_names", fonte,
+                      "a comparação é com o conjunto real de ferramentas")
+        self.assertIn('"cobertura":', fonte, "a fase nova tem título próprio no relatório")
 
-    def test_a_matriz_fecha_com_o_que_ficou_de_fora(self) -> None:
-        fonte = self._fonte_da_fase("phase_caps")
-        self.assertIn("quais ferramentas foram exercitadas ao vivo", fonte)
-        self.assertIn("não exercitadas nesta rodada", fonte,
-                      "o que a matriz não tocou tem que aparecer no relatório")
-        self.assertIn("tool_names()", fonte, "a comparação é com o conjunto real de ferramentas")
+    def test_o_contador_de_verdade_conta(self) -> None:
+        """Liga o contador do harness e confere que a ferramenta executada entra na conta."""
+        import asyncio
+        from types import SimpleNamespace
+
+        from brain import executors
+
+        harness = e2e.Harness(e2e.parse_args(["--phases", "static"]), e2e.Reporter(["static"]))
+        harness._contar_ferramentas()
+        try:
+            async def chamada() -> None:
+                with contextlib.suppress(Exception):
+                    # contexto incompleto de propósito: o contador anota ANTES da execução
+                    await executors.execute_tool("delete_channels", {"channels": []},
+                                                 SimpleNamespace(actor=None))
+
+            asyncio.run(chamada())
+        finally:
+            executors.execute_tool = harness._execute_tool_original
+        self.assertEqual(harness.usadas.get("delete_channels"), 1,
+                         "a ferramenta executada pelo módulo tem que aparecer no contador")
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 class TestHierarquiaMedidaNaAPI(unittest.TestCase):
     """
@@ -531,4 +544,5 @@ class TestFaseCapsNaoSeEngana(unittest.TestCase):
         self.assertIn("aviso_de_hierarquia", fonte)
         self.assertIn("culpa_do_discord", fonte,
                       "5xx do Discord não pode ser ❌ do produto")
-
+if __name__ == "__main__":
+    unittest.main()

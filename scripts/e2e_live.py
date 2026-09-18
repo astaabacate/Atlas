@@ -78,6 +78,7 @@ PHASE_TITLES = {
     "caps": "Matriz de capacidades: cada parâmetro, valor e combinação no Discord real",
     "botloop": "core.bot.FarolBot: on_message → resposta real no Discord",
     "sweep": "Varredura de sobras de teste",
+    "cobertura": "Cobertura: quais ferramentas foram exercitadas nesta execução",
 }
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
@@ -538,6 +539,7 @@ class Harness:
         self.env = LiveEnv()
         self.owned_channels: set[int] = set()
         self.owned_roles: set[int] = set()
+        self.usadas: dict[str, int] = {}  # ferramenta → quantas vezes foi executada nesta execução
 
     # ----------------------------------------------------------- infra de checks
     async def check(self, phase: str, name: str, fn: Callable[[], Awaitable[Any]],
@@ -2729,13 +2731,9 @@ class Harness:
         texto = estado["texto"]
         voz = estado["voz"]
 
-        usadas: dict[str, int] = {}
-
         async def ferramenta_com(ctx_qualquer: Any, nome: str, args: dict[str, Any]) -> str:
-            # Anota o que a matriz REALMENTE exercitou: no fim da fase isso vira a linha de
-            # cobertura (o que não passou por aqui não foi testado ao vivo nesta rodada).
-            # Vale também para as chamadas com autor sem permissão: a recusa é capacidade testada.
-            usadas[nome] = usadas.get(nome, 0) + 1
+            # Chamada com um contexto próprio (ex.: autor sem permissão): o contador de cobertura
+            # do harness já anota a ferramenta — a recusa também é capacidade testada.
             return await execute_tool(nome, args, ctx_qualquer)
 
         async def ferramenta(nome: str, args: dict[str, Any]) -> str:
@@ -2820,6 +2818,38 @@ class Harness:
 
         await self.check(phase, "cargos: criar com nome, cor, hoist, mentionable e permissões",
                          cargos_criacao_completa)
+
+        async def cargos_exclusao_em_lote() -> str:
+            """`delete_roles`: apagar VÁRIOS de uma vez — o pedido "apague todos os cargos"."""
+            nomes = [f"{TEMP_MARK}-caps-lote-a", f"{TEMP_MARK}-caps-lote-b"]
+            antes = await self._api_state(guild)
+            await ferramenta("create_roles", {"roles": [{"name": n} for n in nomes]})
+            criados = await self._capture_new(guild, antes, incluir_cargos=True)
+            alvos = [r for r in criados if r.name in nomes]
+            self.assert_true(len(alvos) == len(nomes),
+                             f"o lote de cargos de apoio não nasceu ({[r.name for r in criados]})")
+            saida = await ferramenta("delete_roles",
+                                     {"roles": [str(r.id) for r in alvos], "confirmed": True})
+            ids = {r.id for r in alvos}
+            restantes = [r.name for r in await guild.fetch_roles() if r.id in ids]
+            self.assert_true(not restantes,
+                             f"delete_roles respondeu que apagou e o cargo continua lá: {restantes}")
+            self.assert_true(str(len(alvos)) in saida,
+                             f"o relato do lote não diz quantos saíram: {saida[:150]!r}")
+            return (f"{len(alvos)} cargos apagados em UMA chamada e conferidos na API · "
+                    f"{saida[:110]!r}")
+
+        await self.check(phase, "cargos: exclusão em lote (delete_roles) apaga de verdade",
+                         cargos_exclusao_em_lote)
+
+        async def medicao_de_tempos() -> str:
+            """`performance_report`: o dono pergunta o tempo e a resposta sai sem depender do LLM."""
+            saida = await ferramenta("performance_report", {})
+            self.assert_true(len(saida.strip()) > 40, f"performance_report devolveu {saida!r}")
+            return f"resposta de {len(saida)} caracteres · {saida[:90]!r}"
+
+        await self.check(phase, "medição: performance_report responde o tempo real",
+                         medicao_de_tempos)
 
         async def cargos_edicao_cada_propriedade() -> str:
             papel = estado.get("cargo")
@@ -3434,27 +3464,6 @@ class Harness:
         await self.check(phase, "repetição: mesma ordem várias vezes não quebra nem duplica efeito",
                          repeticao_sem_efeito_colateral)
 
-        async def cobertura_das_ferramentas() -> tuple[str, dict[str, Any]]:
-            """Fecha a matriz dizendo o que ficou de fora — em vez de deixar a lacuna invisível."""
-            from brain.tools import tool_names
-
-            todas = set(tool_names())
-            exercitadas = set(usadas)
-            faltando = sorted(todas - exercitadas)
-            self.assert_true(bool(exercitadas), "a matriz não chamou ferramenta nenhuma")
-            if faltando:
-                # Algumas nunca podem ser testadas aqui de propósito (set_icon mexe na
-                # identidade do bot, diagnostic_report manda DM). Fica registrado, não escondido.
-                self.rep.record(phase, "matriz: cobertura das ferramentas", WARN,
-                                f"não exercitadas nesta rodada: {', '.join(faltando)} — "
-                                "cada uma tem o motivo na própria linha (ou é de propósito, como "
-                                "set_icon, que mexe na identidade do farol)")
-            return (f"{len(exercitadas)}/{len(todas)} ferramentas exercitadas ao vivo "
-                    f"({sum(usadas.values())} chamadas)", {"ferramentas": sorted(exercitadas)})
-
-        await self.check(phase, "matriz: quais ferramentas foram exercitadas ao vivo",
-                         cobertura_das_ferramentas)
-
         await self._cleanup(guild, phase)
 
     async def phase_botloop(self) -> None:
@@ -3833,7 +3842,55 @@ class Harness:
     # =====================================================================
     # execução
     # =====================================================================
+    def _contar_ferramentas(self) -> None:
+        """
+        Conta toda ferramenta executada nesta execução, em qualquer fase.
+
+        Todas as fases (e o agente) fazem `from brain.executors import execute_tool` dentro do
+        corpo, então trocar o atributo do módulo ANTES de rodar basta para o contador pegar as
+        chamadas de todas elas — inclusive as que passam pelo agente de verdade.
+        """
+        from brain import executors
+
+        original = executors.execute_tool
+        self._execute_tool_original = original  # para poder desligar o contador em teste
+        usadas = self.usadas
+
+        def contando(nome: str, args: Any, ctx: Any) -> Any:
+            usadas[nome] = usadas.get(nome, 0) + 1
+            return original(nome, args, ctx)
+
+        executors.execute_tool = contando
+
+    async def _registrar_cobertura(self) -> None:
+        """Fecha o relatório com o que NÃO foi exercitado — lacuna invisível vira ✅ de fachada."""
+        from brain.tools import tool_names
+
+        todas = set(tool_names())
+        exercitadas = set(self.usadas)
+        faltando = sorted(todas - exercitadas)
+        if not exercitadas:
+            self.rep.record("cobertura", "ferramentas exercitadas nesta execução", SKIP,
+                            "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)")
+            return
+        if faltando:
+            # Algumas ficam de fora de propósito: set_icon mexe na identidade do farol (proibido
+            # sem autorização explícita) e diagnostic_report manda DM — o motivo não é escondido.
+            # Fora de propósito nesta suíte: set_icon mexe na IDENTIDADE do farol (proibido sem
+            # autorização explícita do dono) e diagnostic_report manda DM para o dono (não se manda
+            # DM em teste). Todos os outros ficam registrados como lacuna desta execução.
+            self.rep.record("cobertura", "ferramentas exercitadas nesta execução", WARN,
+                            f"{len(exercitadas)}/{len(todas)} ferramentas — não exercitadas: "
+                            f"{', '.join(faltando)} (de propósito nesta suíte: set_icon, que mexe "
+                            "na identidade do farol, e diagnostic_report, que manda DM ao dono; "
+                            "qualquer outra que apareça aqui é lacuna a fechar)")
+        else:
+            self.rep.record("cobertura", "ferramentas exercitadas nesta execução", PASS,
+                            f"as {len(todas)} ferramentas foram exercitadas ao vivo "
+                            f"({sum(self.usadas.values())} chamadas no total)")
+
     async def run(self, phases: list[str]) -> None:
+        self._contar_ferramentas()
         for phase in phases:
             print(f"\n== fase {phase} — {PHASE_TITLES.get(phase, phase)} ==", flush=True)
             handler = getattr(self, f"phase_{phase}", None)
@@ -3845,6 +3902,7 @@ class Harness:
             except Exception as exc:
                 log.exception("Fase %s explodiu", phase)
                 self.rep.record(phase, "erro inesperado na fase", FAIL, f"{type(exc).__name__}: {exc}")
+        await self._registrar_cobertura()
         await self._shutdown()
 
     async def _shutdown(self) -> None:
