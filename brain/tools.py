@@ -49,7 +49,8 @@ TOOLS: list[ToolDef] = [
     # Canais (5)
     ToolDef(
         name="create_channels",
-        description="Cria 1 ou múltiplos canais (texto, voz, categoria) no servidor em lote.",
+        description=("Cria 1 ou múltiplos canais no servidor em lote: texto, voz, categoria, "
+                     "stage ou fórum, com tópico, NSFW, slowmode, bitrate e limite de usuários."),
         parameters={
             "type": "object",
             "properties": {
@@ -73,6 +74,20 @@ TOOLS: list[ToolDef] = [
                                 "type": "string",
                                 "description": "Tópico/descrição do canal (opcional).",
                             },
+                            "nsfw": {"type": "boolean", "description": "Marca o canal como NSFW."},
+                            "slowmode_delay": {
+                                "type": "integer",
+                                "description": "Modo lento em segundos (0 a 21600), canais de texto.",
+                            },
+                            "bitrate": {
+                                "type": "integer",
+                                "description": "Bitrate em bits/s (8000 a 384000), canais de voz.",
+                            },
+                            "user_limit": {
+                                "type": "integer",
+                                "description": "Limite de usuários (0 a 99; 0 = sem limite), voz.",
+                            },
+                            "position": {"type": "integer", "description": "Posição na lista."},
                         },
                         "required": ["name"],
                     },
@@ -83,7 +98,8 @@ TOOLS: list[ToolDef] = [
     ),
     ToolDef(
         name="edit_channel",
-        description="Edita propriedades de um canal existente (nome, tópico, categoria, slowmode).",
+        description=("Edita um canal: nome, tópico, categoria, slowmode, NSFW, bitrate, "
+                     "limite de usuários e posição."),
         parameters={
             "type": "object",
             "properties": {
@@ -93,6 +109,9 @@ TOOLS: list[ToolDef] = [
                 "category": {"type": "string", "description": "Nova categoria para mover o canal (opcional)."},
                 "slowmode_delay": {"type": "integer", "description": "Tempo de modo lento em segundos (0 a 21600)."},
                 "nsfw": {"type": "boolean", "description": "Se o canal é marcado como NSFW (opcional)."},
+                "bitrate": {"type": "integer", "description": "Bitrate em bits/s (8000 a 384000), voz."},
+                "user_limit": {"type": "integer", "description": "Limite de usuários (0 a 99), voz."},
+                "position": {"type": "integer", "description": "Posição do canal na lista."},
             },
             "required": ["channel"],
         },
@@ -158,17 +177,31 @@ TOOLS: list[ToolDef] = [
                             "color": {"type": "string", "description": "Cor hexadecimal (ex: #5865F2) ou nome da cor."},
                             "hoist": {"type": "boolean", "description": "Exibir membros com este cargo separadamente na lista."},
                             "mentionable": {"type": "boolean", "description": "Permitir que qualquer membro mencione este cargo."},
+                            "permissions": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": ("Permissões do cargo, em português ou inglês "
+                                                "(ex: ['ver canal', 'enviar mensagens'])."),
+                            },
+                            "position": {"type": "integer", "description": "Posição do cargo na hierarquia."},
                         },
                         "required": ["name"],
                     },
-                }
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Permissões para todos os cargos do lote (opcional).",
+                },
+                "position": {"type": "integer", "description": "Posição para todos os cargos do lote (opcional)."},
             },
             "required": ["roles"],
         },
     ),
     ToolDef(
         name="edit_role",
-        description="Edita propriedades de um cargo existente (nome, cor, hoist, mentionable).",
+        description=("Edita um cargo: nome, cor, hoist, mentionable, permissões (substitui o "
+                     "conjunto atual) e posição na hierarquia."),
         parameters={
             "type": "object",
             "properties": {
@@ -177,6 +210,13 @@ TOOLS: list[ToolDef] = [
                 "color": {"type": "string", "description": "Nova cor hexadecimal ou nome de cor (opcional)."},
                 "hoist": {"type": "boolean", "description": "Exibir separadamente na lista de membros (opcional)."},
                 "mentionable": {"type": "boolean", "description": "Permitir menção a este cargo (opcional)."},
+                "permissions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": ("Conjunto de permissões do cargo, em português ou inglês "
+                                    "(substitui o que ele tem hoje)."),
+                },
+                "position": {"type": "integer", "description": "Nova posição na hierarquia."},
             },
             "required": ["role"],
         },

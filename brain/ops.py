@@ -9,6 +9,7 @@ import asyncio
 import base64
 import json
 import logging
+import re
 from typing import Any
 
 from core.bulk import run_bulk
@@ -21,6 +22,223 @@ from brain.resolve import resolve_channel, resolve_member, resolve_role
 from brain.tools import ToolContext, ToolError
 
 logger = logging.getLogger("farol.brain.ops")
+
+# ---------------------------------------------------------------------------
+# Permissões: nome amigável (PT-BR ou EN) → atributo do Discord
+# ---------------------------------------------------------------------------
+# O bot recebe pedido em português ("dê ver canal e enviar mensagens para @Membros"),
+# mas o discord.py só aceita os atributos em inglês. Sem esta tradução o Python estoura
+# `TypeError: got an unexpected keyword argument` — foi o que a auditoria encontrou em
+# `set_permissions`, que repassava o texto do usuário direto para a API.
+#
+# A tabela de bits permite montar o campo `permissions` do cargo e LER de volta o que um
+# cargo já tem (o discord.py só lê `.value`). O teste `TestMapaDePermissoes` confere cada
+# bit contra o discord.py instalado: se a biblioteca mudar, o teste acusa.
+PERMISSOES: dict[str, int] = {
+    "create_instant_invite": 1 << 0,
+    "kick_members": 1 << 1,
+    "ban_members": 1 << 2,
+    "administrator": 1 << 3,
+    "manage_channels": 1 << 4,
+    "manage_guild": 1 << 5,
+    "add_reactions": 1 << 6,
+    "view_audit_log": 1 << 7,
+    "priority_speaker": 1 << 8,
+    "stream": 1 << 9,
+    "view_channel": 1 << 10,
+    "send_messages": 1 << 11,
+    "send_tts_messages": 1 << 12,
+    "manage_messages": 1 << 13,
+    "embed_links": 1 << 14,
+    "attach_files": 1 << 15,
+    "read_message_history": 1 << 16,
+    "mention_everyone": 1 << 17,
+    "use_external_emojis": 1 << 18,
+    "view_guild_insights": 1 << 19,
+    "connect": 1 << 20,
+    "speak": 1 << 21,
+    "mute_members": 1 << 22,
+    "deafen_members": 1 << 23,
+    "move_members": 1 << 24,
+    "use_voice_activation": 1 << 25,
+    "change_nickname": 1 << 26,
+    "manage_nicknames": 1 << 27,
+    "manage_roles": 1 << 28,
+    "manage_webhooks": 1 << 29,
+    "manage_guild_expressions": 1 << 30,
+    "use_application_commands": 1 << 31,
+    "request_to_speak": 1 << 32,
+    "manage_events": 1 << 33,
+    "manage_threads": 1 << 34,
+    "create_public_threads": 1 << 35,
+    "create_private_threads": 1 << 36,
+    "use_external_stickers": 1 << 37,
+    "send_messages_in_threads": 1 << 38,
+    "use_embedded_activities": 1 << 39,
+    "moderate_members": 1 << 40,
+    "view_creator_monetization_analytics": 1 << 41,
+    "use_soundboard": 1 << 42,
+    "create_expressions": 1 << 43,
+    "create_events": 1 << 44,
+    "use_external_sounds": 1 << 45,
+    "send_voice_messages": 1 << 46,
+    "set_voice_channel_status": 1 << 48,
+    "send_polls": 1 << 49,
+    "use_external_apps": 1 << 50,
+}
+
+# Nomes alternativos (versões antigas da API e como as pessoas realmente escrevem)
+ALIASES_PERMISSOES: dict[str, str] = {
+    "manage_emojis_and_stickers": "manage_guild_expressions",
+    "manage_emojis": "manage_guild_expressions",
+    "use_slash_commands": "use_application_commands",
+    "manage_guild_expressions_and_stickers": "manage_guild_expressions",
+    "guild_expressions": "manage_guild_expressions",
+    "use_external_emoji": "use_external_emojis",
+    "read_history": "read_message_history",
+    "view_audit_logs": "view_audit_log",
+    "send_message": "send_messages",
+    "view_channels": "view_channel",
+}
+
+# PT-BR → atributo (a chave é normalizada: minúscula, sem acento, espaço→_)
+PERMISSOES_PT: dict[str, str] = {
+    "ver_canal": "view_channel",
+    "visualizar_canal": "view_channel",
+    "ver_canais": "view_channel",
+    "acessar_canal": "view_channel",
+    "enviar_mensagens": "send_messages",
+    "enviar_mensagem": "send_messages",
+    "gerenciar_mensagens": "manage_messages",
+    "apagar_mensagens": "manage_messages",
+    "gerenciar_canais": "manage_channels",
+    "gerenciar_cargos": "manage_roles",
+    "gerenciar_servidor": "manage_guild",
+    "administrador": "administrator",
+    "admin": "administrator",
+    "anexar_arquivos": "attach_files",
+    "enviar_arquivos": "attach_files",
+    "incorporar_links": "embed_links",
+    "ler_historico": "read_message_history",
+    "ver_historico": "read_message_history",
+    "historico_de_mensagens": "read_message_history",
+    "mencionar_todos": "mention_everyone",
+    "mencionar_everyone": "mention_everyone",
+    "conectar": "connect",
+    "falar": "speak",
+    "silenciar_membros": "mute_members",
+    "mutar_membros": "mute_members",
+    "ensurdecer_membros": "deafen_members",
+    "mover_membros": "move_members",
+    "usar_ativacao_por_voz": "use_voice_activation",
+    "mudar_apelido": "change_nickname",
+    "gerenciar_apelidos": "manage_nicknames",
+    "gerenciar_webhooks": "manage_webhooks",
+    "criar_convite": "create_instant_invite",
+    "criar_convites": "create_instant_invite",
+    "expulsar_membros": "kick_members",
+    "banir_membros": "ban_members",
+    "adicionar_reacoes": "add_reactions",
+    "gerenciar_threads": "manage_threads",
+    "criar_threads_publicas": "create_public_threads",
+    "criar_threads_privadas": "create_private_threads",
+    "usar_comandos": "use_application_commands",
+    "usar_comandos_de_aplicacao": "use_application_commands",
+    "usar_emojis_externos": "use_external_emojis",
+    "usar_figurinhas_externas": "use_external_stickers",
+    "prioridade_de_fala": "priority_speaker",
+    "transmitir": "stream",
+    "moderar_membros": "moderate_members",
+    "ver_registro_de_auditoria": "view_audit_log",
+    "gerenciar_eventos": "manage_events",
+    "usar_atividades": "use_embedded_activities",
+    "usar_placar_de_som": "use_soundboard",
+    "criar_expressoes": "create_expressions",
+    "criar_eventos": "create_events",
+    "usar_sons_externos": "use_external_sounds",
+    "enviar_mensagens_de_voz": "send_voice_messages",
+    "definir_status_do_canal_de_voz": "set_voice_channel_status",
+    "enviar_enquetes": "send_polls",
+    "usar_apps_externos": "use_external_apps",
+    "criar_expressoes_e_figurinhas": "create_expressions",
+}
+
+
+def _normalizar_permissao(nome: str) -> str:
+    """minúsculas, sem acento, espaços/hífens viram underscore."""
+    import unicodedata
+
+    texto = unicodedata.normalize("NFKD", str(nome))
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    return re.sub(r"[\s\-]+", "_", texto.strip().lower())
+
+
+def resolver_permissao(nome: str) -> str:
+    """Traduz o nome (PT-BR, EN, com acento ou espaço) para o atributo do Discord."""
+    chave = _normalizar_permissao(nome)
+    if chave in PERMISSOES:
+        return chave
+    if chave in ALIASES_PERMISSOES:
+        return ALIASES_PERMISSOES[chave]
+    if chave in PERMISSOES_PT:
+        return PERMISSOES_PT[chave]
+    # "gerenciar mensagens" chega como 'gerenciar_mensagens' na primeira tentativa
+    sem_gerenciar = chave[10:] if chave.startswith("gerenciar_") else None
+    if sem_gerenciar:
+        direto = f"manage_{sem_gerenciar}"
+        if direto in PERMISSOES:
+            return direto
+    sugestoes = [n for n in PERMISSOES if chave and (chave[:4] in n or n[:4] in chave)][:5]
+    raise ToolError(
+        f"Não conheço a permissão '{nome}'. Use o nome do Discord em inglês "
+        f"(ex.: view_channel, send_messages, manage_messages) ou em português "
+        f"(ex.: ver canal, enviar mensagens, gerenciar mensagens)."
+        + (f" Parecidas: {', '.join(sugestoes)}." if sugestoes else "")
+    )
+
+
+def resolver_permissoes(nomes: list[str]) -> list[str]:
+    """Traduz uma lista, sem repetir e mantendo a ordem pedida."""
+    saida: list[str] = []
+    for nome in nomes or []:
+        attr = resolver_permissao(nome)
+        if attr not in saida:
+            saida.append(attr)
+    return saida
+
+
+class Permissoes:
+    """
+    Bitfield de permissões duck-typed (o discord.py só lê `.value`).
+
+    Mantém `brain/ops.py` sem importar discord — o resto do módulo é testado com objetos
+    falsos — e o teste `TestMapaDePermissoes` garante que a tabela bate com o discord.py.
+    """
+
+    def __init__(self, nomes: list[str] | None = None, value: int = 0) -> None:
+        total = value
+        for attr in resolver_permissoes(list(nomes or [])):
+            total |= PERMISSOES[attr]
+        self.value = total
+
+    def nomes(self) -> list[str]:
+        """Nomes das permissões ligadas (para exportar/derivar relatórios)."""
+        return [n for n, bit in PERMISSOES.items() if self.value & bit]
+
+    def __or__(self, outro: "Permissoes") -> "Permissoes":
+        return Permissoes(value=self.value | outro.value)
+
+    def __eq__(self, outro: Any) -> bool:
+        return getattr(outro, "value", None) == self.value
+
+    def __repr__(self) -> str:
+        return f"<Permissoes {self.value}>"
+
+
+def permissoes_do_cargo(cargo: Any) -> Permissoes:
+    """Lê as permissões de um cargo real do discord.py (que expõe `.value`)."""
+    return Permissoes(value=int(getattr(getattr(cargo, "permissions", None), "value", 0) or 0))
+
 
 
 async def _create_guild_channel(
@@ -40,16 +258,33 @@ async def _create_guild_channel(
 
     Regra: o método da categoria é chamado SEM `category`; o da guild, COM.
     """
-    creator_cat = getattr(parent_cat, f"create_{kind}_channel", None) if parent_cat is not None else None
+    # kind = 'text' | 'voice' | 'stage' → create_text_channel / create_voice_channel / ...
+    nome_metodo = f"create_{kind}_channel"
+
+    creator_cat = getattr(parent_cat, nome_metodo, None) if parent_cat is not None else None
     if creator_cat is not None:
         return await creator_cat(name=name, **extra)
 
-    creator_guild = getattr(guild, f"create_{kind}_channel", None)
+    creator_guild = getattr(guild, nome_metodo, None)
     if creator_guild is None:
         return None
     if parent_cat is not None:
         extra["category"] = parent_cat
     return await creator_guild(name=name, **extra)
+
+
+def _validar_faixa(nome: str, valor: Any, minimo: int, maximo: int) -> int:
+    """Valida faixa numérica com mensagem em português (o Discord devolve erro cru)."""
+    rotulos = {"slowmode_delay": "modo lento (slowmode)", "bitrate": "bitrate",
+               "user_limit": "limite de usuários"}
+    rotulo = rotulos.get(nome, nome)
+    try:
+        numero = int(valor)
+    except (TypeError, ValueError):
+        raise ToolError(f"O valor de {rotulo} precisa ser um número inteiro (recebi {valor!r}).")
+    if numero < minimo or numero > maximo:
+        raise ToolError(f"O valor de {rotulo} precisa estar entre {minimo} e {maximo} (recebi {numero}).")
+    return numero
 
 
 def _parse_color(color_val: str | None) -> Any:
@@ -69,6 +304,92 @@ def _parse_color(color_val: str | None) -> Any:
 
 # --- 1. Canais (5) ---
 
+async def _criar_canal_do_item(guild: Any, item: dict[str, Any]) -> Any:
+    """
+    Cria UM canal a partir do item (mesma lógica para `create_channels` e `import_structure`).
+
+    `type` é respeitado de verdade: antes, `stage` e `forum` caíam no ramo de texto e o bot
+    dizia "criei o canal" entregando um canal de texto — a auditoria pegou essa mentira.
+    """
+    tipos_conhecidos = ("text", "voice", "category", "stage", "forum", "news",
+                        "texto", "voz", "categoria", "palco", "anuncio")
+
+    name = str(item.get("name", "")).strip()
+    if not name:
+        raise ToolError("Todo canal precisa de um nome.")
+    ch_type = str(item.get("type", "text")).lower()
+    if ch_type not in tipos_conhecidos:
+        raise ToolError(
+            f"Tipo de canal '{ch_type}' não existe. Use: text, voice, category, stage ou forum."
+        )
+    if ch_type in ("texto",):
+        ch_type = "text"
+    elif ch_type in ("voz",):
+        ch_type = "voice"
+    elif ch_type in ("categoria",):
+        ch_type = "category"
+    elif ch_type in ("palco",):
+        ch_type = "stage"
+    elif ch_type in ("anuncio",):
+        ch_type = "news"
+
+    topic = item.get("topic")
+    cat_query = item.get("category")
+
+    parent_cat = None
+    if cat_query:
+        parent_cat = resolve_channel(guild, cat_query)
+
+    created = None
+    if ch_type == "category":
+        creator = getattr(guild, "create_category", None)
+        if creator:
+            extras: dict[str, Any] = {}
+            if item.get("position") is not None:
+                extras["position"] = int(item["position"])
+            created = await creator(name=name, **extras)
+    elif ch_type == "voice":
+        extras = {}
+        if item.get("user_limit") is not None:
+            extras["user_limit"] = _validar_faixa("user_limit", item["user_limit"], 0, 99)
+        if item.get("bitrate") is not None:
+            extras["bitrate"] = _validar_faixa("bitrate", item["bitrate"], 8000, 384_000)
+        if item.get("position") is not None:
+            extras["position"] = int(item["position"])
+        created = await _create_guild_channel(guild, parent_cat, "voice", name, **extras)
+    elif ch_type == "forum":
+        # discord.py 2.x: `create_forum` (não existe `create_forum_channel`), e o tópico é a
+        # descrição do fórum. Antes o fórum caía no ramo de texto: o bot dizia "criei o canal"
+        # entregando um canal de texto — a auditoria pegou essa mentira.
+        extras = {"topic": topic} if topic else {}
+        if parent_cat is not None:
+            extras["category"] = parent_cat
+        criador_forum = getattr(guild, "create_forum", None)
+        if criador_forum is None:
+            raise ToolError("Este ambiente não sabe criar canal de fórum (discord.py sem `create_forum`).")
+        created = await criador_forum(name=name, **extras)
+    elif ch_type == "stage":
+        created = await _create_guild_channel(guild, parent_cat, "stage", name)
+    else:  # text / news
+        extras = {"topic": topic} if topic else {}
+        if item.get("nsfw") is not None:
+            extras["nsfw"] = bool(item["nsfw"])
+        if item.get("slowmode_delay") is not None:
+            extras["slowmode_delay"] = _validar_faixa("slowmode_delay", item["slowmode_delay"],
+                                                      0, 21_600)
+        if item.get("position") is not None:
+            extras["position"] = int(item["position"])
+        created = await _create_guild_channel(guild, parent_cat, "text", name, **extras)
+
+    if created is None:
+        raise ToolError(
+            f"Não foi possível criar o canal '{name}' do tipo '{ch_type}' "
+            "(o servidor não expõe esse tipo para o bot)."
+        )
+
+    return created
+
+
 async def op_create_channels(ctx: ToolContext, channels: list[dict[str, Any]]) -> str:
     if not channels:
         raise ToolError("A lista de canais para criar está vazia.")
@@ -78,31 +399,9 @@ async def op_create_channels(ctx: ToolContext, channels: list[dict[str, Any]]) -
     guild = ctx.guild
 
     async def _create_one(item: dict[str, Any]) -> str:
-        name = str(item.get("name", "")).strip()
-        ch_type = str(item.get("type", "text")).lower()
-        topic = item.get("topic")
-        cat_query = item.get("category")
-
-        parent_cat = None
-        if cat_query:
-            parent_cat = resolve_channel(guild, cat_query)
-
-        created = None
-        if ch_type == "category":
-            creator = getattr(guild, "create_category", None)
-            if creator:
-                created = await creator(name=name)
-        elif ch_type == "voice":
-            created = await _create_guild_channel(guild, parent_cat, "voice", name)
-        else:  # text / stage / forum fallback
-            extras: dict[str, Any] = {"topic": topic} if topic else {}
-            created = await _create_guild_channel(guild, parent_cat, "text", name, **extras)
-
-        if created is None:
-            raise ToolError(f"Não foi possível criar o canal '{name}'.")
-
+        created = await _criar_canal_do_item(guild, item)
         cid = getattr(created, "id", "")
-        cname = getattr(created, "name", name)
+        cname = getattr(created, "name", item.get("name", ""))
         return f"<#{cid}>" if cid else f"#{cname}"
 
     res = await run_bulk(channels, _create_one, concurrency=3)
@@ -122,12 +421,17 @@ async def op_edit_channel(
     category: str | None = None,
     slowmode_delay: int | None = None,
     nsfw: bool | None = None,
+    bitrate: int | None = None,
+    user_limit: int | None = None,
+    position: int | None = None,
 ) -> str:
     ch = resolve_channel(ctx.guild, channel)
 
     kwargs: dict[str, Any] = {}
     if name is not None:
-        kwargs["name"] = name
+        kwargs["name"] = str(name).strip()
+        if not kwargs["name"]:
+            raise ToolError("O nome do canal não pode ficar vazio.")
     if topic is not None:
         kwargs["topic"] = topic
     if category is not None:
@@ -136,9 +440,17 @@ async def op_edit_channel(
         else:
             kwargs["category"] = resolve_channel(ctx.guild, category)
     if slowmode_delay is not None:
-        kwargs["slowmode_delay"] = slowmode_delay
+        kwargs["slowmode_delay"] = _validar_faixa("slowmode_delay", slowmode_delay, 0, 21_600)
     if nsfw is not None:
-        kwargs["nsfw"] = nsfw
+        kwargs["nsfw"] = bool(nsfw)
+    if bitrate is not None:
+        kwargs["bitrate"] = _validar_faixa("bitrate", bitrate, 8000, 384_000)
+    if user_limit is not None:
+        kwargs["user_limit"] = _validar_faixa("user_limit", user_limit, 0, 99)
+    if position is not None:
+        if int(position) < 0:
+            raise ToolError("A posição do canal não pode ser negativa.")
+        kwargs["position"] = int(position)
 
     if not kwargs:
         raise ToolError("Nenhum parâmetro de alteração foi informado para editar o canal.")
@@ -149,7 +461,8 @@ async def op_edit_channel(
 
     await editor(**kwargs)
     cid = getattr(ch, "id", "")
-    return f"Canal <#{cid}> atualizado com sucesso!"
+    mudancas = ", ".join(sorted(kwargs))
+    return f"Canal <#{cid}> atualizado com sucesso ({mudancas})."
 
 
 async def op_delete_channels(
@@ -218,11 +531,25 @@ async def op_move_channel(
     if position is not None:
         kwargs["position"] = position
 
+    if not kwargs:
+        raise ToolError(
+            "Diga para onde mover: informe a categoria de destino e/ou a posição "
+            "(hoje o canal não foi movido)."
+        )
+    if "position" in kwargs and kwargs["position"] < 0:
+        raise ToolError("A posição não pode ser negativa.")
+
     editor = getattr(ch, "edit", None)
     if editor:
         await editor(**kwargs)
         cid = getattr(ch, "id", "")
-        return f"Canal <#{cid}> movido com sucesso!"
+        detalhe = []
+        if "category" in kwargs:
+            alvo_cat = getattr(kwargs["category"], "name", "sem categoria")
+            detalhe.append(f"categoria: {alvo_cat}")
+        if "position" in kwargs:
+            detalhe.append(f"posição: {kwargs['position']}")
+        return f"Canal <#{cid}> movido com sucesso ({', '.join(detalhe)})."
     raise ToolError("Não foi possível mover o canal.")
 
 
@@ -246,21 +573,40 @@ async def op_clone_channel(
 
 # --- 2. Cargos (6) ---
 
-async def op_create_roles(ctx: ToolContext, roles: list[dict[str, Any]]) -> str:
+async def op_create_roles(
+    ctx: ToolContext,
+    roles: list[dict[str, Any]],
+    permissions: list[str] | None = None,
+    position: int | None = None,
+) -> str:
     if not roles:
         raise ToolError("A lista de cargos para criar está vazia.")
+    if len(roles) > 25:
+        raise ToolError("O limite máximo por lote é de 25 cargos.")
 
     guild = ctx.guild
+    permissoes_globais = [str(p) for p in (permissions or [])]
 
     async def _create_role_item(item: dict[str, Any]) -> str:
         name = str(item.get("name", "")).strip()
+        if not name:
+            raise ToolError("Todo cargo precisa de um nome.")
         color_val = _parse_color(item.get("color"))
         hoist = bool(item.get("hoist", False))
         mentionable = bool(item.get("mentionable", False))
+        # permissões podem vir na chamada (para todos) ou dentro de cada item do lote
+        nomes = item.get("permissions", permissoes_globais) or []
+        if isinstance(nomes, str):
+            nomes = [p for p in re.split(r"[,\n;]+", nomes) if p.strip()]
 
         kwargs: dict[str, Any] = {"name": name, "hoist": hoist, "mentionable": mentionable}
         if color_val:
             kwargs["color"] = color_val
+        if nomes:
+            kwargs["permissions"] = Permissoes([str(p) for p in nomes])
+        posicao_item = item.get("position", position)
+        if posicao_item is not None:
+            kwargs["position"] = int(posicao_item)
 
         creator = getattr(guild, "create_role", None)
         if not creator:
@@ -276,6 +622,10 @@ async def op_create_roles(ctx: ToolContext, roles: list[dict[str, Any]]) -> str:
         raise ToolError(f"Falha ao criar cargos: {err}")
 
     created_roles = " ".join(res.succeeded)
+    if permissoes_globais:
+        nomes_txt = ", ".join(resolver_permissoes(permissoes_globais))
+        return (f"Criei {len(res.succeeded)} cargo(s) com as permissões [{nomes_txt}]: "
+                f"{created_roles} ({res.summary()})")
     return f"Criei {len(res.succeeded)} cargo(s): {created_roles} ({res.summary()})"
 
 
@@ -286,6 +636,8 @@ async def op_edit_role(
     color: str | None = None,
     hoist: bool | None = None,
     mentionable: bool | None = None,
+    permissions: list[str] | None = None,
+    position: int | None = None,
 ) -> str:
     r_obj = resolve_role(ctx.guild, role)
 
@@ -297,11 +649,26 @@ async def op_edit_role(
     if name is not None:
         kwargs["name"] = name
     if color is not None:
-        kwargs["color"] = _parse_color(color)
+        cor = _parse_color(color)
+        if cor is None:
+            raise ToolError(f"Cor '{color}' não é um hexadecimal válido (ex.: #5865F2).")
+        kwargs["color"] = cor
     if hoist is not None:
         kwargs["hoist"] = hoist
     if mentionable is not None:
         kwargs["mentionable"] = mentionable
+    if permissions is not None:
+        # substitui o conjunto de permissões pelo pedido (nomes PT-BR ou EN)
+        kwargs["permissions"] = Permissoes([str(p) for p in permissions])
+    if position is not None:
+        if int(position) < 0:
+            raise ToolError("A posição do cargo não pode ser negativa.")
+        kwargs["position"] = int(position)
+
+    if not kwargs:
+        raise ToolError(
+            "Nada para editar: informe nome, cor, hoist, mentionable, permissions ou position."
+        )
 
     editor = getattr(r_obj, "edit", None)
     if not editor:
@@ -309,7 +676,8 @@ async def op_edit_role(
 
     await editor(**kwargs)
     rid = getattr(r_obj, "id", "")
-    return f"Cargo <@&{rid}> atualizado com sucesso!"
+    mudancas = ", ".join(sorted(kwargs))
+    return f"Cargo <@&{rid}> atualizado com sucesso ({mudancas})."
 
 
 async def op_delete_role(
@@ -411,19 +779,36 @@ async def op_set_permissions(
     if not overwriter:
         raise ToolError(f"Canal '{channel}' não suporta configuração de permissões.")
 
-    # Cria dicionário de permissões duck-typed
-    perm_kwargs: dict[str, bool] = {}
-    if allow:
-        for p in allow:
-            perm_kwargs[p.strip()] = True
-    if deny:
-        for p in deny:
-            perm_kwargs[p.strip()] = False
+    # Traduz PT-BR/acentos para os atributos do Discord antes de chegar na API: o
+    # discord.py só aceita os nomes em inglês e estoura TypeError com qualquer outro.
+    permitidas = resolver_permissoes(list(allow or []))
+    negadas = resolver_permissoes(list(deny or []))
+    conflito = [n for n in permitidas if n in negadas]
+    if conflito:
+        raise ToolError(
+            "A mesma permissão não pode ser permitida e negada ao mesmo tempo: "
+            + ", ".join(conflito)
+            + ". Escolha um dos lados."
+        )
+    if not permitidas and not negadas:
+        raise ToolError(
+            "Diga o que permitir (allow) e/ou o que negar (deny) — "
+            "ex.: allow=['ver canal'], deny=['enviar mensagens']."
+        )
+
+    perm_kwargs: dict[str, bool] = {n: True for n in permitidas}
+    perm_kwargs.update({n: False for n in negadas})
 
     await overwriter(target_obj, **perm_kwargs)
     cid = getattr(ch, "id", "")
     tname = getattr(target_obj, "name", target)
-    return f"Permissões atualizadas no canal <#{cid}> para **{tname}**!"
+    detalhe = []
+    if permitidas:
+        detalhe.append("✅ " + ", ".join(permitidas))
+    if negadas:
+        detalhe.append("🚫 " + ", ".join(negadas))
+    return (f"Permissões atualizadas no canal <#{cid}> para **{tname}**: "
+            + " | ".join(detalhe))
 
 
 async def op_clear_permissions(ctx: ToolContext, channel: str, target: str) -> str:
@@ -874,6 +1259,31 @@ async def op_apply_template(ctx: ToolContext, template: str) -> str:
 
 # --- 6. Backup (2) ---
 
+def _exportar_canal(ch: Any) -> dict[str, Any]:
+    """Campos do canal que o import sabe recriar (tipo, tópico, nsfw, slowmode, bitrate...)."""
+    info: dict[str, Any] = {
+        "name": getattr(ch, "name", ""),
+        "type": getattr(getattr(ch, "type", None), "name", "text"),
+    }
+    topic = getattr(ch, "topic", None)
+    if topic:
+        info["topic"] = topic
+    if getattr(ch, "nsfw", False):
+        info["nsfw"] = True
+    slowmode = getattr(ch, "slowmode_delay", 0) or 0
+    if slowmode:
+        info["slowmode_delay"] = int(slowmode)
+    bitrate = getattr(ch, "bitrate", None)
+    if bitrate:
+        info["bitrate"] = int(bitrate)
+    limite = getattr(ch, "user_limit", None)
+    if limite:
+        info["user_limit"] = int(limite)
+    if getattr(ch, "position", None) is not None:
+        info["position"] = int(getattr(ch, "position"))
+    return info
+
+
 async def op_export_structure(ctx: ToolContext) -> str:
     guild = ctx.guild
     structure: dict[str, Any] = {
@@ -892,27 +1302,23 @@ async def op_export_structure(ctx: ToolContext) -> str:
         for ch in getattr(cat, "channels", []):
             cid = getattr(ch, "id", None)
             categorized_ids.add(cid)
-            cat_info["channels"].append({
-                "name": getattr(ch, "name", ""),
-                "type": getattr(getattr(ch, "type", None), "name", "text"),
-                "topic": getattr(ch, "topic", None),
-            })
+            cat_info["channels"].append(_exportar_canal(ch))
         structure["categories"].append(cat_info)
 
     for ch in getattr(guild, "channels", []):
         if getattr(ch, "id", None) not in categorized_ids and ch not in getattr(guild, "categories", []):
-            structure["uncategorized_channels"].append({
-                "name": getattr(ch, "name", ""),
-                "type": getattr(getattr(ch, "type", None), "name", "text"),
-                "topic": getattr(ch, "topic", None),
-            })
+            structure["uncategorized_channels"].append(_exportar_canal(ch))
 
     for r in getattr(guild, "roles", []):
         if not getattr(r, "is_default", lambda: False)():
+            # guarda TUDO que o create_roles sabe recriar (senão o import degrada o servidor)
             structure["roles"].append({
                 "name": getattr(r, "name", ""),
-                "color": hex(getattr(getattr(r, "color", None), "value", 0)),
-                "hoist": getattr(r, "hoist", False),
+                "color": "#%06x" % int(getattr(getattr(r, "color", None), "value", 0) or 0),
+                "hoist": bool(getattr(r, "hoist", False)),
+                "mentionable": bool(getattr(r, "mentionable", False)),
+                "permissions": permissoes_do_cargo(r).nomes(),
+                "position": getattr(r, "position", None),
             })
 
     dumped = json.dumps(structure, indent=2, ensure_ascii=False)
@@ -938,30 +1344,42 @@ async def op_import_structure(ctx: ToolContext, structure_json: str | None = Non
         raise ToolError(f"Arquivo ou JSON inválido: {exc}")
 
     roles_to_create = data.get("roles", [])
+    total_roles = 0
     if roles_to_create:
         await op_create_roles(ctx, roles_to_create)
+        total_roles = len(roles_to_create)
 
-    # Cria categorias e canais
-    channels_created = 0
+    canais_criados = 0
+    problemas: list[str] = []
+
+    async def _importar_canal(item: dict[str, Any], dentro_de: str | None = None) -> None:
+        nonlocal canais_criados
+        dados = dict(item)
+        if dentro_de:
+            dados["category"] = dentro_de
+        try:
+            await _criar_canal_do_item(ctx.guild, dados)
+            canais_criados += 1
+        except Exception as exc:  # noqa: BLE001 - segue importando o resto e relata no fim
+            problemas.append(f"{item.get('name', '?')}: {exc}")
+
+    # categorias (com os canais dentro) e, depois, os canais que estavam sem categoria
     for cat_data in data.get("categories", []):
         cat_name = cat_data.get("name", "Categoria")
         cat_creator = getattr(ctx.guild, "create_category", None)
-        cat_obj = None
         if cat_creator:
-            cat_obj = await cat_creator(name=cat_name)
-
+            await cat_creator(name=cat_name)
         for ch in cat_data.get("channels", []):
-            c_type = str(ch.get("type", "text")).lower()
-            topic = ch.get("topic")
-            if c_type == "voice":
-                created = await _create_guild_channel(ctx.guild, cat_obj, "voice", ch["name"])
-            else:
-                extras = {"topic": topic} if topic else {}
-                created = await _create_guild_channel(ctx.guild, cat_obj, "text", ch["name"], **extras)
-            if created is not None:
-                channels_created += 1
+            await _importar_canal(ch, dentro_de=cat_name)
 
-    return f"✅ Estrutura importada com sucesso: {len(roles_to_create)} cargos e {channels_created} canais recriados!"
+    for ch in data.get("uncategorized_channels", []):
+        await _importar_canal(ch)
+
+    resumo = (f"✅ Estrutura importada: {total_roles} cargo(s) e {canais_criados} canal(is) "
+              "recriados com tipo, tópico, nsfw, slowmode, bitrate, limite de usuários e posição.")
+    if problemas:
+        resumo += f" ⚠️ {len(problemas)} item(ns) falharam: " + "; ".join(problemas[:3])
+    return resumo
 
 
 # --- 7. APIs (5) ---
@@ -1068,8 +1486,10 @@ async def op_clear_messages(
     try:
         quantas = int(limit)
     except (TypeError, ValueError):
-        quantas = 50
-    quantas = max(1, min(quantas, MAX_PURGE_MESSAGES))
+        raise ToolError(f"O limite precisa ser um número inteiro entre 1 e {MAX_PURGE_MESSAGES} "
+                        f"(recebi {limit!r}).")
+    if quantas < 1 or quantas > MAX_PURGE_MESSAGES:
+        raise ToolError(f"O limite precisa estar entre 1 e {MAX_PURGE_MESSAGES} (recebi {quantas}).")
 
     if ctx.confirm_destructive and not confirmed:
         raise ToolError(

@@ -137,15 +137,20 @@ jobs:
         continue-on-error: true
         run: python scripts/e2e_live.py --phases mutate --mutate --allow-template --outdir reports/parts --tag 5-mutacoes
 
-      - name: "Fase 6 — loop real do core.bot (on_message → resposta)"
+      - name: "Fase 6 — matriz de capacidades (cada parâmetro, valor e combinação, no Discord real)"
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
-        run: python scripts/e2e_live.py --phases botloop --mutate --outdir reports/parts --tag 6-loop
+        run: python scripts/e2e_live.py --phases caps --mutate --outdir reports/parts --tag 6-capacidades
 
-      - name: "Fase 7 — varredura de sobras de teste"
+      - name: "Fase 7 — loop real do core.bot (on_message → resposta)"
         if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
         continue-on-error: true
-        run: python scripts/e2e_live.py --phases sweep --mutate --outdir reports/parts --tag 7-varredura
+        run: python scripts/e2e_live.py --phases botloop --mutate --outdir reports/parts --tag 7-loop
+
+      - name: "Fase 8 — varredura de sobras de teste"
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases sweep --mutate --outdir reports/parts --tag 8-varredura
 
       - name: Consolidar relatório e publicar no branch
         if: always()

@@ -48,6 +48,7 @@ import os
 import platform
 import re
 import sys
+import types
 from types import SimpleNamespace
 import time
 from dataclasses import dataclass, field
@@ -62,7 +63,8 @@ if str(ROOT) not in sys.path:
 TEMP_MARK = "🧪"
 PASS, FAIL, WARN, SKIP = "PASS", "FAIL", "WARN", "SKIP"
 
-PHASE_ORDER = ("static", "spy", "policy", "connect", "audit", "tools", "agent", "mutate", "botloop", "sweep")
+PHASE_ORDER = ("static", "spy", "policy", "connect", "audit", "tools", "agent", "mutate", "caps",
+               "botloop", "sweep")
 
 PHASE_TITLES = {
     "static": "Checagens estáticas (schemas ↔ executores)",
@@ -73,6 +75,7 @@ PHASE_TITLES = {
     "tools": "Ferramentas somente-leitura em servidor real",
     "agent": "Agente + LLM ao vivo (prompt → ferramenta → resposta)",
     "mutate": "Mutações reais em objetos de teste (com limpeza)",
+    "caps": "Matriz de capacidades: cada parâmetro, valor e combinação no Discord real",
     "botloop": "core.bot.FarolBot: on_message → resposta real no Discord",
     "sweep": "Varredura de sobras de teste",
 }
@@ -2494,6 +2497,607 @@ class Harness:
     # =====================================================================
     # botloop
     # =====================================================================
+    # =====================================================================
+    # caps — matriz de capacidades (o que cada ferramenta PERMITE, não uma chamada simbólica)
+    # =====================================================================
+    async def phase_caps(self) -> None:
+        """
+        Cada parâmetro, cada valor (válido e inválido), as combinações e o estado REAL do
+        servidor depois da operação — para cargos, canais, permissões e estrutura.
+
+        Protocolo do dono do projeto: "testar tudo" é testar as CAPACIDADES que as ferramentas
+        permitem (todas as propriedades, todos os valores, todas as combinações, limites,
+        hierarquia e o efeito real no Discord), e não chamar cada ferramenta uma vez. O que não
+        puder ser verificado neste servidor é registrado como tal, nunca dado como funcionando.
+        """
+        from brain.executors import execute_tool
+        from brain.ops import PERMISSOES, Permissoes
+        from brain.tools import ToolContext, ToolError
+
+        phase = "caps"
+        if not self.args.mutate:
+            self.rep.record(phase, "matriz de capacidades", SKIP,
+                            "rode com --mutate: a matriz cria, edita e apaga objetos de teste")
+            return
+        live = await self.ensure_live(phase)
+        if live is None:
+            self.rep.record(phase, "matriz de capacidades", SKIP, "sem conexão ao Discord")
+            return
+
+        guild = live.primary or self.env.primary
+        if guild is None:
+            self.rep.record(phase, "matriz de capacidades", SKIP, "sem servidor de teste")
+            return
+
+        # ---- infraestrutura: categoria, canais e um cargo, todos marcados para limpeza ----
+        estado: dict[str, Any] = {}
+
+        async def infraestrutura() -> str:
+            antes = await self._api_state(guild)
+            categoria = await guild.create_category(f"{TEMP_MARK} caps")
+            texto = await guild.create_text_channel(f"{TEMP_MARK}-caps-texto", category=categoria)
+            voz = await guild.create_voice_channel(f"{TEMP_MARK}-caps-voz", category=categoria)
+            await self._capture_new(guild, antes)
+            ctx = ToolContext(guild=guild, channel=texto, actor=live.actor,
+                              api_registry=live.registry, memory=live.memory)
+            estado.update(categoria=categoria, texto=texto, voz=voz, ctx=ctx)
+            return (f"categoria {categoria.name} + {texto.name} + {voz.name} prontos "
+                    f"(tudo registrado para limpeza)")
+
+        await self.check(phase, "infra: categoria e canais da matriz", infraestrutura)
+        if "ctx" not in estado:
+            await self._cleanup(guild, phase)
+            return
+
+        ctx = estado["ctx"]
+        categoria = estado["categoria"]
+        texto = estado["texto"]
+        voz = estado["voz"]
+
+        async def ferramenta(nome: str, args: dict[str, Any]) -> str:
+            return await execute_tool(nome, args, ctx)
+
+        async def novo(prefixo: str) -> Any:
+            """Cria um canal de texto marcado e devolve o objeto fresco do servidor."""
+            antes = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-{prefixo}", "type": "text", "category": str(categoria.id)}]})
+            criados = await self._capture_new(guild, antes)
+            canal = next((c for c in criados if c.type.name == "text"), None)
+            self.assert_true(canal is not None, f"não consegui criar o canal de apoio {prefixo}")
+            return await guild.fetch_channel(canal.id)
+
+        # -------------------------------------------------------------- cargos
+        async def cargos_criacao_completa() -> str:
+            antes = await self._api_state(guild)
+            await ferramenta("create_roles", {"roles": [{
+                "name": f"{TEMP_MARK}-caps-cargo", "color": "#5865F2", "hoist": True,
+                "mentionable": True, "permissions": ["ver canal", "gerenciar mensagens",
+                                                     "enviar mensagens"],
+            }]})
+            novos = await self._capture_new(guild, antes)
+            papel = next((r for r in novos if r.name == f"{TEMP_MARK}-caps-cargo"), None)
+            self.assert_true(papel is not None, "o cargo não apareceu no servidor")
+            estado["cargo"] = papel
+
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            esperado = Permissoes(["view_channel", "manage_messages", "send_messages"]).value
+            self.assert_true(fresco.color.value == 0x5865F2,
+                             f"cor real {hex(fresco.color.value)} ≠ #5865F2 pedido")
+            self.assert_true(fresco.hoist, "hoist não foi aplicado")
+            self.assert_true(fresco.mentionable, "mentionable não foi aplicado")
+            self.assert_true(fresco.permissions.value == esperado,
+                             f"permissões reais {fresco.permissions.value} ≠ esperado {esperado}")
+            return (f"cargo real com cor {hex(fresco.color.value)}, hoist, mentionable e "
+                    f"{len(Permissoes(value=esperado).nomes())} permissões conferidas na API "
+                    f"(posição {fresco.position})")
+
+        await self.check(phase, "cargos: criar com nome, cor, hoist, mentionable e permissões",
+                         cargos_criacao_completa)
+
+        async def cargos_edicao_cada_propriedade() -> str:
+            papel = estado.get("cargo")
+            if papel is None:
+                self.assert_true(False, "sem cargo criado para editar")
+            alvo = str(papel.id)
+            conferidos: list[str] = []
+
+            await ferramenta("edit_role", {"role": alvo, "name": f"{TEMP_MARK}-caps-renomeado"})
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            self.assert_true(fresco.name == f"{TEMP_MARK}-caps-renomeado", "nome não mudou na API")
+            conferidos.append("nome")
+
+            await ferramenta("edit_role", {"role": alvo, "color": "#00FF00"})
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            self.assert_true(fresco.color.value == 0x00FF00, f"cor não mudou: {fresco.color.value}")
+            conferidos.append("cor")
+
+            await ferramenta("edit_role", {"role": alvo, "hoist": False, "mentionable": False})
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            self.assert_true(not fresco.hoist and not fresco.mentionable,
+                             "hoist/mentionable não voltaram para false")
+            conferidos.append("hoist+mentionable")
+
+            await ferramenta("edit_role", {"role": alvo, "permissions": ["administrador"]})
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            self.assert_true(fresco.permissions.value & PERMISSOES["administrator"],
+                             "permissão de administrador não foi aplicada")
+            conferidos.append("permissões (substituição)")
+
+            # volta para um conjunto menor: prova que a edição SUBSTITUI, não acumula
+            await ferramenta("edit_role", {"role": alvo, "permissions": ["ver canal", "conectar"]})
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            self.assert_true(fresco.permissions.value == Permissoes(["view_channel", "connect"]).value,
+                             f"permissões antigas ficaram: {fresco.permissions.value}")
+            conferidos.append("troca de conjunto sem acumular")
+
+            # a posição é limitada pela hierarquia do bot: conferimos e relatamos o real
+            await ferramenta("edit_role", {"role": alvo, "position": 1})
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            posicao_bot = guild.me.top_role.position
+            self.assert_true(fresco.position <= posicao_bot,
+                             f"cargo ficou acima do meu topo ({fresco.position} > {posicao_bot})")
+            conferidos.append(f"posição (pedida 1, ficou {fresco.position}, teto do bot {posicao_bot})")
+            return "cada propriedade verificada no servidor: " + "; ".join(conferidos)
+
+        await self.check(phase, "cargos: editar cada propriedade e ver o efeito real",
+                         cargos_edicao_cada_propriedade)
+
+        async def cargos_valores_invalidos_e_hierarquia() -> str:
+            papel = estado.get("cargo")
+            alvo = str(papel.id)
+            antes = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+
+            recusas: list[str] = []
+            for args, esperado in (
+                ({"role": alvo, "color": "roxo-neon"}, "hexadecimal"),
+                ({"role": alvo, "position": -1}, "negativa"),
+                ({"role": alvo, "permissions": ["gerenciar pizza"]}, "Não conheço a permissão"),
+                ({"role": alvo}, "Nada para editar"),
+                ({"role": "@everyone", "name": "todos"}, "@everyone"),
+            ):
+                try:
+                    await ferramenta("edit_role", args)
+                    self.assert_true(False, f"aceitou valor inválido: {args}")
+                except ToolError as exc:
+                    self.assert_true(esperado.lower() in str(exc).lower(),
+                                     f"erro pouco claro para {args}: {exc}")
+                    recusas.append(esperado)
+
+            depois = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            self.assert_true(depois.name == antes.name and depois.permissions.value == antes.permissions.value,
+                             "recusa mexeu no cargo (não deveria tocar em nada)")
+
+            # hierarquia: cargo acima do bot precisa ser recusado com explicação
+            acima = next((r for r in await guild.fetch_roles()
+                          if r.position >= guild.me.top_role.position and not r.is_default()), None)
+            if acima is None:
+                self.rep.record(phase, "cargos: recusa de cargo acima do bot", WARN,
+                                "não existe cargo no nível do meu topo para testar a recusa "
+                                "(servidor com o bot no topo)")
+            else:
+                try:
+                    await ferramenta("edit_role", {"role": str(acima.id), "name": "x"})
+                    self.assert_true(False, f"editou cargo acima do bot: @{acima.name}")
+                except ToolError as exc:
+                    self.assert_true("posição" in str(exc) or "acima" in str(exc),
+                                     f"mensagem de hierarquia confusa: {exc}")
+                self.rep.record(phase, "cargos: recusa de cargo acima do bot", PASS,
+                                f"@{acima.name} (posição {acima.position}) recusado com explicação")
+            return "valores inválidos recusados sem tocar no cargo: " + ", ".join(recusas)
+
+        await self.check(phase, "cargos: valores inválidos, @everyone e hierarquia",
+                         cargos_valores_invalidos_e_hierarquia)
+
+        async def cargos_dar_e_tirar_de_membro() -> str:
+            papel = estado.get("cargo")
+            membro = live.actor
+            # garante o membro no cache (resolve_member depende dele quando a intent falha)
+            await guild.fetch_member(membro.id)
+            await ferramenta("give_role", {"member": str(membro.id), "role": str(papel.id)})
+            fresco = await guild.fetch_member(membro.id)
+            self.assert_true(any(r.id == papel.id for r in fresco.roles),
+                             "o cargo não apareceu no membro depois do give_role")
+            await ferramenta("take_role", {"member": str(membro.id), "role": str(papel.id)})
+            fresco = await guild.fetch_member(membro.id)
+            self.assert_true(not any(r.id == papel.id for r in fresco.roles),
+                             "o cargo continuou no membro depois do take_role")
+            return f"cargo dado e removido de {fresco.display_name}, conferido na API em cada passo"
+
+        await self.check(phase, "cargos: dar e tirar de um membro (estado real)",
+                         cargos_dar_e_tirar_de_membro)
+
+        # -------------------------------------------------------------- canais
+        async def canais_todos_os_tipos() -> str:
+            tipos = [("text", "text"), ("voice", "voice"), ("category", "category"),
+                     ("stage", "stage"), ("forum", "forum")]
+            pedidos = [{"name": f"{TEMP_MARK}-tipo-{nome}", "type": nome,
+                        "category": str(categoria.id) if nome not in ("category",) else None}
+                       for nome, _ in tipos]
+            antes = await self._api_state(guild)
+            recusados: list[str] = []
+            for nome, esperado in tipos:
+                try:
+                    await ferramenta("create_channels", {"channels": [
+                        {"name": f"{TEMP_MARK}-tipo-{nome}", "type": nome}]})
+                except ToolError as exc:
+                    # fórum/palco dependem de recursos do servidor; registrar sem mentir
+                    recusados.append(f"{nome}: {exc}")
+            criados = await self._capture_new(guild, antes, conhecidos=[p["name"] for p in pedidos])
+            por_nome = {c.name: c.type.name for c in criados}
+            verificados = []
+            for nome, esperado in tipos:
+                real = por_nome.get(f"{TEMP_MARK}-tipo-{nome}")
+                if real is None:
+                    self.rep.record(phase, f"canais: tipo {nome}", WARN,
+                                    next((r for r in recusados if r.startswith(nome)), "não criado"))
+                    continue
+                self.assert_true(real == esperado, f"pedi {nome} e o Discord criou {real}")
+                verificados.append(f"{nome}→{real}")
+            self.assert_true(bool(verificados), f"nenhum tipo foi criado: {recusados}")
+            return "tipos reais conferidos na API: " + ", ".join(verificados)
+
+        await self.check(phase, "canais: todos os tipos suportados (tipo real na API)",
+                         canais_todos_os_tipos)
+
+        async def canais_propriedades_na_criacao() -> str:
+            antes = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-caps-cheio", "type": "text", "category": str(categoria.id),
+                 "topic": "tópico da matriz", "nsfw": True, "slowmode_delay": 30, "position": 1},
+                {"name": f"{TEMP_MARK}-caps-voz-cheia", "type": "voice", "category": str(categoria.id),
+                 "bitrate": 96000, "user_limit": 4},
+            ]})
+            criados = await self._capture_new(guild, antes)
+            texto_criado = next((c for c in criados if c.name == f"{TEMP_MARK}-caps-cheio"), None)
+            voz_criada = next((c for c in criados if c.name == f"{TEMP_MARK}-caps-voz-cheia"), None)
+            self.assert_true(texto_criado is not None and voz_criada is not None,
+                             "não consegui criar os canais da checagem")
+
+            t = await guild.fetch_channel(texto_criado.id)
+            self.assert_true(t.topic == "tópico da matriz", f"tópico real: {t.topic!r}")
+            self.assert_true(t.nsfw, "nsfw não foi aplicado")
+            self.assert_true(t.slowmode_delay == 30, f"slowmode real: {t.slowmode_delay}")
+            self.assert_true(t.category_id == categoria.id, "canal não ficou na categoria")
+
+            v = await guild.fetch_channel(voz_criada.id)
+            self.assert_true(v.bitrate == 96000, f"bitrate real: {v.bitrate}")
+            self.assert_true(v.user_limit == 4, f"limite real: {v.user_limit}")
+            return (f"texto: tópico, nsfw, slowmode 30s, categoria · voz: bitrate {v.bitrate}, "
+                    f"limite {v.user_limit} — tudo conferido na API")
+
+        await self.check(phase, "canais: tópico, NSFW, slowmode, bitrate e limite na criação",
+                         canais_propriedades_na_criacao)
+
+        async def canais_edicao_cada_propriedade() -> str:
+            canal = await novo("caps-editar")
+            alvo = str(canal.id)
+            conferidos: list[str] = []
+
+            await ferramenta("edit_channel", {"channel": alvo, "name": f"{TEMP_MARK}-caps-editado"})
+            atual = await guild.fetch_channel(canal.id)
+            self.assert_true(atual.name == f"{TEMP_MARK}-caps-editado", "nome não mudou na API")
+            conferidos.append("nome")
+
+            await ferramenta("edit_channel", {"channel": alvo, "topic": "novo tópico"})
+            atual = await guild.fetch_channel(canal.id)
+            self.assert_true(atual.topic == "novo tópico", f"tópico real: {atual.topic!r}")
+            conferidos.append("tópico")
+
+            await ferramenta("edit_channel", {"channel": alvo, "nsfw": True, "slowmode_delay": 5})
+            atual = await guild.fetch_channel(canal.id)
+            self.assert_true(atual.nsfw and atual.slowmode_delay == 5,
+                             f"nsfw/slowmode reais: {atual.nsfw}/{atual.slowmode_delay}")
+            conferidos.append("nsfw+slowmode")
+
+            await ferramenta("edit_channel", {"channel": alvo, "category": "none"})
+            atual = await guild.fetch_channel(canal.id)
+            self.assert_true(atual.category_id is None, f"categoria real: {atual.category_id}")
+            await ferramenta("edit_channel", {"channel": alvo, "category": str(categoria.id)})
+            atual = await guild.fetch_channel(canal.id)
+            self.assert_true(atual.category_id == categoria.id, "não voltou para a categoria")
+            conferidos.append("categoria (sair e voltar)")
+
+            async def voz_editada() -> str:
+                nova_voz = await guild.create_voice_channel(f"{TEMP_MARK}-caps-voz-editar",
+                                                            category=categoria)
+                self.owned_channels.add(nova_voz.id)
+                await ferramenta("edit_channel", {"channel": str(nova_voz.id),
+                                                  "bitrate": 128000, "user_limit": 7})
+                atual_v = await guild.fetch_channel(nova_voz.id)
+                self.assert_true(atual_v.bitrate == 128000 and atual_v.user_limit == 7,
+                                 f"voz: {atual_v.bitrate}/{atual_v.user_limit}")
+                return f"voz: bitrate {atual_v.bitrate}, limite {atual_v.user_limit}"
+
+            detalhe_voz = await voz_editada()
+            await canal.delete()
+            self.owned_channels.discard(canal.id)
+            return "; ".join(conferidos) + "; " + detalhe_voz
+
+        await self.check(phase, "canais: editar cada propriedade e ver o efeito real",
+                         canais_edicao_cada_propriedade)
+
+        async def canais_mover_clonar_excluir() -> str:
+            antes = await self._api_state(guild)
+            outra_cat = await guild.create_category(f"{TEMP_MARK} caps-destino")
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-caps-mover", "type": "text", "category": str(categoria.id),
+                 "topic": "leva o tópico", "nsfw": True, "slowmode_delay": 7}]})
+            criados = await self._capture_new(guild, antes)
+            self.owned_channels.add(outra_cat.id)
+            canal = next((c for c in criados if c.name == f"{TEMP_MARK}-caps-mover"), None)
+            self.assert_true(canal is not None, "não criei o canal da checagem de mover")
+
+            await ferramenta("move_channel", {"channel": str(canal.id), "category": str(outra_cat.id)})
+            movido = await guild.fetch_channel(canal.id)
+            self.assert_true(movido.category_id == outra_cat.id,
+                             f"não mudou de categoria: {movido.category_id} ≠ {outra_cat.id}")
+            await ferramenta("move_channel", {"channel": str(canal.id), "position": 2})
+            movido = await guild.fetch_channel(canal.id)
+            self.assert_true(movido.position == 2, f"posição real: {movido.position}")
+
+            await ferramenta("clone_channel", {"channel": str(canal.id)})
+            depois = await self._capture_new(guild, antes)
+            clone = next((c for c in depois if c.id not in (canal.id,) and "caps-mover" in c.name), None)
+            self.assert_true(clone is not None, "o clone não apareceu no servidor")
+            self.assert_true(clone.topic == "leva o tópico", f"clone perdeu o tópico: {clone.topic!r}")
+            self.assert_true(clone.nsfw, "clone não copiou o nsfw")
+            self.assert_true(clone.slowmode_delay == 7, f"clone perdeu o slowmode: {clone.slowmode_delay}")
+            self.assert_true(clone.category_id == outra_cat.id, "clone não ficou na mesma categoria")
+
+            await ferramenta("delete_channels", {"channels": [str(clone.id)]})
+            restante = await guild.fetch_channel(canal.id)  # o original continua
+            self.assert_true(restante is not None, "o original sumiu junto")
+            existentes = {c.id for c in await guild.fetch_channels()}
+            self.assert_true(clone.id not in existentes, "o clone não foi apagado")
+            self.owned_channels.discard(clone.id)
+            return ("mover por categoria e posição, clonar levando tópico+nsfw+slowmode+categoria "
+                    "e apagar só a cópia — tudo conferido na API")
+
+        await self.check(phase, "canais: mover, clonar e excluir (estado real)",
+                         canais_mover_clonar_excluir)
+
+        async def canais_valores_invalidos() -> str:
+            antes = len(await guild.fetch_channels())
+            recusas: list[str] = []
+            casos = [
+                ({"channels": [{"name": "x", "type": "holograma"}]}, "não existe"),
+                ({"channels": [{"name": "x", "type": "text", "slowmode_delay": 21601}]}, "slowmode"),
+                ({"channels": [{"name": "x", "type": "voice", "bitrate": 1000}]}, "bitrate"),
+                ({"channels": [{"name": "x", "type": "voice", "user_limit": 500}]}, "limite"),
+            ]
+            for args, esperado in casos:
+                try:
+                    await ferramenta("create_channels", args)
+                    self.assert_true(False, f"aceitou criação inválida: {args}")
+                except ToolError as exc:
+                    self.assert_true(esperado.lower() in str(exc).lower(),
+                                     f"erro pouco claro ({esperado}): {exc}")
+                    recusas.append(esperado)
+
+            for args, esperado in (
+                ({"channel": str(texto.id), "name": "  "}, "vazio"),
+                ({"channel": str(texto.id), "slowmode_delay": -5}, "slowmode"),
+                ({"channel": str(texto.id), "bitrate": 999999}, "bitrate"),
+                ({"channel": str(texto.id)}, "Nenhum parâmetro"),
+                ({"channel": str(texto.id), "position": -1}, "negativa"),
+            ):
+                try:
+                    await ferramenta("edit_channel", args)
+                    self.assert_true(False, f"aceitou edição inválida: {args}")
+                except ToolError as exc:
+                    self.assert_true(esperado.lower() in str(exc).lower(),
+                                     f"erro pouco claro ({esperado}): {exc}")
+                    recusas.append(esperado)
+
+            depois = len(await guild.fetch_channels())
+            self.assert_true(depois == antes, f"objetos foram criados mesmo com erro: {antes}→{depois}")
+            return ("valores inválidos recusados sem criar/alterar nada: "
+                    + ", ".join(recusas))
+
+        await self.check(phase, "canais: valores inválidos e limites (nada é criado por engano)",
+                         canais_valores_invalidos)
+
+        # -------------------------------------------------------------- permissões
+        async def permissoes_allow_deny_leitura_limpeza() -> str:
+            canal = await novo("caps-perm")
+            papel = estado.get("cargo")
+            alvo = str(papel.id)
+
+            await ferramenta("set_permissions", {"channel": str(canal.id), "target": alvo,
+                                                "allow": ["ver canal", "enviar mensagens"],
+                                                "deny": ["mencionar todos"]})
+            fresco = await guild.fetch_channel(canal.id)
+            ow = next((o for e, o in fresco.overwrites.items() if getattr(e, "id", None) == papel.id), None)
+            self.assert_true(ow is not None, "o overwrite não apareceu na API")
+            self.assert_true(ow.view_channel is True and ow.send_messages is True,
+                             f"allow não aplicado: {ow.view_channel}/{ow.send_messages}")
+            self.assert_true(ow.mention_everyone is False, "deny não aplicado")
+
+            leitura = await ferramenta("show_permissions", {"channel": str(canal.id), "target": alvo})
+            self.assert_true("view_channel" in leitura or "Permissões" in leitura,
+                             f"show_permissions não mostrou o que existe: {leitura[:120]!r}")
+
+            try:
+                await ferramenta("set_permissions", {"channel": str(canal.id), "target": alvo,
+                                                     "allow": ["ver canal"], "deny": ["view_channel"]})
+                self.assert_true(False, "aceitou conflito allow+deny")
+            except ToolError as exc:
+                self.assert_true("permitida e negada" in str(exc), f"erro confuso: {exc}")
+
+            await ferramenta("clear_permissions", {"channel": str(canal.id), "target": alvo})
+            fresco = await guild.fetch_channel(canal.id)
+            restou = next((o for e, o in fresco.overwrites.items() if getattr(e, "id", None) == papel.id), None)
+            self.assert_true(restou is None, "o overwrite continuou depois do clear_permissions")
+            await canal.delete()
+            self.owned_channels.discard(canal.id)
+            return ("allow e deny em português viraram permissões reais (view_channel/send_messages/"
+                    "mention_everyone), conflito recusado e limpeza conferida na API")
+
+        await self.check(phase, "permissões: allow, deny, conflito, leitura e limpeza",
+                         permissoes_allow_deny_leitura_limpeza)
+
+        async def permissoes_sincronizar_com_categoria() -> str:
+            pai = await guild.create_category(f"{TEMP_MARK} caps-sync")
+            self.owned_channels.add(pai.id)
+            filho = await guild.create_text_channel(f"{TEMP_MARK}-caps-sync-filho", category=pai)
+            self.owned_channels.add(filho.id)
+            papel = estado.get("cargo")
+
+            await ferramenta("set_permissions", {"channel": str(pai.id), "target": str(papel.id),
+                                                "allow": ["ver canal", "enviar mensagens"]})
+            # o filho começa SEM override próprio; sincronizar copia o do pai
+            await ferramenta("sync_permissions", {"channel": str(filho.id)})
+            fresco = await guild.fetch_channel(filho.id)
+            ow = next((o for e, o in fresco.overwrites.items() if getattr(e, "id", None) == papel.id), None)
+            self.assert_true(ow is not None and ow.send_messages is True,
+                             "sincronizar não trouxe a permissão da categoria")
+            return "permissão da categoria copiada para o canal filho (conferido na API)"
+
+        await self.check(phase, "permissões: sincronizar canal com a categoria",
+                         permissoes_sincronizar_com_categoria)
+
+        async def permissao_do_autor_barra_antes_do_discord() -> str:
+            from brain.tools import ToolContext as _Ctx
+
+            class SemPermissao:
+                id = 4242
+                name = "sem-permissao"
+                display_name = "sem-permissao"
+                guild_permissions = types.SimpleNamespace(manage_channels=False, manage_roles=False,
+                                                          administrator=False, manage_messages=False,
+                                                          manage_guild=False, view_channel=True,
+                                                          send_messages=True)
+                top_role = types.SimpleNamespace(position=0, name="ninguém")
+
+            antes = len(await guild.fetch_channels())
+            ctx_fraco = _Ctx(guild=guild, channel=texto, actor=SemPermissao(),
+                             api_registry=live.registry, memory=live.memory)
+            recusas = 0
+            for nome, args in (("create_channels", {"channels": [{"name": f"{TEMP_MARK}-nunca"}]}),
+                               ("create_roles", {"roles": [{"name": f"{TEMP_MARK}-nunca"}]}),
+                               ("delete_channels", {"channels": [str(texto.id)], "confirmed": True}),
+                               ("clear_messages", {"channel": str(texto.id), "limit": 5})):
+                try:
+                    await execute_tool(nome, args, ctx_fraco)
+                    self.assert_true(False, f"autor sem permissão conseguiu usar {nome}")
+                except ToolError as exc:
+                    self.assert_true("permissão" in str(exc).lower(),
+                                     f"a recusa de {nome} não fala de permissão: {exc}")
+                    recusas += 1
+            depois = len(await guild.fetch_channels())
+            self.assert_true(depois == antes, "a tentativa sem permissão mexeu no servidor")
+            return (f"{recusas} ferramentas recusadas ANTES de tocar no Discord (autor sem permissão) "
+                    "e nenhum objeto criado ou apagado")
+
+        await self.check(phase, "permissões: autor sem permissão é barrado antes da API",
+                         permissao_do_autor_barra_antes_do_discord)
+
+        # -------------------------------------------------------------- estrutura
+        async def export_guarda_capacidades() -> str:
+            papel = estado.get("cargo")
+            # garante um canal de texto com todas as propriedades e um de voz com limites
+            await ferramenta("edit_channel", {"channel": str(texto.id), "topic": "tópico do export",
+                                              "nsfw": True, "slowmode_delay": 9})
+            await ferramenta("edit_channel", {"channel": str(voz.id), "bitrate": 96000, "user_limit": 3})
+            saida = await ferramenta("export_structure", {})
+            dados = json.loads(saida[saida.find("{"): saida.rfind("}") + 1])
+
+            atual_papel = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            papel_export = next((r for r in dados["roles"] if r["name"] == atual_papel.name), None)
+            self.assert_true(papel_export is not None, "o cargo não apareceu no export")
+            self.assert_true(isinstance(papel_export.get("permissions"), list)
+                             and len(papel_export["permissions"]) > 0,
+                             f"export não guardou as permissões: {papel_export}")
+            self.assert_true("mentionable" in papel_export and "hoist" in papel_export,
+                             "export não guardou hoist/mentionable")
+
+            canais = [c for cat in dados["categories"] for c in cat["channels"]]
+            texto_export = next((c for c in canais if c["name"] == texto.name), None)
+            self.assert_true(texto_export is not None, "o canal de texto não apareceu no export")
+            self.assert_true(texto_export.get("nsfw") and texto_export.get("slowmode_delay") == 9,
+                             f"export perdeu nsfw/slowmode: {texto_export}")
+            voz_export = next((c for c in canais if c["name"] == voz.name), None)
+            self.assert_true(voz_export and voz_export.get("user_limit") == 3,
+                             f"export perdeu o limite de usuários: {voz_export}")
+            return (f"export real com {len(dados['roles'])} cargos (permissões, hoist, mentionable) e "
+                    f"canais com tipo, tópico, nsfw={texto_export.get('nsfw')}, "
+                    f"slowmode={texto_export.get('slowmode_delay')}, bitrate e limite")
+
+        await self.check(phase, "estrutura: export guarda as capacidades reais",
+                         export_guarda_capacidades)
+
+        async def import_recria_capacidades() -> str:
+            estrutura = {
+                "roles": [{"name": f"{TEMP_MARK}-caps-import-cargo", "color": "#FF00AA",
+                           "hoist": True, "mentionable": True,
+                           "permissions": ["view_channel", "manage_messages"]}],
+                "categories": [{"name": f"{TEMP_MARK} caps-import", "channels": [
+                    {"name": f"{TEMP_MARK}-caps-import-texto", "type": "text",
+                     "topic": "veio do import", "nsfw": True, "slowmode_delay": 11},
+                    {"name": f"{TEMP_MARK}-caps-import-voz", "type": "voice",
+                     "bitrate": 96000, "user_limit": 5},
+                ]}],
+                "uncategorized_channels": [{"name": f"{TEMP_MARK}-caps-import-solto", "type": "text"}],
+            }
+            antes = await self._api_state(guild)
+            saida = await ferramenta("import_structure", {"structure_json": json.dumps(estrutura)})
+            novos = await self._capture_new(guild, antes)
+            self.assert_true("3 canal(is)" in saida, f"import não relatou os 3 canais: {saida[:120]!r}")
+            _relato_import = saida[:100]
+
+            # cargo recriado com as mesmas propriedades
+            papel = next((r for r in novos if r.name == f"{TEMP_MARK}-caps-import-cargo"), None)
+            self.assert_true(papel is not None, "o cargo do import não foi criado")
+            fresco = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+            self.assert_true(fresco.color.value == 0xFF00AA, f"cor do import: {fresco.color.value}")
+            self.assert_true(fresco.permissions.value == Permissoes(["view_channel", "manage_messages"]).value,
+                             f"permissões do import: {fresco.permissions.value}")
+            self.assert_true(fresco.hoist and fresco.mentionable, "hoist/mentionable do import")
+
+            t = next((c for c in novos if c.name == f"{TEMP_MARK}-caps-import-texto"), None)
+            v = next((c for c in novos if c.name == f"{TEMP_MARK}-caps-import-voz"), None)
+            solto = next((c for c in novos if c.name == f"{TEMP_MARK}-caps-import-solto"), None)
+            self.assert_true(t and v and solto, "faltou canal do import (categoria ou sem categoria)")
+            ft = await guild.fetch_channel(t.id)
+            self.assert_true(ft.topic == "veio do import" and ft.nsfw and ft.slowmode_delay == 11,
+                             f"texto do import: {ft.topic!r}/{ft.nsfw}/{ft.slowmode_delay}")
+            fv = await guild.fetch_channel(v.id)
+            self.assert_true(fv.bitrate == 96000 and fv.user_limit == 5,
+                             f"voz do import: {fv.bitrate}/{fv.user_limit}")
+            pai = next((c for c in novos if c.type.name == "category"), None)
+            self.assert_true(pai is not None and ft.category_id == pai.id,
+                             "o canal importado não ficou na categoria importada")
+            self.assert_true(solto.category_id is None, "o canal 'solto' ganhou categoria indevida")
+            return (f"import recriou cargo (cor, hoist, mentionable, permissões) e canais "
+                    f"(tópico, nsfw, slowmode, bitrate, limite, categoria e sem categoria) — "
+                    f"conferido na API · {_relato_import!r}")
+
+        await self.check(phase, "estrutura: import recria com os mesmos campos (round-trip)",
+                         import_recria_capacidades)
+
+        async def repeticao_sem_efeito_colateral() -> str:
+            """Repetir a mesma operação 3x não pode duplicar efeito nem quebrar."""
+            nome = f"{TEMP_MARK}-caps-repetido"
+            for _ in range(3):
+                antes_rep = await self._api_state(guild)
+                await ferramenta("create_channels", {"channels": [
+                    {"name": nome, "type": "text", "category": str(categoria.id)}]})
+                await self._capture_new(guild, antes_rep)
+            canais = [c for c in await guild.fetch_channels() if c.name == nome]
+            for canal in canais:  # edita pelo ID: por nome o Discord resolveria sempre o primeiro
+                await ferramenta("edit_channel", {"channel": str(canal.id), "topic": "repetido"})
+            self.assert_true(len(canais) == 3, f"criações repetidas deram {len(canais)} canais")
+            for canal in canais:
+                fresco = await guild.fetch_channel(canal.id)
+                self.assert_true(fresco.topic == "repetido", "a edição repetida não pegou em todos")
+            return "3 canais iguais criados e editados em sequência, todos com o estado esperado"
+
+        await self.check(phase, "repetição: mesma ordem várias vezes não quebra nem duplica efeito",
+                         repeticao_sem_efeito_colateral)
+
+        await self._cleanup(guild, phase)
+
     async def phase_botloop(self) -> None:
         import discord
 

@@ -184,6 +184,12 @@ acertou 1 de 4 rodadas aparecia em 1º. Agregado de 18/09 (4 rodadas × 3 amostr
 `dots-3-note-preview` (75% · 1,43 s) → metade/metade (`lfm-2.5`, `step-3.7-flash`) →
 `north-mini-code` (25%) → reservas.
 
+**Auditoria de capacidades:** cada ferramenta é testada por **capacidade**, não por chamada —
+todos os parâmetros, valores (válidos e inválidos), combinações, limites e o efeito real no
+Discord. O protocolo e a matriz estão em [`AUDITORIA-CAPACIDADES.md`](AUDITORIA-CAPACIDADES.md);
+os testes offline em `tests/test_capacidades.py` e a verificação ao vivo na fase `caps` do E2E
+(`reports/e2e-latest.md`, seção *Matriz de capacidades*).
+
 **Lista de modelos conferida ao vivo:** a ficha do `kilo` não é chute — cada id sai do catálogo real
 (`GET /api/gateway/models`, 380 modelos, 21 marcados `:free`), publicado pelo CI em
 [`reports/kilo-modelos-free.md`](reports/kilo-modelos-free.md). Modelo que sai do catálogo é
