@@ -181,3 +181,14 @@ Motivo: (1) BUG — "apague todos os canais menos esse" apagava o canal da conve
 fora da lista, com aviso, e pedir só ele é recusado explicando o clear_messages. (2) CARA NOVA —
 as respostas passam a sair em Components V2 (container organizado) com a cor de destaque MEDIDA do
 avatar do farol (ACCENT_COLOR vazio = medir; ou fixe um hex). Substitui a pendência anterior.
+
+
+RESTART PEDIDO EM 2026-09-18T20:05Z
+-------------------------------
+Motivo: o `bot.yml` ficou com YAML INVÁLIDO na edição da cara nova (indentação do ACCENT_COLOR
+fora do `env:`), e o GitHub criava a run com ZERO jobs ("failed because of a workflow file
+issue") — por isso nenhuma execução nova subia desde as 19:41Z. Corrigido: o bloco voltou para
+dentro do `env:` do passo "Executar bot" e entrou um teste que parseia TODOS os workflows
+(tests/test_workflows.py), então uma indentação errada nunca mais passa pela CI em silêncio.
+Esta fatia leva a cara nova (Components V2 com a cor medida do avatar), o bug do canal da
+conversa ("apague todos menos esse") e a correção da cor medida.

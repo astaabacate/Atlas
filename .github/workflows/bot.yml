@@ -132,9 +132,9 @@ jobs:
           LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '60' }}
           LLM_MAX_TOKENS: ${{ vars.LLM_MAX_TOKENS || '1024' }}
           MAX_TOOL_ROUNDS: ${{ vars.MAX_TOOL_ROUNDS || '3' }}
-      # Cara das respostas: ACCENT_COLOR vazio = a cor é medida do avatar do bot.
-      ACCENT_COLOR: ${{ vars.ACCENT_COLOR || '' }}
-      MENSAGEM_V2: ${{ vars.MENSAGEM_V2 || 'true' }}
+          # Cara das respostas: ACCENT_COLOR vazio = a cor é medida do avatar do bot.
+          ACCENT_COLOR: ${{ vars.ACCENT_COLOR || '' }}
+          MENSAGEM_V2: ${{ vars.MENSAGEM_V2 || 'true' }}
           HISTORY_LEN: ${{ vars.HISTORY_LEN || '10' }}
           BULK_CONCURRENCY: ${{ vars.BULK_CONCURRENCY || '3' }}
           API_TIMEOUT: ${{ vars.API_TIMEOUT || '10' }}
