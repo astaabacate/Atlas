@@ -364,3 +364,27 @@ prova visual disso.
 primeiro) e o mais forte fica no **fim**". Antes ela dizia só "arraste para cima", que no celular é o
 lado errado. Regressão: `test_delete_role_individual_com_recusa_explica_o_caminho` passou a cobrar a
 dica de direção (e continua cobrando que o `@everyone` não entre na lista de cargos tentados).
+
+### Rodada 11 (18/09 12:20Z): a prova crua do dono — e o token novo
+
+O dono atualizou o segredo `DISCORD_TOKEN` e **subiu o cargo do bot** (de posição 1 para **26 de 27**).
+A sonda crua falou direto com a API do Discord, sem passar pelo produto, e respondeu:
+
+| Passo do experimento (API crua) | Resultado do Discord |
+| --- | --- |
+| Criar um cargo 🧪 | ✅ criado na **posição 1** (o Discord põe cargo novo no fundo) |
+| Renomear (PATCH `/guilds/{id}/roles/{rid}`) | ✅ **ACEITO** |
+| Apagar (DELETE `/guilds/{id}/roles/{rid}`) | ✅ **ACEITO** |
+
+Com o cargo do bot no fundo da hierarquia (o cenário do relato), os mesmos três passos eram
+recusados com `403 code=50013 Missing Permissions` — e a sonda agora mostra **quem** recusou:
+a resposta veio do Discord, não do gate do produto. A sonda também **força o empate** de propósito
+(move o cargo de teste para a MESMA posição do topo do bot) antes de tentar de novo, que é
+exatamente o caso-limite que o dono levantou.
+
+Erro da própria sonda corrigido nesta rodada: o cálculo de permissão ignorava o **bypass de
+Administrator** e imprimia "Gerenciar Cargos: NÃO" para um bot administrador (alarme falso). Agora
+a sonda imprime o número cru das permissões medidas e considera Administrator.
+
+Regressões acrescentadas: `test_empate_apagar_aceito_prova_que_a_regra_nao_bloqueia_posicao_igual`,
+`test_empate_recusado_cai_para_mover_e_apagar` e `test_permissao_conta_administrator`.

@@ -108,16 +108,28 @@ def _topo_do_membro(membro: dict[str, Any] | None, cargos: list[dict[str, Any]])
     return max(meus, key=lambda c: int(c.get("position", 0)))
 
 
-def _tem_permissao(cargos_do_bot: list[dict[str, Any]], todos: list[dict[str, Any]],
-                   bit: int) -> bool:
-    """Conferência manual de permissão do bot: OR dos cargos dele + @everyone."""
+def _permissao_do_bot(cargos_do_bot: list[dict[str, Any]], todos: list[dict[str, Any]]) -> int:
+    """Permissões do bot somadas à mão: OR dos cargos dele + @everyone (como o Discord faz)."""
     valor = 0
     for c in cargos_do_bot + [c for c in todos if c.get("is_default")]:
         valor |= int(c.get("permissions", 0))
-    return bool(valor & bit)
+    return valor
+
+
+def _tem_permissao(cargos_do_bot: list[dict[str, Any]], todos: list[dict[str, Any]],
+                   bit: int) -> bool:
+    """
+    O bot tem a permissão? Administrator vale por todas (inclusive Gerenciar Cargos).
+
+    A primeira versão disto ignorava o bypass de Administrator e imprimiu "NÃO" para um bot
+    administrador — alarme falso que a própria sonda pegou na rodada de 18/09 12:20Z.
+    """
+    valor = _permissao_do_bot(cargos_do_bot, todos)
+    return bool(valor & bit) or bool(valor & ADMINISTRATOR)
 
 
 MANAGE_ROLES = 1 << 28
+ADMINISTRATOR = 1 << 3
 
 
 # --------------------------------------------------------------------------- sonda
@@ -213,8 +225,11 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
                           "- ❌ não achei meu cargo na lista (bot sem cargo?)")
             if pos_dono is not None:
                 linhas.append(f"- Cargo mais alto do dono: posição {pos_dono}.")
-            linhas.append(f"- Tenho a permissão Gerenciar Cargos: "
-                          f"**{'sim' if _tem_permissao(meus_cargos, cargos, MANAGE_ROLES) else 'NÃO'}**.")
+            valor_permissoes = _permissao_do_bot(meus_cargos, cargos)
+            linhas.append(f"- Permissões medidas na API: `{valor_permissoes}` "
+                          f"(Gerenciar Cargos: "
+                          f"**{'sim' if _tem_permissao(meus_cargos, cargos, MANAGE_ROLES) else 'NÃO'}**"
+                          f"{', Administrator' if valor_permissoes & ADMINISTRATOR else ''}).")
             linhas.append("")
             linhas.append("| Posição | Cargo | ID | Gerenciado | Situação para o bot |")
             linhas.append("| --- | --- | --- | --- | --- |")
@@ -283,6 +298,38 @@ async def _experimento(api: "Sondagem", gid: str, pos_bot: int) -> dict[str, Any
         linhas.append("")
         return {"linhas": linhas, "dados": dados}
     linhas.append(f"- 🗑️ APAGAR: o Discord **RECUSOU** — HTTP {st} · {_erro(corpo)}")
+
+    # O caso-limite que o dono levantou: o cargo do bot está no chão e o cargo criado nasce
+    # na MESMA posição — o Discord aceita ou recusa mexer em cargo empatado? Aqui forçamos o
+    # empate de propósito (mover o cargo de teste para a posição do topo do bot) e tentamos.
+    st_e, corpo_e = await api.pedir("PATCH", f"/guilds/{gid}/roles",
+                                    json=[{"id": rid, "position": pos_bot}])
+    dados["mover_para_empate"] = {"status": st_e,
+                                  "corpo": _erro(corpo_e) if st_e >= 400 else "ok"}
+    if st_e < 400:
+        linhas.append(f"- ⬆️ Movi o cargo de teste para a posição {pos_bot} (a MESMA do meu topo).")
+        st_re, corpo_re = await api.pedir("PATCH", f"/guilds/{gid}/roles/{rid}",
+                                          json={"name": nome + "-empatado"})
+        dados["editar_empatado"] = {"status": st_re,
+                                    "corpo": _erro(corpo_re) if st_re >= 400 else "ok"}
+        if st_re < 400:
+            linhas.append("- ✏️ **EMPATE: RENOMEAR foi ACEITO** — o Discord não recusa por posição "
+                          "igual; quem recusava era o NOSSO gate.")
+        else:
+            linhas.append(f"- ✏️ **EMPATE: RENOMEAR RECUSADO** — HTTP {st_re} · {_erro(corpo_re)}")
+        st_de, corpo_de = await api.pedir("DELETE", f"/guilds/{gid}/roles/{rid}")
+        dados["apagar_empatado"] = {"status": st_de,
+                                    "corpo": _erro(corpo_de) if st_de >= 400 else "ok"}
+        if st_de in (200, 204):
+            linhas.append("- 🗑️ **EMPATE: APAGAR foi ACEITO** — a regra é estritamente ABAIXO; "
+                          "cargo empatado é apagável, sim.")
+            dados["sobra"] = None
+            linhas.append("")
+            return {"linhas": linhas, "dados": dados}
+        linhas.append(f"- 🗑️ EMPATE: apagar recusado — HTTP {st_de} · {_erro(corpo_de)}")
+    else:
+        linhas.append(f"- ⬆️ Mover para a posição {pos_bot} (empate): recusado — "
+                      f"HTTP {st_e} · {_erro(corpo_e)}")
 
     st, corpo = await api.pedir("PATCH", f"/guilds/{gid}/roles",
                                 json=[{"id": rid, "position": 0}])
