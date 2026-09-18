@@ -1,20 +1,20 @@
 {
   "schema": 1,
-  "started_at": "2026-09-17T23:45:43+00:00",
-  "finished_at": "2026-09-17T23:45:43.097116+00:00",
+  "started_at": "2026-09-18T00:19:16+00:00",
+  "finished_at": "2026-09-18T00:19:15.945668+00:00",
   "meta": {
     "python": "3.11.16",
     "runner": "Linux",
-    "commit": "188050b",
-    "execução": "35287716766",
+    "commit": "fb86e51",
+    "execução": "35290330888",
     "discord.py": "2.7.1",
     "fases": "static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep",
     "mutações reais": "sim"
   },
   "summary": {
-    "PASS": 75,
+    "PASS": 78,
     "FAIL": 0,
-    "WARN": 6,
+    "WARN": 3,
     "SKIP": 1
   },
   "notes": [
@@ -37,7 +37,7 @@
           "name": "assinaturas ↔ schemas",
           "status": "PASS",
           "detail": "27 assinaturas conferem com os schemas",
-          "ms": 12,
+          "ms": 26,
           "data": {}
         },
         {
@@ -154,7 +154,7 @@
           "name": "set_icon com estilo gera imagem sem rede",
           "status": "PASS",
           "detail": "gerou um PNG 256x256 sem tocar a rede",
-          "ms": 1,
+          "ms": 4,
           "data": {}
         },
         {
@@ -202,7 +202,7 @@
           "name": "somente-leitura não muta nada",
           "status": "PASS",
           "detail": "8 ferramentas de leitura rodaram sem mutar nada",
-          "ms": 3,
+          "ms": 5,
           "data": {}
         },
         {
@@ -218,7 +218,7 @@
           "name": "conversa isolada por servidor (multi-servidor)",
           "status": "PASS",
           "detail": "conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal)",
-          "ms": 6,
+          "ms": 1,
           "data": {}
         },
         {
@@ -331,7 +331,7 @@
           "phase": "connect",
           "name": "corredores de LLM na corrida",
           "status": "PASS",
-          "detail": "llm7/tools, ovh, pollinations",
+          "detail": "kilo/tools",
           "ms": 0,
           "data": {}
         },
@@ -340,24 +340,24 @@
           "name": "configuração carregada",
           "status": "PASS",
           "detail": "token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False",
-          "ms": 8,
+          "ms": 15,
           "data": {}
         },
         {
           "phase": "connect",
           "name": "corrida de LLMs responde",
           "status": "PASS",
-          "detail": "vencedor pollinations (tools nativas: False) → 'pong'",
-          "ms": 345,
+          "detail": "vencedor kilo (tools nativas: True) → 'pong'",
+          "ms": 3194,
           "data": {
-            "vencedor": "pollinations"
+            "vencedor": "kilo"
           }
         },
         {
           "phase": "connect",
           "name": "servidores do bot",
           "status": "PASS",
-          "detail": "1: asta (1546763083005825084)",
+          "detail": "1: Pinguim (1546763083005825084)",
           "ms": 0,
           "data": {}
         },
@@ -365,14 +365,14 @@
           "phase": "connect",
           "name": "login e gateway",
           "status": "PASS",
-          "detail": "conectado como Atlas#1985 · gateway em 68ms",
-          "ms": 2900,
+          "detail": "conectado como Atlas#1985 · gateway em 70ms",
+          "ms": 2960,
           "data": {
             "usuario": "Atlas#1985",
-            "latencia_ms": 68,
+            "latencia_ms": 70,
             "servidores": [
               {
-                "nome": "asta",
+                "nome": "Pinguim",
                 "id": 1546763083005825084,
                 "membros": 4
               }
@@ -383,8 +383,8 @@
           "phase": "connect",
           "name": "servidor e autor do teste",
           "status": "PASS",
-          "detail": "servidor de teste: asta (1546763083005825084) · autor: ek8a (administrador)",
-          "ms": 644,
+          "detail": "servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador)",
+          "ms": 137,
           "data": {}
         }
       ]
@@ -456,7 +456,7 @@
           "name": "estado local bate com a API",
           "status": "PASS",
           "detail": "cache local bate com a API REST (7 canais, 4 cargos)",
-          "ms": 308,
+          "ms": 282,
           "data": {}
         }
       ]
@@ -468,7 +468,7 @@
           "phase": "tools",
           "name": "server_info",
           "status": "PASS",
-          "detail": "📊 **Informações de asta:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 7 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00",
+          "detail": "📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 7 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00",
           "ms": 0,
           "data": {}
         },
@@ -495,7 +495,7 @@
           "name": "show_permissions",
           "status": "PASS",
           "detail": "O canal <#1546763083727249481> não possui permissões personalizadas configuradas.",
-          "ms": 130,
+          "ms": 135,
           "data": {}
         },
         {
@@ -511,7 +511,7 @@
           "name": "APIs externas (cores/emojis/tópicos/tradução)",
           "status": "PASS",
           "detail": "5 APIs externas responderam",
-          "ms": 1398,
+          "ms": 1254,
           "data": {
             "falhas": []
           }
@@ -524,17 +524,22 @@
         {
           "phase": "agent",
           "name": "prompt → ferramenta → resposta coerente",
-          "status": "WARN",
-          "detail": "o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 27, 'ferramentas_chamadas': [], 'chars': 101, 'vencedor': 'pollinations'}]) — o provedor gratuito não cooperou nesta rodada ('**Cargos disponíveis no servidor:**\\n\\n- Cupido  \\n- Atlas  \\n- iTinder  \\n- everyone (código: @@everyone)'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
-          "ms": 0,
-          "data": {}
+          "status": "PASS",
+          "detail": "ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Atlas', 'iTinder']",
+          "ms": 7547,
+          "data": {
+            "ferramentas": [
+              "list_roles"
+            ],
+            "vencedor": "kilo"
+          }
         },
         {
           "phase": "agent",
           "name": "fora de escopo é recusado sem executar",
           "status": "PASS",
-          "detail": "recusou moderação sem chamar ferramentas: 'Desculpe, mas não posso ajudar com banimentos ou outras ações de moderação. Meu foco é ape'",
-          "ms": 30345,
+          "detail": "recusou moderação sem chamar ferramentas: 'Não posso banir usuários — meu foco exclusivo é **montar e organizar a estrutura do servid'",
+          "ms": 3130,
           "data": {
             "tool_calls": []
           }
@@ -544,15 +549,15 @@
           "name": "agente conhece a estrutura real",
           "status": "PASS",
           "detail": "citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto)",
-          "ms": 30039,
+          "ms": 53979,
           "data": {}
         },
         {
           "phase": "agent",
           "name": "memória do canal entre turnos",
-          "status": "PASS",
-          "detail": "histórico do canal lembrado entre turnos",
-          "ms": 89899,
+          "status": "WARN",
+          "detail": "não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Os gratuitos compartilham o IP'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
+          "ms": 0,
           "data": {}
         }
       ]
@@ -565,23 +570,23 @@
           "name": "infra: categoria e canais de teste",
           "status": "PASS",
           "detail": "categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
-          "ms": 1742,
+          "ms": 1545,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "create_channels DENTRO de categoria (via ferramenta)",
           "status": "PASS",
-          "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz'])",
-          "ms": 1037,
+          "detail": "texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro'])",
+          "ms": 1087,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "create_channels na RAIZ (via ferramenta)",
           "status": "PASS",
-          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-categoria', '🧪-raiz-voz', '🧪-raiz-texto'])",
-          "ms": 1153,
+          "detail": "texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria'])",
+          "ms": 728,
           "data": {}
         },
         {
@@ -589,7 +594,7 @@
           "name": "edit_channel alterou de verdade",
           "status": "PASS",
           "detail": "nome, tópico e slowmode confirmados na API (🧪-renomeado)",
-          "ms": 290,
+          "ms": 305,
           "data": {}
         },
         {
@@ -597,9 +602,9 @@
           "name": "clone_channel clonou de verdade",
           "status": "PASS",
           "detail": "clone 🧪-clone criado com a mesma categoria",
-          "ms": 1263,
+          "ms": 1805,
           "data": {
-            "clone_id": 1550290591810592809
+            "clone_id": 1550299313760899122
           }
         },
         {
@@ -607,7 +612,7 @@
           "name": "move_channel moveu de verdade",
           "status": "PASS",
           "detail": "saiu e voltou de categoria, confirmado pela API",
-          "ms": 2047,
+          "ms": 834,
           "data": {}
         },
         {
@@ -623,7 +628,7 @@
           "name": "cargos: criar/editar/atribuir de verdade",
           "status": "PASS",
           "detail": "cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor",
-          "ms": 53519,
+          "ms": 54635,
           "data": {}
         },
         {
@@ -631,7 +636,7 @@
           "name": "permissões de canal confirmadas pela API",
           "status": "PASS",
           "detail": "set, sync, clear e show (com filtro por target) confirmados pela API",
-          "ms": 2472,
+          "ms": 1922,
           "data": {}
         },
         {
@@ -639,7 +644,7 @@
           "name": "import_structure recriou a estrutura",
           "status": "PASS",
           "detail": "import recriou 3 canais e 2 cargo(s)",
-          "ms": 2263,
+          "ms": 2383,
           "data": {
             "canais": 3
           }
@@ -649,23 +654,23 @@
           "name": "fluxo de confirmação em canais reais",
           "status": "PASS",
           "detail": "2 canais: pediu confirmação e só apagou com confirmed=true",
-          "ms": 2691,
+          "ms": 1497,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente apaga canal nominal sem travar",
-          "status": "WARN",
-          "detail": "não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 3 provedores de LLM respondeu (llm7/tools, ovh, pollinations) depois de 2 tentativa(s). Erros: llm7'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
-          "ms": 0,
+          "status": "PASS",
+          "detail": "agente apagou o canal nominal direto: 'Pronto! O canal **#🧪-efemero** foi excluído com sucesso. 🗑️'",
+          "ms": 53932,
           "data": {}
         },
         {
           "phase": "mutate",
           "name": "agente pede confirmação em lote e apaga após 'sim'",
-          "status": "WARN",
-          "detail": "o modelo nem tentou excluir os 2 canais — o provedor gratuito não cooperou nesta rodada ('Confirma que posso apagar os canais <#1550291079390171146> e <#1550291079482449993>?'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
-          "ms": 0,
+          "status": "PASS",
+          "detail": "pediu confirmação e apagou depois do 'sim' ('Confirma que posso apagar os canais **#🧪-lote-1** e **#🧪-lot')",
+          "ms": 22362,
           "data": {}
         },
         {
@@ -673,7 +678,7 @@
           "name": "apply_template (--allow-template)",
           "status": "PASS",
           "detail": "template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza)",
-          "ms": 3783,
+          "ms": 3889,
           "data": {
             "canais": 9
           }
@@ -703,8 +708,8 @@
           "phase": "botloop",
           "name": "canal temporário de teste",
           "status": "PASS",
-          "detail": "canal temporário 🧪-loop-do-bot (1550291304666366032) criado",
-          "ms": 874,
+          "detail": "canal temporário 🧪-loop-do-bot (1550299960346546236) criado",
+          "ms": 769,
           "data": {}
         },
         {
@@ -735,8 +740,8 @@
           "phase": "botloop",
           "name": "menção dispara o agente e responde",
           "status": "PASS",
-          "detail": "on_message → agente → resposta real no canal: 'Pinguim'",
-          "ms": 7650,
+          "detail": "on_message → agente → resposta real no canal: 'O servidor chama-se **Pinguim**.'",
+          "ms": 3167,
           "data": {}
         },
         {
@@ -744,7 +749,7 @@
           "name": "reações de feedback 👀→✅",
           "status": "PASS",
           "detail": "reações corretas no Discord real: ['✅']",
-          "ms": 180,
+          "ms": 200,
           "data": {
             "reacoes": [
               "✅"
@@ -754,9 +759,9 @@
         {
           "phase": "botloop",
           "name": "ferramenta real acionada por mensagem",
-          "status": "WARN",
-          "detail": "o bot não criou o canal — o provedor gratuito não cooperou nesta rodada ('🤖 Os modelos gratuitos estão com a fila cheia agora (limite de uso). Tente de novo em alguns segundos — já ten'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.)",
-          "ms": 0,
+          "status": "PASS",
+          "detail": "o bot criou de verdade: ['🧪-via-bot']",
+          "ms": 9621,
           "data": {}
         }
       ]
@@ -768,7 +773,7 @@
           "phase": "sweep",
           "name": "varredura de sobras",
           "status": "PASS",
-          "detail": "2 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop)",
+          "detail": "3 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot)",
           "ms": 0,
           "data": {}
         }
