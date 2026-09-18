@@ -37,7 +37,10 @@
 
 ### Experimento cru (sem passar pelo produto)
 
-- Criei **🧪 sonda-hierarquia-1789759093** (`1550586765373481160`) → o Discord colocou na **posição 1** (meu cargo está na 26).
+- Criei **🧪 sonda-hierarquia-1789759231** (`1550587344472776856`) → o Discord colocou na **posição 1** (meu cargo está na 26).
 - ✏️ **RENOMEAR: o Discord ACEITOU** mesmo na mesma posição.
-- 🗑️ **APAGAR: o Discord ACEITOU** o cargo criado por mim.
+- ✏️ Renomear ABAIXO do meu topo: o Discord **ACEITOU**.
+- ⬆️ Movi o cargo de teste para a posição 26 (a MESMA do meu topo).
+- ✏️ **EMPATE: RENOMEAR foi ACEITO** — o Discord não recusa por posição igual; quem recusava era o NOSSO gate.
+- 🗑️ **EMPATE: APAGAR foi ACEITO** — a regra é estritamente ABAIXO; cargo empatado é apagável, sim.
 
