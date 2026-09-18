@@ -991,6 +991,38 @@ class TestAgentWithPlainTextProvider(unittest.TestCase):
         )
 
         self.assertIn("<#999>", result)
+        # Atalho de velocidade: com UMA ferramenta o bot já responde o resultado dela — a
+        # segunda ida ao modelo (que só existia para "resumir") era o delay sentido no Discord.
+        self.assertEqual(len(session.calls), 1)
+        self.assertIn("Criei 1 canal", result)
+
+    def test_resultado_de_ferramenta_volta_ao_modelo_quando_ha_mais_de_uma(self) -> None:
+        """Com duas ferramentas no turno, o histórico saneado (sem role=tool) ainda vale."""
+        from brain.agent import Agent
+        from brain.memory import ChannelMemory
+
+        tool_block = (
+            "Vou fazer isso:\n```tool\n"
+            '{"name": "create_channels", "args": {"channels": [{"name": "avisos", "type": "text"}]}}\n'
+            "```"
+        )
+        session = FakeSession([
+            FakeResponse(200, ok_payload(tool_block)),
+            FakeResponse(200, ok_payload("Pronto! Criei <#999> e listei os cargos.")),
+        ])
+        provider = provider_de_teste(session)
+        agent = Agent(llm_provider=provider, memory=ChannelMemory())
+
+        result = asyncio.run(
+            agent.process_turn(
+                guild=self.guild,
+                channel=self.channel,
+                actor=self.actor,
+                prompt="cria o canal avisos e me diga quantos cargos existem",
+            )
+        )
+
+        self.assertIn("<#999>", result)
         self.assertEqual(len(session.calls), 2)
         second_payload = session.calls[1]["payload"]
         self.assertNotIn("tools", second_payload)

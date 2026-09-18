@@ -448,8 +448,54 @@ async def op_create_channels(ctx: ToolContext, channels: list[dict[str, Any]]) -
 
     guild = ctx.guild
 
+    # Canal com o MESMO nome já existente não vira cópia: o dono do servidor reclamou de canais
+    # duplicados (a conversa repetia o pedido e o modelo repetia a chamada). Se for para ter uma
+    # cópia de verdade, o caminho é `clone_channel` — aí a cópia é o pedido, não um engano.
+    por_nome: dict[str, list[Any]] = {}
+    for canal in getattr(guild, "channels", []):
+        por_nome.setdefault(str(getattr(canal, "name", "")).strip().casefold(), []).append(canal)
+
+    alvos_apagados = {str(a).strip().casefold() for a in (getattr(ctx, "alvos_apagados", None) or set())}
+    pulados: list[str] = []
+
+    def _vai_ser_apagado(nome: str, objeto: Any) -> bool:
+        """O canal que já existe com esse nome está na lista de exclusão desta mensagem?"""
+        ident = str(getattr(objeto, "id", "")).strip().casefold()
+        return nome.strip().casefold() in alvos_apagados or (ident and ident in alvos_apagados)
+
+    def _ja_existe(nome: str, parent: Any, pediu_lugar: bool) -> Any:
+        """
+        Devolve o canal que torna esta criação uma duplicata, ou None.
+
+        - pedido SEM categoria: qualquer canal com o mesmo nome já atende (era repetição do pedido);
+        - pedido COM categoria: só é duplicata se houver o mesmo nome NAQUELE lugar — pedir um
+          lugar diferente é escolha do usuário, não engano.
+        """
+        candidatos = por_nome.get(nome.strip().casefold(), [])
+        if not candidatos:
+            return None
+        if not pediu_lugar:
+            return candidatos[0]
+        alvo_id = getattr(parent, "id", None)
+        return next((c for c in candidatos
+                     if getattr(getattr(c, "category", None), "id", None) == alvo_id), None)
+
     async def _create_one(item: dict[str, Any]) -> str:
+        nome = str(item.get("name", "")).strip()
+        categoria_item = item.get("category")
+        parent = None
+        if categoria_item:
+            try:
+                parent = resolve_channel(guild, str(categoria_item))
+            except Exception:  # noqa: BLE001 - categoria inválida: deixa a criação reclamar
+                parent = None
+        ja_existe = _ja_existe(nome, parent, pediu_lugar=bool(categoria_item))
+        if nome and ja_existe is not None and not _vai_ser_apagado(nome, ja_existe):
+            pulados.append(nome)
+            return f"#{nome} (já existia — não dupliquei)"
         created = await _criar_canal_do_item(guild, item)
+        if nome:  # o lote não repete este nome, e a próxima ordem também não
+            por_nome.setdefault(nome.strip().casefold(), []).append(created)
         cid = getattr(created, "id", "")
         cname = getattr(created, "name", item.get("name", ""))
         return f"<#{cid}>" if cid else f"#{cname}"
@@ -460,8 +506,17 @@ async def op_create_channels(ctx: ToolContext, channels: list[dict[str, Any]]) -
         tipo_pedido = str(channels[0].get("type", "text")).lower() if channels else "text"
         raise ToolError(f"Falha ao criar canais: {_traduzir_erro_de_canal(tipo_pedido, err)}")
 
-    created_links = " ".join(res.succeeded)
-    return f"Pronto! Criei {len(res.succeeded)} canal(is): {created_links} 🎉 ({res.summary()})"
+    criados = [c for c in res.succeeded if "(já existia" not in c]
+    created_links = " ".join(criados)
+    aviso = ""
+    if pulados:
+        nomes = ", ".join(f"**#{n}**" for n in pulados[:5])
+        aviso = (f" ⚠️ {len(pulados)} já existia(m) com esse nome no mesmo lugar e eu NÃO "
+                 f"dupliquei: {nomes} (quer uma cópia de verdade? me peça para clonar o canal).")
+    if not criados:
+        return f"Nenhum canal novo criado.{aviso}".strip()
+    return (f"Pronto! Criei {len(criados)} canal(is): {created_links} 🎉 "
+            f"({res.summary()}){aviso}")
 
 
 async def op_edit_channel(
@@ -619,12 +674,28 @@ async def op_clone_channel(
     if not cloner:
         raise ToolError(f"O canal '{channel}' não suporta clonagem.")
 
+    nome_original = getattr(ch, "name", str(channel))
     kwargs = {}
     if name:
         kwargs["name"] = name
     cloned = await cloner(**kwargs)
     cid = getattr(cloned, "id", "")
-    return f"Canal clonado com sucesso: <#{cid}> 🎉"
+
+    # O clone do discord.py copia tópico/NSFW/modo lento/categoria/permissões (e, em voz,
+    # bitrate+limite) — mas NÃO copia a POSIÇÃO: o "canal recriado" caía no fim da lista.
+    posicao = getattr(ch, "position", None)
+    aviso_posicao = ""
+    editor = getattr(cloned, "edit", None)
+    if posicao is not None and callable(editor):
+        try:
+            await editor(position=int(posicao))
+            aviso_posicao = f", posição {int(posicao)}"
+        except Exception as exc:  # noqa: BLE001 - a cópia já existe; a posição é o acabamento
+            aviso_posicao = f" (⚠️ não consegui copiar a posição {int(posicao)}: {exc})"
+
+    return (f"Canal clonado: <#{cid}> 🎉 (copiei tópico, NSFW, modo lento, categoria e "
+            f"permissões{aviso_posicao}). O original **#{nome_original}** continua aí — se ele não "
+            "devia ficar, me diga que eu apago.")
 
 
 # --- 2. Cargos (6) ---
@@ -643,10 +714,32 @@ async def op_create_roles(
     guild = ctx.guild
     permissoes_globais = [str(p) for p in (permissions or [])]
 
+    # Nome já existente NÃO vira cargo duplicado: o dono do servidor reclamou de cargos
+    # repetidos criados por uma ordem só (o modelo repetia a chamada / a conversa repetia o
+    # pedido). Criar de novo com o mesmo nome é quase sempre engano; se for de propósito, o
+    # caminho é editar o cargo que existe.
+    existentes = {str(getattr(r, "name", "")).strip().casefold(): r
+                  for r in getattr(guild, "roles", [])
+                  if not getattr(r, "is_default", lambda: False)()}
+    # Alvos que a MESMA mensagem vai apagar: recriar ("apague o cargo X e crie X de novo") não
+    # é duplicata — Se não for isso, o "apague X" cairia num cargo que acabou de nascer.
+    alvos_apagados = {str(a).strip().casefold() for a in (getattr(ctx, "alvos_apagados", None) or set())}
+    pulados: list[str] = []
+
+    def _vai_ser_apagado(nome: str, objeto: Any) -> bool:
+        ident = str(getattr(objeto, "id", "")).strip().casefold()
+        return nome.strip().casefold() in alvos_apagados or (ident and ident in alvos_apagados)
+
     async def _create_role_item(item: dict[str, Any]) -> str:
         name = str(item.get("name", "")).strip()
         if not name:
             raise ToolError("Todo cargo precisa de um nome.")
+        chave = name.casefold()
+        ja_existe = existentes.get(chave)
+        if ja_existe is not None and not _vai_ser_apagado(name, ja_existe):
+            # marca na hora (antes de qualquer await) para o LOTE não criar duas vezes o mesmo
+            pulados.append(name)
+            return f"@{name} (já existia — não dupliquei)"
         color_val = _parse_color(item.get("color"))
         hoist = bool(item.get("hoist", False))
         mentionable = bool(item.get("mentionable", False))
@@ -669,6 +762,7 @@ async def op_create_roles(
             raise ToolError("Servidor não suporta criação de cargos.")
 
         role_obj = await _criar_com_retentativa(creator, **kwargs)
+        existentes[name.casefold()] = role_obj  # o lote não repete este nome nem que ele seja apagado
         rid = getattr(role_obj, "id", "")
         return f"<@&{rid}>" if rid else f"@{name}"
 
@@ -677,7 +771,13 @@ async def op_create_roles(
         err = res.failed[0][1]
         raise ToolError(f"Falha ao criar cargos: {err}")
 
-    created_roles = " ".join(res.succeeded)
+    criados_de_verdade = max(0, len(res.succeeded) - len(pulados))
+    created_roles = " ".join(r for r in res.succeeded if "(já existia" not in r)
+    aviso_duplicado = ""
+    if pulados:
+        nomes_pulados = ", ".join(f"**{n}**" for n in pulados[:5])
+        aviso_duplicado = (f" ⚠️ {len(pulados)} cargo(s) já existiam e eu NÃO dupliquei: "
+                           f"{nomes_pulados} (se quiser mudar, me peça para editar o cargo).")
 
     # Honestidade: cargo criado nasce embaixo na hierarquia. Se o meu cargo mais alto estiver
     # no chão do servidor, eu crio mas NÃO consigo editar/apagar depois — o dono precisa saber
@@ -695,11 +795,15 @@ async def op_create_roles(
                      "eu NÃO vou conseguir editá-los nem apagá-los (regra de hierarquia do "
                      "Discord). Suba o meu cargo se quiser gerenciá-los.")
 
+    if not criados_de_verdade:
+        return (f"Nenhum cargo novo criado.{aviso_duplicado}".strip())
+
     if permissoes_globais:
         nomes_txt = ", ".join(resolver_permissoes(permissoes_globais))
-        return (f"Criei {len(res.succeeded)} cargo(s) com as permissões [{nomes_txt}]: "
-                f"{created_roles} ({res.summary()}).{aviso}")
-    return f"Criei {len(res.succeeded)} cargo(s): {created_roles} ({res.summary()}).{aviso}"
+        return (f"Criei {criados_de_verdade} cargo(s) com as permissões [{nomes_txt}]: "
+                f"{created_roles} ({res.summary()}).{aviso}{aviso_duplicado}")
+    return (f"Criei {criados_de_verdade} cargo(s): {created_roles} ({res.summary()})."
+            f"{aviso}{aviso_duplicado}")
 
 
 async def op_edit_role(
@@ -806,12 +910,11 @@ def _erro_transitorio(exc: Exception) -> bool:
     o cargo não nasceu e as verificações seguintes caíram em cascata. Um 5xx do Discord significa
     que a ação NÃO foi executada, então vale uma segunda tentativa antes de desistir.
     """
+    # Só 5xx CONFIRMADO (status na resposta). Antes havia também casamento por texto, e um
+    # timeout ambíguo podia ser repetido — se a criação tivesse dado certo, repetir geraria
+    # cargo/canal DUPLICADO (o dono do servidor viu cargos repetidos).
     status = getattr(exc, "status", None)
-    if isinstance(status, int) and status >= 500:
-        return True
-    texto = str(exc).lower()
-    return any(t in texto for t in ("service unavailable", "internal server error",
-                                    "bad gateway", "gateway timeout"))
+    return isinstance(status, int) and status >= 500
 
 
 async def _com_retentativa(chamada: Any, *args: Any, **kwargs: Any) -> Any:

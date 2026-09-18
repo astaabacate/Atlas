@@ -3199,7 +3199,10 @@ class Harness:
                          import_recria_capacidades)
 
         async def repeticao_sem_efeito_colateral() -> str:
-            """Repetir a mesma operação 3x não pode duplicar efeito nem quebrar."""
+            """
+            Repetir a MESMA ordem não pode duplicar NADA (bug relatado pelo dono: cargos e
+            canais repetidos). Tem que ser idempotente: uma ordem repetida = um canal.
+            """
             nome = f"{TEMP_MARK}-caps-repetido"
             for _ in range(3):
                 antes_rep = await self._api_state(guild)
@@ -3207,13 +3210,32 @@ class Harness:
                     {"name": nome, "type": "text", "category": str(categoria.id)}]})
                 await self._capture_new(guild, antes_rep)
             canais = [c for c in await guild.fetch_channels() if c.name == nome]
-            for canal in canais:  # edita pelo ID: por nome o Discord resolveria sempre o primeiro
-                await ferramenta("edit_channel", {"channel": str(canal.id), "topic": "repetido"})
-            self.assert_true(len(canais) == 3, f"criações repetidas deram {len(canais)} canais")
-            for canal in canais:
-                fresco = await guild.fetch_channel(canal.id)
-                self.assert_true(fresco.topic == "repetido", "a edição repetida não pegou em todos")
-            return "3 canais iguais criados e editados em sequência, todos com o estado esperado"
+            self.assert_true(len(canais) == 1,
+                             f"a mesma ordem repetida 3x criou {len(canais)} canais (esperado 1)")
+            # o mesmo nome duas vezes NUMA chamada também não pode duplicar
+            nome_lote = f"{TEMP_MARK}-caps-lote-repetido"
+            antes_lote = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": nome_lote, "type": "text", "category": str(categoria.id)},
+                {"name": nome_lote, "type": "text", "category": str(categoria.id)}]})
+            await self._capture_new(guild, antes_lote)
+            do_lote = [c for c in await guild.fetch_channels() if c.name == nome_lote]
+            self.assert_true(len(do_lote) == 1,
+                             f"o lote com o mesmo nome criou {len(do_lote)} canais (esperado 1)")
+            # nome novo continua nascendo (a trava de duplicata não quebrou a criação)
+            nome_novo = f"{TEMP_MARK}-caps-novo"
+            antes_novo = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": nome_novo, "type": "text", "category": str(categoria.id)}]})
+            await self._capture_new(guild, antes_novo)
+            novos = [c for c in await guild.fetch_channels() if c.name == nome_novo]
+            self.assert_true(len(novos) == 1, f"o canal novo não nasceu ({len(novos)})")
+            # a edição continua funcionando no canal que existe
+            await ferramenta("edit_channel", {"channel": str(canais[0].id), "topic": "repetido"})
+            fresco = await guild.fetch_channel(canais[0].id)
+            self.assert_true(fresco.topic == "repetido", "a edição não pegou")
+            return ("3 ordens iguais = 1 canal (sem duplicata), lote com nome repetido = 1 canal, "
+                    "nome novo nasce normalmente e a edição continua pegando")
 
         await self.check(phase, "repetição: mesma ordem várias vezes não quebra nem duplica efeito",
                          repeticao_sem_efeito_colateral)

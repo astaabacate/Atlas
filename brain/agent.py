@@ -76,6 +76,21 @@ _MARCADORES_PORTUGUES = (
 # só repetia o que a ferramenta já disse.
 TERMINAL_TOOLS = frozenset({"delete_channels", "delete_role", "clear_messages"})
 
+# Ordem de execução DENTRO da mesma mensagem. "Recriar o canal" vira clone + delete: se o
+# delete rodar primeiro e a criação falhar, o canal some e não volta (foi o que o dono do
+# servidor viu). Quem CRIA roda antes; quem APAGA roda depois — e só se a criação deu certo.
+TOOLS_QUE_CRIAM = frozenset({
+    "create_channels", "create_roles", "clone_channel", "import_structure", "apply_template",
+    "edit_channel", "edit_role", "set_permissions", "clear_permissions", "sync_permissions",
+    "give_role", "take_role", "move_channel",
+})
+TOOLS_QUE_APAGAM = frozenset({"delete_channels", "delete_role", "clear_messages"})
+# Destes, os que CRIAM algo novo. Só a FALHA de um deles bloqueia exclusões da mesma mensagem:
+# uma edição que falha não pode travar o "apague o canal Y" que veio na mesma frase.
+TOOLS_QUE_CRIAM_DE_VERDADE = frozenset({
+    "create_channels", "create_roles", "clone_channel", "import_structure", "apply_template",
+})
+
 # Pedido extra na mesma frase ("apague os canais E MANDE OI", "e depois me diga"): nesse caso
 # o resultado da ferramenta NÃO é a resposta completa — o modelo precisa continuar.
 _PEDIDO_EXTRA_RE = re.compile(
@@ -108,6 +123,66 @@ _ASKING_RE = re.compile(r"confirm|posso apagar|tem certeza|certeza disso|autoriz
 def asks_for_confirmation(text: str) -> bool:
     """True quando a resposta do agente está pedindo um 'sim' antes de destruir algo."""
     return bool(_ASKING_RE.search(_strip_accents((text or "").lower())))
+
+
+def _ordenar_por_seguranca(tool_calls: list[Any]) -> list[Any]:
+    """
+    Quem cria/copia vem antes de quem apaga, mantendo a ordem original dentro de cada grupo.
+
+    Sem isso, "recrie o canal X" podia executar o `delete_channels` antes do clone: se a criação
+    falhasse (modelo fora do ar, limite de requisições), o canal sumia e não voltava.
+    """
+    def peso(call: Any) -> int:
+        nome = getattr(call, "name", "")
+        if nome in TOOLS_QUE_APAGAM:
+            return 2
+        if nome in TOOLS_QUE_CRIAM:
+            return 0
+        return 1
+
+    return sorted(tool_calls, key=peso)
+
+
+def _assinatura_da_chamada(call: Any) -> str:
+    """Identidade da chamada (nome + argumentos) para não executar a mesma coisa duas vezes."""
+    try:
+        args = json.dumps(call.args or {}, sort_keys=True, ensure_ascii=False)
+    except Exception:  # noqa: BLE001 - argumento exótico não pode derrubar o turno
+        args = repr(call.args)
+    return f"{getattr(call, 'name', '')}:{args}"
+
+
+# Marca do resultado devolvido quando o modelo repete a MESMA chamada: entra no histórico para
+# o modelo entender que já foi feito, mas NUNCA é a resposta mostrada ao usuário.
+_REPETIDA_PREFIXO = "(já executei esta mesma chamada nesta mensagem)"
+
+
+def _resultado_apresentavel(resultado: str) -> bool:
+    """True para resultado real de ferramenta (não erro, não aviso de chamada repetida)."""
+    return bool(resultado) and not resultado.startswith(("Erro", _REPETIDA_PREFIXO))
+
+
+def _normalizar_alvo(valor: Any) -> str:
+    """Nome/id de um alvo em forma comparável ("#Geral", "<#123>", "123" → "geral"/"123")."""
+    txt = str(valor).strip().casefold()
+    m = re.fullmatch(r"<(?:#|@&?)?(\d+)>", txt) or re.fullmatch(r"[#@&]?(\d+)", txt)
+    if m:
+        return m.group(1)
+    return txt.lstrip("#@&").strip()
+
+
+def _alvos_de_exclusao(tool_calls: list[Any]) -> set[str]:
+    """Nomes/ids que esta mensagem vai apagar (para não confundir recriação com duplicata)."""
+    alvos: set[str] = set()
+    for call in tool_calls:
+        args = dict(getattr(call, "args", None) or {})
+        nome = getattr(call, "name", "")
+        if nome == "delete_channels":
+            alvos.update(_normalizar_alvo(c) for c in (args.get("channels") or []))
+        elif nome == "delete_role":
+            if args.get("role"):
+                alvos.add(_normalizar_alvo(args["role"]))
+    return alvos
 
 
 def _extract_fallback_tool_calls(text: str) -> list[ToolCall]:
@@ -243,10 +318,15 @@ class Agent:
         nenhum modelo" — o cliente acharia que nada aconteceu. Preferimos o resultado real da
         ferramenta (já em português) e, sem ele, dizemos exatamente quais ações rodaram.
         """
-        for resultado in reversed(execucoes_finais):
-            if resultado and not resultado.startswith("Erro") and self.resposta_ruim(resultado) is None:
-                self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
-                return resultado
+        reais = [r for r in execucoes_finais
+                 if _resultado_apresentavel(r) and self.resposta_ruim(r) is None]
+        if reais:
+            # 2+ ações no mesmo pedido ("recrie o canal" = criou + apagou): mostrar só a última
+            # esconderia metade do que foi feito. Junta as duas, desde que continue curto.
+            combinado = " · ".join(dict.fromkeys(reais))
+            texto = combinado if len(reais) > 1 and len(combinado) <= 500 else reais[-1]
+            self.memory.add_message(channel_id, {"role": "assistant", "content": texto})
+            return texto
 
         acoes = ", ".join(dict.fromkeys(execucoes))
         texto = (
@@ -296,7 +376,7 @@ class Agent:
             logger.warning("reescrita em PT-BR falhou (%s)", exc)
 
         for resultado in reversed(execucoes_finais):
-            if resultado and not resultado.startswith("Erro") and self.resposta_ruim(resultado) is None:
+            if _resultado_apresentavel(resultado) and self.resposta_ruim(resultado) is None:
                 self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
                 return resultado
 
@@ -444,16 +524,40 @@ class Agent:
             messages.append(assistant_msg)
             self.memory.add_message(channel_id, assistant_msg)
 
-            # Executar cada ferramenta
+            # Executar cada ferramenta — na ordem segura, sem repetir a mesma chamada e sem
+            # apagar nada quando a criação da mesma mensagem falhou.
             pedindo_confirmacao: set[str] = set()
-            for call in tool_calls:
-                args = self._authorize_confirmed(channel_id, call.name, dict(call.args or {}), prompt)
-                try:
-                    result_str = await execute_tool(call.name, args, ctx)
-                except ToolError as exc:
-                    result_str = f"Erro: {exc}"
-                except Exception as exc:
-                    result_str = f"Erro inesperado: {exc}"
+            falhou_criacao = False
+            # "recrie o canal X" manda apagar X e criar X: a criação não pode ser pulada como
+            # duplicata só porque X ainda existe (o delete roda depois, na ordem segura).
+            ctx.alvos_apagados = _alvos_de_exclusao(tool_calls)
+            ja_executadas: dict[str, str] = {}
+            for call in _ordenar_por_seguranca(tool_calls):
+                assinatura = _assinatura_da_chamada(call)
+                if assinatura in ja_executadas:
+                    # O modelo repetiu a MESMA chamada (acontece com os gratuitos): rodar de novo
+                    # criava cargo/canal duplicado. Devolve o primeiro resultado e segue.
+                    anterior = ja_executadas[assinatura]
+                    result_str = f"{_REPETIDA_PREFIXO} {anterior}"
+                    logger.info("Chamada repetida ignorada: %s", call.name)
+                else:
+                    args = self._authorize_confirmed(channel_id, call.name,
+                                                     dict(call.args or {}), prompt)
+                    if call.name in TOOLS_QUE_APAGAM and falhou_criacao:
+                        result_str = ("Erro: não apaguei nada porque a criação pedida na mesma "
+                                      "mensagem falhou — apagar agora deixaria o servidor sem o "
+                                      "substituto. Corrija a criação e me peça de novo.")
+                        logger.warning("Exclusão bloqueada: a criação da mesma mensagem falhou")
+                    else:
+                        try:
+                            result_str = await execute_tool(call.name, args, ctx)
+                        except ToolError as exc:
+                            result_str = f"Erro: {exc}"
+                        except Exception as exc:
+                            result_str = f"Erro inesperado: {exc}"
+                    ja_executadas[assinatura] = result_str
+                    if call.name in TOOLS_QUE_CRIAM_DE_VERDADE and result_str.startswith("Erro"):
+                        falhou_criacao = True
 
                 execucoes.append(call.name)
                 execucoes_finais.append(result_str)
@@ -476,13 +580,14 @@ class Agent:
                 # a ferramenta destrutiva rodou de verdade (o usuário já havia confirmado)
                 self._aguardando_confirmacao.pop(channel_id, None)
 
-            # Atalho de velocidade: uma única ferramenta terminal que deu certo já produziu
-            # a resposta final — devolvê-la direto evita a segunda chamada ao LLM.
+            # Atalho de velocidade: uma única ferramenta que deu certo já produziu a resposta
+            # final (todas as ferramentas respondem em PT-BR). Devolver direto evita a segunda
+            # chamada ao LLM — era esse ida-e-volta extra que fazia o bot "demorar para agir".
             if (self.direct_tool_reply and len(tool_calls) == 1 and not pedindo_confirmacao
-                    and tool_calls[0].name in TERMINAL_TOOLS
                     and not self._pedido_extra(prompt)):
-                resultado = execucoes_finais[-1] if execucoes_finais else ""
-                if resultado and not resultado.startswith("Erro"):
+                resultado = next((r for r in reversed(execucoes_finais)
+                                  if _resultado_apresentavel(r)), "")
+                if resultado:
                     self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})
                     return resultado
 

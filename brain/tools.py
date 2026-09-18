@@ -25,6 +25,9 @@ class ToolContext:
     memory: Any = None
     # False (padrão): ação pedida de forma direta é executada e informada, sem perguntar.
     confirm_destructive: bool = False
+    # Alvos (nome casefold/id) que a MESMA mensagem vai apagar. Serve para uma recriação
+    # ("apague e crie de novo o canal X") NÃO ser tratada como duplicata da que já existe.
+    alvos_apagados: set[str] = field(default_factory=set)
 
 
 @dataclass

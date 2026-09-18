@@ -347,20 +347,96 @@ class TestCapacidadesDeCargo(unittest.TestCase):
         self.assertIn("hexadecimal", falha("edit_role", {"role": "Alvo", "color": "roxo-neon"}, ctx))
         self.assertIn("negativa", falha("edit_role", {"role": "Alvo", "position": -1}, ctx))
 
-    def test_repeticao_de_criacao_e_edicao(self) -> None:
+    def test_repeticao_de_criacao_nao_duplica_cargo(self) -> None:
+        """
+        Repetir a MESMA ordem não pode criar cargo repetido — era o que o dono do servidor viu
+        (o modelo repetia a chamada e cada repetição criava outro cargo igual).
+        """
         ctx, servidor = contexto()
-        for _ in range(3):
-            executar("create_roles", {"roles": [{"name": "Repetido", "color": "#123456"}]}, ctx)
+        primeira = executar("create_roles", {"roles": [{"name": "Repetido", "color": "#123456"}]}, ctx)
+        self.assertIn("Criei 1 cargo", primeira)
+
+        for _ in range(2):
+            repetida = executar("create_roles", {"roles": [{"name": "Repetido"}]}, ctx)
+            self.assertIn("já existiam", repetida, repetida)
+
         papeis = [r for r in servidor.roles if r.name == "Repetido"]
-        self.assertEqual(len(papeis), 3)
-        for papel in papeis:
-            executar("edit_role", {"role": str(papel.id), "hoist": True}, ctx)
-            self.assertTrue(papel.hoist)
+        self.assertEqual(len(papeis), 1, f"criou cargo duplicado: {[r.name for r in servidor.roles]}")
+
+        # nome diferente continua criando, e a edição do que existe continua funcionando
+        executar("create_roles", {"roles": [{"name": "Outro"}]}, ctx)
+        self.assertEqual(len([r for r in servidor.roles if r.name == "Outro"]), 1)
+        executar("edit_role", {"role": str(papeis[0].id), "hoist": True}, ctx)
+        self.assertTrue(papeis[0].hoist)
+
+    def test_recriacao_do_cargo_nao_e_pulada_como_duplicata(self) -> None:
+        """Cargo que vai ser apagado na mesma mensagem pode ser recriado."""
+        ctx, servidor = contexto()
+        executar("create_roles", {"roles": [{"name": "Volta"}]}, ctx)
+        ctx.alvos_apagados = {"volta"}
+        saida = executar("create_roles", {"roles": [{"name": "Volta"}]}, ctx)
+        self.assertIn("Criei 1 cargo", saida, saida)
+        self.assertEqual([r.name for r in servidor.roles].count("Volta"), 2)
+
+    def test_lote_com_o_mesmo_nome_nao_duplica(self) -> None:
+        """O mesmo nome duas vezes NA MESMA chamada também não pode virar dois cargos."""
+        ctx, servidor = contexto()
+        saida = executar("create_roles", {"roles": [{"name": "Duplicado"}, {"name": "Duplicado"}]}, ctx)
+        self.assertIn("Criei 1 cargo", saida)
+        self.assertEqual(len([r for r in servidor.roles if r.name == "Duplicado"]), 1)
 
 
 # --------------------------------------------------------------------- canais
 
 class TestCapacidadesDeCanal(unittest.TestCase):
+    def test_repeticao_de_criacao_nao_duplica_canal(self) -> None:
+        """Repetir a MESMA ordem não pode criar canal repetido no mesmo lugar."""
+        ctx, servidor = contexto()
+        primeira = executar("create_channels",
+                            {"channels": [{"name": "Repetido", "type": "text"}]}, ctx)
+        self.assertIn("Criei 1 canal", primeira)
+        repetida = executar("create_channels",
+                            {"channels": [{"name": "Repetido", "type": "text"}]}, ctx)
+        self.assertIn("já existia", repetida, repetida)
+        nomes = [c.name for c in servidor.channels]
+        self.assertEqual(nomes.count("Repetido"), 1, f"criou canal duplicado: {nomes}")
+
+    def test_mesmo_nome_em_categoria_diferente_cria(self) -> None:
+        """Pedir o MESMO nome em OUTRO lugar é escolha do usuário, não duplicata."""
+        ctx, servidor = contexto()
+        executar("create_channels", {"channels": [
+            {"name": "Avisos", "type": "text"},
+            {"name": "📁 Gente", "type": "category"},
+        ]}, ctx)
+        saida = executar("create_channels", {"channels": [
+            {"name": "Avisos", "type": "text", "category": "📁 Gente"}]}, ctx)
+        self.assertIn("Criei 1 canal", saida, saida)
+        self.assertEqual([c.name for c in servidor.channels].count("Avisos"), 2)
+
+    def test_recriacao_do_canal_nao_e_pulada_como_duplicata(self) -> None:
+        """
+        "Apague e crie de novo o canal X" (mesma mensagem): o alvo que vai ser apagado pode ser
+        recriado — a trava de duplicata não pode comer a recriação.
+        """
+        ctx, servidor = contexto()
+        executar("create_channels", {"channels": [{"name": "Vai nascer de novo", "type": "text"}]}, ctx)
+        ctx.alvos_apagados = {"vai nascer de novo"}
+        saida = executar("create_channels",
+                         {"channels": [{"name": "Vai nascer de novo", "type": "text"}]}, ctx)
+        self.assertIn("Criei 1 canal", saida, saida)
+        self.assertEqual([c.name for c in servidor.channels].count("Vai nascer de novo"), 2,
+                         "a recriação precisa criar de fato (o antigo ainda não foi apagado)")
+
+    def test_lote_com_o_mesmo_nome_nao_duplica_canal(self) -> None:
+        """O mesmo nome duas vezes NA MESMA chamada também não pode virar dois canais."""
+        ctx, servidor = contexto()
+        saida = executar("create_channels",
+                         {"channels": [{"name": "Duplicado", "type": "text"},
+                                       {"name": "duplicado", "type": "text"}]}, ctx)
+        self.assertIn("Criei 1 canal", saida)
+        self.assertEqual([c.name.lower() for c in servidor.channels].count("duplicado"), 1)
+
+
     def test_todos_os_tipos_suportados(self) -> None:
         casos = {"text": "text", "voice": "voice", "category": "category",
                  "stage": "stage", "forum": "forum",
@@ -481,6 +557,8 @@ class TestCapacidadesDeCanal(unittest.TestCase):
         canal.nsfw = True
         canal.slowmode_delay = 15
         saida = executar("clone_channel", {"channel": "geral", "name": "cópia"}, ctx)
+        self.assertIn("posição", saida, "o clone tem que copiar a posição (senão a cópia cai no fim)")
+        self.assertIn("continua aí", saida, "a resposta tem que dizer que o original não sumiu")
         self.assertTrue(canal.clonado)
         self.assertIn("clonado", saida)
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+import unittest.mock
 from types import SimpleNamespace
 from typing import Any
 
@@ -101,7 +102,36 @@ class TestAgent(unittest.TestCase):
             )
         )
         self.assertIn("<#777>", res)
-        self.assertEqual(len(fake_llm.call_history), 2)
+        # ATALHO DE VELOCIDADE: uma ferramenta só já responde o usuário — nada de segunda
+        # chamada ao modelo (era esse ida-e-volta que o dono do servidor sentia como delay).
+        self.assertEqual(len(fake_llm.call_history), 1)
+        self.assertIn("Criei 1 canal", res)
+
+    def test_duas_ferramentas_ainda_passam_pelo_modelo(self) -> None:
+        """Com mais de uma ferramenta no mesmo turno, o modelo continua compondo a resposta."""
+        created_channel = SimpleNamespace(id=777, name="anuncios")
+
+        async def fake_create_text_channel(name, **kwargs):
+            return created_channel
+
+        self.guild.create_text_channel = fake_create_text_channel
+
+        fake_llm = FakeLLM([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="create_channels",
+                         args={"channels": [{"name": "anuncios", "type": "text"}]}),
+                ToolCall(id="c2", name="list_roles", args={}),
+            ]),
+            LLMResponse(content="Criei o canal e listei os cargos.", tool_calls=[]),
+        ])
+
+        agent = Agent(llm_provider=fake_llm, memory=ChannelMemory())
+        res = asyncio.run(agent.process_turn(
+            guild=self.guild, channel=self.channel, actor=self.actor,
+            prompt="cria o canal anuncios e me diga os cargos"))
+
+        self.assertEqual(len(fake_llm.call_history), 2, "duas ferramentas ainda pedem o resumo")
+        self.assertIn("listei os cargos", res)
 
     def test_fallback_tool_markdown(self) -> None:
         """
@@ -138,7 +168,8 @@ class TestAgent(unittest.TestCase):
             )
         )
         self.assertIn("<#888>", res)
-        self.assertEqual(len(fake_llm.call_history), 2)
+        self.assertEqual(len(fake_llm.call_history), 1, "uma ferramenta só responde direto")
+        self.assertIn("Criei 1 canal", res)
 
     def test_tool_error_handled_gracefully(self) -> None:
         """
@@ -184,15 +215,22 @@ class TestAgent(unittest.TestCase):
         o agente interrompe o loop e solicita um resumo final.
         """
         responses = [
-            # Rodada 1: tool call
+            # Rodada 1: DUAS chamadas (com uma só, o atalho de velocidade responderia direto e o
+            # teste do limite não exercitaria o caminho do resumo final)
             LLMResponse(
                 content="",
-                tool_calls=[ToolCall(id="c_0", name="color_palette", args={"query": "gamer"})],
+                tool_calls=[
+                    ToolCall(id="c_0", name="color_palette", args={"query": "gamer"}),
+                    ToolCall(id="c_1", name="color_name", args={"hex_code": "#8A2BE2"}),
+                ],
             ),
-            # Rodada 2: tool call
+            # Rodada 2: mais duas
             LLMResponse(
                 content="",
-                tool_calls=[ToolCall(id="c_1", name="color_palette", args={"query": "gamer"})],
+                tool_calls=[
+                    ToolCall(id="c_2", name="color_palette", args={"query": "pastel"}),
+                    ToolCall(id="c_3", name="color_name", args={"hex_code": "#FFDAB9"}),
+                ],
             ),
             # Chamada de resumo final solicitada pelo agente
             LLMResponse(content="Resumo final de todas as ações.", tool_calls=[]),
@@ -234,7 +272,20 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
                 self.apagados.append(nome)
                 self.canais = [c for c in self.canais if c.id != cid]
 
+            async def clone(**kwargs: Any) -> SimpleNamespace:
+                # como no discord.py: a cópia é criada no servidor e o original continua lá
+                novo_id = 900 + len(self.criados)
+                self.criados.append(kwargs.get("name", nome))
+                novo = SimpleNamespace(id=novo_id, name=kwargs.get("name", nome), topic=canal.topic,
+                                       nsfw=canal.nsfw, slowmode_delay=canal.slowmode_delay,
+                                       category=canal.category, mentions=[], position=canal.position,
+                                       type=canal.type)
+                novo.clone = clone
+                self.canais.append(novo)
+                return novo
+
             canal.delete = delete
+            canal.clone = clone
             return canal
 
         self.canais = [fazer_canal(11, "canal-a"), fazer_canal(12, "canal-b")]
@@ -294,8 +345,8 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
         self.assertEqual(len(llm.call_history), 2, "o atalho engoliu o 'mande oi'")
         self.assertEqual(resposta, "oi 👋")
 
-    def test_ferramenta_nao_terminal_ainda_pede_o_resumo(self) -> None:
-        """Criar canal NÃO é terminal: o modelo precisa continuar a conversa."""
+    def test_ferramenta_unica_responde_direto_e_o_modelo_nao_e_chamado_de_novo(self) -> None:
+        """Uma ferramenta só = resposta pronta (velocidade); o modelo não é chamado de novo."""
         agent, llm = self._agent_com([
             LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="list_roles", args={})]),
             LLMResponse(content="Você tem 3 cargos.", tool_calls=[]),
@@ -303,8 +354,21 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
 
         resposta = self._turno(agent, "Quais cargos existem?")
 
+        self.assertEqual(len(llm.call_history), 1, "não pode gastar uma segunda chamada ao modelo")
+        self.assertNotIn("3 cargos", resposta)  # o texto do modelo não é usado: valeu o da ferramenta
+
+    def test_pedido_extra_na_frase_ainda_usa_o_modelo(self) -> None:
+        """'...e depois me diga o total' pede conversa: aí o modelo continua sendo chamado."""
+        agent, llm = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="create_channels",
+                                                         args={"channels": [{"name": "x"}]})]),
+            LLMResponse(content="Criei e confirmei o total.", tool_calls=[]),
+        ], cauteloso=False)
+
+        resposta = self._turno(agent, "crie o canal x e depois me diga quantos canais existem")
+
         self.assertEqual(len(llm.call_history), 2)
-        self.assertIn("3 cargos", resposta)
+        self.assertIn("confirmei o total", resposta)
 
     def test_modelo_nao_se_autoconfirma(self) -> None:
         agent, _ = self._agent_com([
@@ -612,3 +676,222 @@ class TestRespostaNuncaVazaRaciocinio(unittest.TestCase):
 
         self.assertTrue(resposta.startswith("Feito"), resposta)
         self.assertLess(len(resposta), 200)
+
+class TestOrdemSeguraEDedupe(unittest.TestCase):
+    """
+    Os três bugs que o dono do servidor viu usando o bot de verdade:
+
+    1. "recrie o canal" apagava e não recriava — o delete rodava antes e, se a criação falhasse,
+       o canal sumia para sempre;
+    2. cargos duplicados — o modelo repetia a MESMA chamada e o agente executava de novo;
+    3. demora para agir — cada ferramenta exigia uma segunda ida ao modelo.
+    """
+
+    def setUp(self) -> None:
+        self.actor = SimpleNamespace(id=1, guild_permissions=SimpleNamespace(administrator=True))
+        self.bot_member = SimpleNamespace(id=2, guild_permissions=SimpleNamespace(administrator=True),
+                                          top_role=SimpleNamespace(position=100))
+        self.ordem_executada: list[str] = []
+        self.apagados: list[str] = []
+        self.criados: list[str] = []
+
+        def fazer_canal(cid: int, nome: str) -> SimpleNamespace:
+            canal = SimpleNamespace(id=cid, name=nome, topic="", nsfw=False, slowmode_delay=0,
+                                    category=None, mentions=[], position=1, type=SimpleNamespace(name="text"))
+
+            async def delete() -> None:
+                self.apagados.append(nome)
+                self.canais = [c for c in self.canais if c.id != cid]
+
+            async def clone(**kwargs: Any) -> SimpleNamespace:
+                # como no discord.py: a cópia nasce no servidor e o original continua lá
+                if getattr(self, "clone_deve_falhar", False):
+                    raise RuntimeError("500 Internal Server Error")
+                self.criados.append(kwargs.get("name", nome))
+                novo = SimpleNamespace(id=900 + len(self.criados), name=kwargs.get("name", nome),
+                                       topic=canal.topic, nsfw=canal.nsfw,
+                                       slowmode_delay=canal.slowmode_delay, category=canal.category,
+                                       mentions=[], position=canal.position, type=canal.type)
+                novo.delete = delete
+                novo.clone = clone
+                self.canais.append(novo)
+                return novo
+
+            canal.delete = delete
+            canal.clone = clone
+            return canal
+
+        self.canais = [fazer_canal(11, "dicas-freefire")]
+        self.guild = SimpleNamespace(
+            name="Servidor Teste", id=12345, channels=self.canais, categories=[], roles=[],
+            members=[], me=self.bot_member, owner_id=1, bitrate_limit=96000,
+            get_channel=lambda cid: next((c for c in self.canais if c.id == cid), None),
+        )
+
+        async def create_text_channel(name: str, **kwargs: Any) -> SimpleNamespace:
+            self.criados.append(name)
+            return SimpleNamespace(id=900 + len(self.criados), name=name)
+
+        self.guild.create_text_channel = create_text_channel
+        self.channel = SimpleNamespace(id=555, name="geral")
+        self.chave = memory_key(self.guild.id, self.channel.id)
+
+    def _agent(self, respostas: list[LLMResponse]) -> tuple[Agent, FakeLLM]:
+        llm = FakeLLM(respostas)
+        return Agent(llm_provider=llm, memory=ChannelMemory()), llm
+
+    def _turno(self, agent: Agent, prompt: str) -> str:
+        return asyncio.run(agent.process_turn(guild=self.guild, channel=self.channel,
+                                              actor=self.actor, prompt=prompt))
+
+    def _espiar_execucao(self) -> Any:
+        """Registra a ORDEM em que as ferramentas realmente rodaram."""
+        import brain.agent as modulo
+
+        real = modulo.execute_tool
+
+        async def espiao(nome: str, args: dict[str, Any], ctx: Any) -> str:
+            self.ordem_executada.append(nome)
+            return await real(nome, args, ctx)
+
+        return unittest.mock.patch.object(modulo, "execute_tool", espiao)
+
+    def test_recriar_canal_clona_antes_de_apagar(self) -> None:
+        """O modelo pediu apagar e clonar na mesma mensagem: a CÓPIA tem que nascer primeiro."""
+        agent, _ = self._agent([
+            # o modelo mandou o delete primeiro (ordem perigosa) — o agente tem que inverter
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="delete_channels", args={"channels": ["dicas-freefire"]}),
+                ToolCall(id="c2", name="clone_channel",
+                         args={"channel": "dicas-freefire", "name": "dicas-freefire"}),
+            ]),
+        ])
+
+        with self._espiar_execucao():
+            self._turno(agent, "recrie o canal dicas-freefire")
+
+        self.assertEqual(self.ordem_executada, ["clone_channel", "delete_channels"],
+                         "clonar SEMPRE antes de apagar (senão o canal some e não volta)")
+        self.assertEqual(self.criados, ["dicas-freefire"])
+        self.assertEqual(self.apagados, ["dicas-freefire"])
+
+    def test_criacao_que_falha_nao_deixa_apagar(self) -> None:
+        """
+        Se a criação falha, a exclusão da MESMA mensagem é bloqueada: melhor não mexer do que
+        ficar sem o substituto (foi assim que o canal do dono sumiu).
+        """
+        self.clone_deve_falhar = True  # é o caminho real do "recrie o canal": clone
+
+        agent, _ = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="delete_channels", args={"channels": ["dicas-freefire"]}),
+                ToolCall(id="c2", name="clone_channel",
+                         args={"channel": "dicas-freefire", "name": "dicas-freefire"}),
+            ]),
+        ])
+
+        with self._espiar_execucao():
+            self._turno(agent, "recrie o canal dicas-freefire")
+
+        self.assertIn("clone_channel", self.ordem_executada)
+        self.assertNotIn("delete_channels", self.ordem_executada,
+                         "com a criação falhando, NADA pode ser apagado")
+        self.assertEqual(self.apagados, [])
+        self.assertIn("dicas-freefire", [c.name for c in self.canais], "o canal continua lá")
+
+    def test_criacao_de_canal_novo_que_falha_nao_deixa_apagar(self) -> None:
+        """Mesma regra com create_channels: se o canal novo não nasceu, nada é apagado."""
+        async def create_que_falha(name: str, **kwargs: Any) -> Any:
+            raise RuntimeError("500 Internal Server Error")
+
+        self.guild.create_text_channel = create_que_falha
+
+        agent, _ = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="delete_channels", args={"channels": ["dicas-freefire"]}),
+                ToolCall(id="c2", name="create_channels",
+                         args={"channels": [{"name": "dicas-livre", "type": "text"}]}),
+            ]),
+        ])
+
+        with self._espiar_execucao():
+            self._turno(agent, "crie o canal dicas-livre e apague o dicas-freefire")
+
+        self.assertIn("create_channels", self.ordem_executada)
+        self.assertNotIn("delete_channels", self.ordem_executada,
+                         "com a criação falhando, NADA pode ser apagado")
+        self.assertEqual(self.apagados, [])
+
+    def test_recriar_com_create_e_delete_nao_pula_a_criacao(self) -> None:
+        """
+        "Apague e crie de novo o canal X" na MESMA mensagem: a criação roda antes do delete e
+        NÃO pode ser pulada como duplicata só porque X ainda existe (o delete roda depois).
+        """
+        agent, _ = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="delete_channels", args={"channels": ["dicas-freefire"]}),
+                ToolCall(id="c2", name="create_channels",
+                         args={"channels": [{"name": "dicas-freefire", "type": "text"}]}),
+            ]),
+        ])
+
+        with self._espiar_execucao():
+            self._turno(agent, "apague e crie de novo o canal dicas-freefire")
+
+        self.assertEqual(self.ordem_executada, ["create_channels", "delete_channels"],
+                         "a criação tem que vir antes da exclusão")
+        self.assertIn("dicas-freefire", self.criados, "a recriação foi pulada como duplicata")
+        self.assertEqual(self.apagados, ["dicas-freefire"], "o canal antigo tinha que sair")
+
+    def test_chamada_repetida_nao_cria_duplicado(self) -> None:
+        """O modelo repetiu a mesma criação: só pode rodar UMA vez (cargo/canal duplicado era bug)."""
+        agent, _ = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="create_channels",
+                         args={"channels": [{"name": "cinco-canais", "type": "text"}]}),
+                ToolCall(id="c2", name="create_channels",
+                         args={"channels": [{"name": "cinco-canais", "type": "text"}]}),
+            ]),
+            LLMResponse(content="Criei o canal.", tool_calls=[]),
+        ])
+
+        with self._espiar_execucao():
+            self._turno(agent, "crie o canal cinco-canais")
+
+        self.assertEqual(self.ordem_executada.count("create_channels"), 1,
+                         f"a mesma chamada rodou mais de uma vez: {self.ordem_executada}")
+        self.assertEqual(self.criados, ["cinco-canais"])
+
+    def test_argumentos_diferentes_nao_sao_tratados_como_repeticao(self) -> None:
+        """Criar 2 canais DIFERENTES na mesma mensagem continua funcionando."""
+        agent, _ = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="create_channels",
+                         args={"channels": [{"name": "um", "type": "text"}]}),
+                ToolCall(id="c2", name="create_channels",
+                         args={"channels": [{"name": "dois", "type": "text"}]}),
+            ]),
+            LLMResponse(content="Criei os dois.", tool_calls=[]),
+        ])
+
+        with self._espiar_execucao():
+            self._turno(agent, "crie dois canais")
+
+        self.assertEqual(self.criados, ["um", "dois"])
+
+    def test_uma_ferramenta_so_responde_sem_segunda_chamada_ao_modelo(self) -> None:
+        """O delay: criar canal não pode esperar um segundo ida-e-volta ao modelo."""
+        agent, llm = self._agent([
+            LLMResponse(content="", tool_calls=[
+                ToolCall(id="c1", name="create_channels",
+                         args={"channels": [{"name": "rapido", "type": "text"}]}),
+            ]),
+            LLMResponse(content="texto do modelo que não deve ser usado", tool_calls=[]),
+        ])
+
+        resposta = self._turno(agent, "crie o canal rapido")
+
+        self.assertEqual(len(llm.call_history), 1, "gastou uma segunda chamada ao modelo")
+        self.assertIn("Criei 1 canal", resposta)
+        self.assertNotIn("texto do modelo", resposta)
+

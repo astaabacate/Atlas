@@ -151,6 +151,26 @@ Três causas, medidas:
 
 Também: as ondas da corrida subiram de 2 para 3 (com o mesmo teto de tempo total).
 
+## Rodada 5 (18/09): os 3 bugs que o dono viu usando o bot
+
+Relato ao vivo: (a) "recrie o canal" devolvia o canal como estava; (b) cargos duplicados;
+(c) o lote (ex.: 5 canais) só agia depois de um tempo. Os três tinham causa no agente, não no
+Discord — e cada um virou teste de regressão.
+
+| Bug | Causa-raiz (medida) | Correção | Regressão |
+| --- | --- | --- | --- |
+| **(a) recriar não recria** | "recrie o canal X" chega ao agente como `delete_channels` + `clone_channel`, e a ordem crua do modelo era executada como veio. Com o delete primeiro, qualquer falha na criação deixava o canal APAGADO e sem substituto (inclusive o retry de 5xx podia duplicar a criação) | `_ordenar_por_seguranca` executa quem CRIA antes de quem APAGA, mantendo a ordem dentro de cada grupo; e `TOOLS_QUE_CRIAM_DE_VERDADE` (criar/copiar) que falhou **bloqueia** as exclusões da MESMA mensagem — melhor não mexer do que ficar sem o substituto. A retentativa de 5xx agora só repete com **5xx confirmado** (o casamento por texto podia repetir um timeout ambíguo e duplicar) | `TestOrdemSeguraEDedupe` (clone-antes-de-apagar; criação que falha não deixa apagar; mesmo com `create_channels`) |
+| **(b) duplicados** | o modelo repetia a MESMA chamada (mesmo nome + mesmos args) e o agente executava de novo — cada repetição criava mais um cargo/canal. Repetir a mesma ordem em outra mensagem também criava de novo | dedupe por assinatura (`nome + args`) dentro da mensagem, devolvendo o primeiro resultado com o aviso "(já executei esta mesma chamada…)" — aviso que nunca vai para o cliente; e `create_roles`/`create_channels` não criam o que já existe com o mesmo nome (mesmo lugar, no caso de canal): respondem "(já existia — não dupliquei)". **Exceção**: o que a MESMA mensagem vai apagar pode ser recriado (`ctx.alvos_apagados`) — se não fosse assim, "apague e crie de novo o canal X" pularia a criação e o canal sumiria | `test_repeticao_de_criacao_nao_duplica_cargo`, `test_lote_com_o_mesmo_nome_nao_duplica*`, `test_recriacao_*_nao_e_pulada_como_duplicata`, `test_mesmo_nome_em_categoria_diferente_cria`, e no E2E a fase de repetição agora exige **1** canal, não 3 |
+| **(c) delay no lote** | o atalho de resposta direta (o resultado da ferramenta já é a resposta em PT-BR) só valia para `TERMINAL_TOOLS`; qualquer outra ferramenta — `create_channels`, `edit_channel`… — obrigava uma SEGUNDA ida ao modelo só para "resumir" o que já estava pronto. Com o pool gratuito, isso é o delay que o dono sentiu | o atalho vale para **qualquer ferramenta única** que deu certo (respeitando o pedido extra na frase: "crie X **e** me diga Y" ainda passa pelo modelo) | simulação com espião de LLM: lote de 5 canais = **1** chamada ao modelo; `TestOrdemSeguraEDedupe`, `test_ferramenta_unica_responde_direto_*` |
+
+Além disso, `clone_channel` passou a **copiar a posição** do original (o `clone()` do discord.py
+copia nome/tópico/NSFW/modo lento/categoria/permissões, mas não a posição — o canal recriado caía
+no fim da lista) e a resposta agora diz exatamente o que foi copiado e que o original continua no ar.
+
+Evidência desta rodada: `python -m unittest discover -s tests` → **294 testes OK**;
+`e2e_live.py --phases static,spy,policy` → **✅ 42 · ❌ 0**; simulação dos 5 cenários do dono
+(recriar por clone, recriar por create+delete, cargo repetido, lote de 5 canais, ferramenta única).
+
 ## O que ainda precisa do dono para ser verificado de verdade
 
 - **Cargo do bot**: ele só gerencia cargos **abaixo** do próprio cargo. O E2E registra ⚠️ e diz o
