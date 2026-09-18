@@ -337,13 +337,11 @@ class OpenAICompatibleHttpProvider(ChatProvider):
                                 raise
                             exc = retry_exc
 
-                if exc.is_empty_response and not exc.truncated and model not in ampliados:
-                    # Vazio "seco": pode ser o modelo do momento (roteador grátis). Uma repetição
-                    # curta do MESMO modelo resolve na maioria das vezes; se voltar vazio de novo,
-                    # a vez passa para o próximo modelo da lista.
-                    ampliados.add(model)
-                    logger.debug("[%s] %s devolveu resposta vazia; repetindo uma vez", self.name, model)
-                    indice -= 1
+                if exc.is_empty_response and not exc.truncated:
+                    # Vazio "seco" (roteador grátis costuma fazer isso): passar a vez na hora.
+                    # Repetir o mesmo modelo só soma a latência dele de novo — e tem fila atrás.
+                    logger.debug("[%s] %s devolveu resposta vazia; passando para o próximo modelo",
+                                 self.name, model)
                     continue
 
                 if exc.is_empty_response and exc.truncated and model not in ampliados:

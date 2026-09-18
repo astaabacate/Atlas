@@ -249,13 +249,27 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
         # mesma chave do agente: (servidor, canal)
         self.chave_conversa = memory_key(self.guild.id, self.channel.id)
 
-    def _agent_com(self, respostas: list[LLMResponse]) -> tuple[Agent, FakeLLM]:
+    def _agent_com(self, respostas: list[LLMResponse], cauteloso: bool = True) -> tuple[Agent, FakeLLM]:
+        """Estes testes exercitam o MODO CAUTELOSO (o padrão do bot é o direto)."""
         llm = FakeLLM(respostas)
-        return Agent(llm_provider=llm, memory=ChannelMemory()), llm
+        return Agent(llm_provider=llm, memory=ChannelMemory(), confirm_destructive=cauteloso), llm
 
     def _turno(self, agent: Agent, prompt: str) -> str:
         return asyncio.run(agent.process_turn(guild=self.guild, channel=self.channel,
                                               actor=self.actor, prompt=prompt))
+
+    def test_modo_direto_executa_o_pedido_sem_perguntar(self) -> None:
+        """Padrão: 'apague os canais X e Y' → apaga e responde o que fez, sem 'confirma?'."""
+        agent, _ = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="delete_channels",
+                                                         args={"channels": ["11", "12"], "confirmed": True})]),
+            LLMResponse(content="Apaguei canal-a e canal-b. 🗑️", tool_calls=[]),
+        ], cauteloso=False)
+
+        resposta = self._turno(agent, "Apague os canais canal-a e canal-b de uma vez.")
+
+        self.assertEqual(sorted(self.apagados), ["canal-a", "canal-b"], "modo direto apaga na hora")
+        self.assertNotIn("confirm", resposta.lower(), "não pode pedir confirmação no modo direto")
 
     def test_modelo_nao_se_autoconfirma(self) -> None:
         agent, _ = self._agent_com([

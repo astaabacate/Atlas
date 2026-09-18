@@ -606,10 +606,11 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
             asyncio.run(provider.chat(messages=[{"role": "user", "content": "oi"}], timeout=5, max_tokens=100))
 
         self.assertTrue(ctx.exception.is_transient, "vazio tem que contar como falha passageira")
-        self.assertEqual(vistos, ["modelo-a", "modelo-a", "modelo-b", "modelo-b"],
-                         "cada modelo ganha uma segunda chance antes de passar a vez")
+        self.assertEqual(vistos, ["modelo-a", "modelo-b"],
+                         "vazio passa a vez na hora: repetir o mesmo modelo só soma latência")
 
-    def test_vazio_seco_resolve_na_repeticao(self) -> None:
+    def test_vazio_seco_troca_para_o_proximo_modelo(self) -> None:
+        """O modelo que devolve vazio sai da frente: o próximo da lista responde."""
         tentativas = {"n": 0}
 
         def fake_session() -> Any:
@@ -618,13 +619,13 @@ class TestRespostaVaziaPorTeto(unittest.TestCase):
         provider = OpenAICompatibleHttpProvider(
             name="corredor-roteador",
             endpoint_url="https://exemplo.invalido/v1/chat/completions",
-            models=["modelo-a"],
+            models=["modelo-a", "modelo-b"],
             session_factory=fake_session,
         )
 
         async def fake_post(session, payload, headers, timeout, model):  # noqa: ANN001
             tentativas["n"] += 1
-            if tentativas["n"] == 1:
+            if model == "modelo-a":
                 raise ProviderError(
                     provider=provider.name,
                     message=f"{provider.name}: resposta vazia ({model})",

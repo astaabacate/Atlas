@@ -48,6 +48,9 @@ class Config:
     disable_free_llms: bool = False
     llm_timeout: float = 60.0
     llm_max_tokens: int = 1024
+    # Confirmação de ação destrutiva em lote. Padrão do dono: executa direto e informa
+    # (o pedido já é a autorização). Ligue com CONFIRM_DESTRUCTIVE=true se quiser perguntar.
+    confirm_destructive: bool = False
     max_tool_rounds: int = 3
     history_len: int = 10
     bulk_concurrency: int = 3
@@ -102,6 +105,8 @@ class Config:
         except ValueError:
             max_tokens = 1024
 
+        confirm_destructive = _parse_bool(src.get("CONFIRM_DESTRUCTIVE"))
+
         try:
             max_tool_rounds = int(src.get("MAX_TOOL_ROUNDS", "3").strip())
         except ValueError:
@@ -153,6 +158,7 @@ class Config:
             llm_api_key=api_key,
             llm_models=llm_models,
             disable_free_llms=disable_free_llms,
+            confirm_destructive=confirm_destructive,
             llm_timeout=timeout,
             llm_max_tokens=max_tokens,
             max_tool_rounds=max_tool_rounds,

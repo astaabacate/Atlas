@@ -1,7 +1,8 @@
 """
-Testes da lógica de confirmação para ações destrutivas.
-Garante que 1 canal nominal execute imediatamente, enquanto ações de grande impacto
-(2+ canais, categorias ou cargos) exijam confirmação prévia explícita.
+Testes da política de confirmação (CONFIRM_DESTRUCTIVE).
+
+Padrão do dono (modo direto): o pedido do usuário já é a autorização — apaga e informa.
+Modo cauteloso (CONFIRM_DESTRUCTIVE=true): 2+ canais, categoria ou cargo pedem "sim" antes.
 """
 
 from __future__ import annotations
@@ -37,11 +38,30 @@ class TestConfirmation(unittest.TestCase):
         self.assertTrue(deleted, "Canal único nominal deve ser excluído sem pedir confirmação")
         self.assertIn("Exclusão concluída", res)
 
-    def test_multiple_channels_require_confirmation(self) -> None:
+    def test_modo_direto_apaga_lote_e_categoria_sem_perguntar(self) -> None:
+        """Padrão: 'apague todos e deixe só esse' executa na hora."""
+        apagados: list[str] = []
+
+        def canal(cid: int, nome: str) -> SimpleNamespace:
+            ch = SimpleNamespace(id=cid, name=nome, channels=None)
+            async def delete(_n=nome):
+                apagados.append(_n)
+            ch.delete = delete
+            return ch
+
+        c1, c2, c3 = canal(101, "canal-1"), canal(102, "canal-2"), canal(103, "canal-3")
+        guild = SimpleNamespace(channels=[c1, c2, c3], categories=[], me=self.bot_member, owner_id=1)
+        ctx = ToolContext(guild=guild, channel=c1, actor=self.actor)  # confirm_destructive=False
+
+        res = asyncio.run(op_delete_channels(ctx, ["canal-1", "canal-2"], confirmed=False))
+        self.assertEqual(sorted(apagados), ["canal-1", "canal-2"], "sem perguntar, apagando de verdade")
+        self.assertIn("Exclusão concluída", res)
+
+    def test_modo_cauteloso_ainda_pergunta(self) -> None:
         ch1 = SimpleNamespace(id=101, name="canal-1", delete=lambda: None, channels=None)
         ch2 = SimpleNamespace(id=102, name="canal-2", delete=lambda: None, channels=None)
         guild = SimpleNamespace(channels=[ch1, ch2], categories=[], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=ch1, actor=self.actor)
+        ctx = ToolContext(guild=guild, channel=ch1, actor=self.actor, confirm_destructive=True)
 
         # confirmed=False deve levantar ToolError pedindo confirmação
         with self.assertRaises(ToolError) as err_ctx:
@@ -67,18 +87,18 @@ class TestConfirmation(unittest.TestCase):
         self.assertEqual(deleted_count, 2)
         self.assertIn("Exclusão concluída", res)
 
-    def test_category_requires_confirmation(self) -> None:
+    def test_category_requires_confirmation_no_modo_cauteloso(self) -> None:
         sub_ch = SimpleNamespace(id=101, name="sub", delete=lambda: None)
         category = SimpleNamespace(id=200, name="Categoria Velha", delete=lambda: None, channels=[sub_ch])
         guild = SimpleNamespace(channels=[sub_ch], categories=[category], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=sub_ch, actor=self.actor)
+        ctx = ToolContext(guild=guild, channel=sub_ch, actor=self.actor, confirm_destructive=True)
 
         with self.assertRaises(ToolError) as err_ctx:
             asyncio.run(op_delete_channels(ctx, ["Categoria Velha"], confirmed=False))
 
         self.assertIn("confirmed=true", str(err_ctx.exception))
 
-    def test_delete_role_requires_confirmation(self) -> None:
+    def test_delete_role_requires_confirmation_no_modo_cauteloso(self) -> None:
         deleted = False
 
         async def fake_delete():
@@ -87,7 +107,7 @@ class TestConfirmation(unittest.TestCase):
 
         role = SimpleNamespace(id=300, name="CargoPerigoso", position=10, managed=False, is_default=lambda: False, delete=fake_delete)
         guild = SimpleNamespace(roles=[role], me=self.bot_member, owner_id=1)
-        ctx = ToolContext(guild=guild, channel=None, actor=self.actor)
+        ctx = ToolContext(guild=guild, channel=None, actor=self.actor, confirm_destructive=True)
 
         # Sem confirmação -> lança ToolError
         with self.assertRaises(ToolError) as err_ctx:

@@ -23,6 +23,8 @@ class ToolContext:
     attachments: list[Any] = field(default_factory=list)
     api_registry: Any = None
     memory: Any = None
+    # False (padrão): ação pedida de forma direta é executada e informada, sem perguntar.
+    confirm_destructive: bool = False
 
 
 @dataclass

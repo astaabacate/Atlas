@@ -29,13 +29,7 @@ REGRAS ABSOLUTAS:
 4. Nunca invente IDs ou nomes: use a ESTRUTURA ATUAL abaixo para localizar canais e cargos existentes.
 5. Prefira UMA chamada com listas a várias chamadas repetidas (ex: use create_channels com a lista completa).
 6. Responda em português (PT-BR), de forma curta, direta e amigável, incluindo os links dos itens criados ou alterados (<#id>, <@&id>).
-7. Ações destrutivas e confirmação:
-   - Excluir UM canal indicado nominalmente NÃO pede confirmação: execute imediatamente!
-   - Peça confirmação SOMENTE quando o estrago for grande: excluir 2 ou mais canais, esvaziar/excluir uma categoria inteira, ou excluir um cargo.
-   - NUNCA invente confirmação: só use `confirmed=true` DEPOIS que o usuário confirmar explicitamente
-     ("sim", "pode apagar", "confirmo"). Se ele ainda não confirmou, chame a ferramenta SEM `confirmed`.
-   - Se a ferramenta responder "confirme com o usuário e chame de novo com confirmed=true", PARE de tentar:
-     pergunte no texto ("Confirma que posso apagar X e Y?") e encerre a resposta sem chamar mais nada.
+7. Ações destrutivas e confirmação: {confirmacao}
 8. FORA DE ESCOPO: moderação, punições, bans, expulsões, matchmaking, sorteios, jogos, enquetes. Quando pedirem isso, responda educadamente que seu foco exclusivo é montar e organizar a estrutura do servidor.
 
 {snapshot}
@@ -104,8 +98,10 @@ class Agent:
         max_tool_rounds: int = 3,
         llm_timeout: float = 60.0,
         api_registry: Any = None,
+        confirm_destructive: bool = False,
     ) -> None:
         self.llm = llm_provider
+        self.confirm_destructive = confirm_destructive
         self.memory = memory if memory is not None else ChannelMemory()
         self.max_tool_rounds = max_tool_rounds
         self.llm_timeout = llm_timeout
@@ -154,6 +150,10 @@ class Agent:
         if not args.get("confirmed") or tool_name not in CONFIRMATION_TOOLS:
             return args
 
+        if not self.confirm_destructive:
+            # Modo direto: o pedido do usuário já autorizou — o `confirmed=true` do modelo vale.
+            return args
+
         pendentes = self._aguardando_confirmacao.get(channel_id, set())
         if ("*" in pendentes or tool_name in pendentes) and user_confirmed(prompt):
             return args
@@ -180,10 +180,25 @@ class Agent:
             attachments=attachments or [],
             api_registry=self.api_registry,
             memory=self.memory,
+            confirm_destructive=self.confirm_destructive,
         )
 
         snapshot = build_server_snapshot(guild)
-        system_content = SYSTEM_PROMPT_TEMPLATE.format(snapshot=snapshot)
+        if self.confirm_destructive:
+            politica = (
+                "o bot está em modo CAUTELOSO. Excluir UM canal indicado nominalmente executa direto; "
+                "excluir 2+ canais, esvaziar categoria ou excluir cargo pede confirmação e espera um "
+                '"sim" do usuário antes de mandar `confirmed=true`.'
+            )
+        else:
+            politica = (
+                "MODO DIRETO (padrão). O pedido do usuário JÁ é a autorização: execute a ferramenta "
+                "IMEDIATAMENTE, com `confirmed=true` quando o schema pedir esse campo, e responda em "
+                "UMA linha o que foi feito, com os nomes/links do que mudou. NUNCA peça confirmação, "
+                "nunca pergunte 'posso apagar?', nunca espere um segundo 'sim'. Se a ferramenta "
+                'responder "confirme com o usuário", chame de novo com `confirmed=true` e siga.'
+            )
+        system_content = SYSTEM_PROMPT_TEMPLATE.format(snapshot=snapshot, confirmacao=politica)
 
         # Montar histórico de mensagens para a LLM
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]

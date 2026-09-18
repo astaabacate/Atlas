@@ -171,9 +171,10 @@ async def op_delete_channels(
     total_damage = len(resolved_channels) + category_channels_count
     is_single_nominal = len(resolved_channels) == 1 and category_channels_count == 0
 
-    # Regra de confirmação para ações destrutivas:
-    # 1 canal nominal executa direto. 2+ canais ou categoria exigem confirmação prévia!
-    if not is_single_nominal and not confirmed:
+    # Política de confirmação (CONFIRM_DESTRUCTIVE):
+    # - desligada (padrão): quem pediu já autorizou — apaga e informa o resultado na hora;
+    # - ligada: 1 canal nominal executa direto, 2+ canais ou categoria pedem confirmação.
+    if ctx.confirm_destructive and not is_single_nominal and not confirmed:
         names = [getattr(c, "name", str(c)) for c in resolved_channels]
         names_str = ", ".join(f"**{n}**" for n in names)
         raise ToolError(
@@ -319,8 +320,8 @@ async def op_delete_role(
 
     name = getattr(r_obj, "name", str(role))
 
-    # Exclusão de cargo é sempre destrutiva
-    if not confirmed:
+    # Exclusão de cargo é destrutiva: pede confirmação só no modo cauteloso.
+    if ctx.confirm_destructive and not confirmed:
         raise ToolError(
             f"Isso apaga o cargo **{name}** permanentemente — confirme com o usuário e chame de novo com confirmed=true."
         )

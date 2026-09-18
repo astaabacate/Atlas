@@ -27,6 +27,7 @@ if str(REPO_ROOT) not in sys.path:
 from llm.auto import AutoProvider
 from llm.base import ProviderError, compact_error_text
 from llm.free_providers import (
+    FREE_PROVIDERS,
     KNOWN_GATEWAYS,
     OpenAICompatibleHttpProvider,
     _extract_model_ids,
@@ -577,6 +578,51 @@ async def sondar_candidatos(timeout: float, secrets: list[str]) -> list[dict[str
             for c in CANDIDATOS_SEM_CREDENCIAL]
 
 
+async def medir_latencia_modelos(timeout: float, secrets: list[str]) -> list[tuple[str, str, float]]:
+    """Uma chamada curta por modelo do pool para saber quem responde rápido.
+
+    Sem isso a ordem da lista é chute: o bot escolhe o primeiro modelo da fila e, se ele
+    pensa 20 s, a resposta demora 20 s. Medido a cada rodada, o relatório diz quem é liso.
+    """
+    ficha = next((spec for spec in FREE_PROVIDERS if spec.nome == "kilo"), None)
+    if ficha is None:
+        return []
+
+    base = ficha.base_url
+    headers = dict(ficha.headers)
+    headers["Content-Type"] = "application/json"
+    medidas: list[tuple[str, str, float]] = []
+    async with aiohttp.ClientSession() as sess:
+        for modelo in ficha.modelos:
+            payload = {
+                "model": modelo,
+                "messages": [{"role": "user", "content": "Responda apenas OK."}],
+                "max_tokens": 24,
+                "stream": False,
+            }
+            t0 = time.perf_counter()
+            try:
+                async with sess.post(f"{base}/chat/completions", json=payload, headers=headers,
+                                     timeout=aiohttp.ClientTimeout(total=min(timeout * 2, 60))) as resp:
+                    corpo = await resp.text()
+                ms = (time.perf_counter() - t0) * 1000
+                if resp.status != 200:
+                    medidas.append((modelo, f"HTTP {resp.status}", ms))
+                    continue
+                data = json.loads(corpo)
+                msg = ((data.get("choices") or [{}])[0].get("message") or {})
+                conteudo = (msg.get("content") or "").strip()
+                if conteudo:
+                    medidas.append((modelo, "200", ms))
+                else:
+                    medidas.append((modelo, "200 vazio", ms))
+            except Exception as exc:  # noqa: BLE001
+                ms = (time.perf_counter() - t0) * 1000
+                medidas.append((modelo, compact_error_text(redact(f"{type(exc).__name__}", secrets), 30), ms))
+
+    return medidas
+
+
 class Relatorio:
     """Coleta o que é impresso para também gravar o relatório em arquivo/CI."""
 
@@ -699,6 +745,31 @@ async def run(timeout: float, concurrency: int, out: str = "") -> int:
     falharam = [r for r in results if r not in successes]
     if falharam:
         relatorio.print("🔴 não responderam nesta rodada: " + ", ".join(f"{r.name}" for r in falharam))
+
+    # Latência por modelo: é o que define a ordem da fila (o bot usa o primeiro que responde).
+    relatorio.print()
+    relatorio.print("### Latência por modelo do pool `kilo` (uma chamada curta cada)")
+    relatorio.print()
+    relatorio.print("| modelo | resultado | latência |")
+    relatorio.print("|---|---|---:|")
+    medidas = await medir_latencia_modelos(timeout, secrets)
+    for modelo, resultado, ms in sorted(medidas, key=lambda m: m[2]):
+        relatorio.print(f"| `{modelo}` | {resultado} | {ms / 1000:.2f}s |")
+    if medidas:
+        path = Path("reports/kilo-latencia-modelos.md")
+        linhas_tabela = [
+            "| modelo | resultado | latência |",
+            "|---|---|---:|",
+        ] + [f"| `{m}` | {r} | {ms / 1000:.2f}s |" for m, r, ms in sorted(medidas, key=lambda x: x[2])]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "# Latência real por modelo do gateway Kilo\n\n"
+            "Medida pelo CI com uma chamada curta por modelo (`max_tokens=24`). É o que define a\n"
+            "ordem da fila do corredor: o bot usa o primeiro que responder, então o rápido vai na frente.\n\n"
+            f"- executada em: {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}\n\n"
+            + "\n".join(linhas_tabela) + "\n",
+            encoding="utf-8",
+        )
 
     # Candidatos SEM credencial: entram no pool só com 200 comprovado aqui.
     relatorio.print()

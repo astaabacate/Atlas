@@ -72,6 +72,7 @@ def main() -> None:
         max_tool_rounds=config.max_tool_rounds,
         llm_timeout=config.llm_timeout,
         api_registry=api_registry,
+        confirm_destructive=config.confirm_destructive,
     )
 
     bot = FarolBot(config=config, agent=agent)

@@ -111,7 +111,7 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
             LLMResponse(content="No servidor A eu guardei: Pinguim.", tool_calls=[]),
             LLMResponse(content="No servidor B não sei de nada.", tool_calls=[]),
         ])
-        agent = Agent(llm_provider=llm, memory=memoria)
+        agent = Agent(llm_provider=llm, memory=memoria, confirm_destructive=True)
         ator = SimpleNamespace(id=1, guild_permissions=SimpleNamespace(administrator=True))
 
         asyncio.run(agent.process_turn(guild=servidor_a, channel=canal_a, actor=ator,
@@ -148,7 +148,7 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
             servidor.get_channel = lambda cid, s=servidor: next((c for c in s.channels if c.id == cid), None)
 
         # servidor A pede um lote e o bot pergunta (fica pendente)
-        agente = Agent(llm_provider=FakeLLM([
+        agente = Agent(confirm_destructive=True, llm_provider=FakeLLM([
             LLMResponse(content="", tool_calls=[ToolCall(id="c0", name="delete_channels",
                                                          args={"channels": ["8001", "8003"]})]),
             LLMResponse(content="Confirma que posso apagar a-1 e a-2?", tool_calls=[]),
@@ -203,7 +203,7 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
         servidor.channels = [canal_apagavel(8101, "x-1"), canal_apagavel(8102, "x-2")]
         servidor.get_channel = lambda cid: next((c for c in servidor.channels if c.id == cid), None)
 
-        agente = Agent(llm_provider=FakeLLM([
+        agente = Agent(confirm_destructive=True, llm_provider=FakeLLM([
             LLMResponse(content="", tool_calls=[ToolCall(id="c0", name="delete_channels",
                                                          args={"channels": ["8101", "8102"]})]),
             LLMResponse(content="Confirma que posso apagar x-1 e x-2?", tool_calls=[]),
@@ -223,7 +223,7 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
         self.assertEqual(sorted(apagados), ["x-1", "x-2"])
 
     def test_pendencias_nao_crescem_sem_limite(self) -> None:
-        agente = Agent(llm_provider=FakeLLM([]), memory=ChannelMemory())
+        agente = Agent(confirm_destructive=True, llm_provider=FakeLLM([]), memory=ChannelMemory())
         agente.max_pending_confirmations = 3
         for i in range(10):
             agente._marcar_pendencia(memory_key(1, i), {"delete_channels"})
