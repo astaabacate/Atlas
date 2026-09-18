@@ -1,5 +1,5 @@
 # Cor do avatar do farol: NÃO MEDIDA
 
-Motivo: não consegui importar o medidor de cor (No module named 'core')
+Motivo: o bot não tem foto de perfil própria (avatar padrão do Discord)
 
 O farol segue respondendo com a cor de reserva (e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).
