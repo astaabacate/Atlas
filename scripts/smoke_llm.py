@@ -402,10 +402,15 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
         marcas: list[str] = []
         for _ in range(3):
             try:
-                await provider.chat(messages=CONSECUTIVAS_MESSAGES, timeout=timeout, max_tokens=16)
+                # max_tokens generoso de propósito: com pouco token um modelo de raciocínio
+                # devolve conteúdo vazio e a sonda acusaria falha do provedor sem ser.
+                await provider.chat(messages=CONSECUTIVAS_MESSAGES, timeout=timeout, max_tokens=64)
                 marcas.append(str(getattr(provider, "_smoke_status", "200") or "200"))
             except ProviderError as exc:
-                marcas.append(str(exc.status or "-"))
+                marca = str(exc.status or "sem-status")
+                if not exc.status and "vazia" in str(exc):
+                    marca = "vazio"
+                marcas.append(marca)
                 if exc.status == 429:
                     retry_after = str(exc.retry_after or "")
                     break
