@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 78 · ❌ 0 · ⚠️ 3 · ⏭️ 1
+- **Resumo:** ✅ 78 · ❌ 1 · ⚠️ 2 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** fb86e51
-- **execução:** 35290330888
+- **commit:** c0a9029
+- **execução:** 35290857640
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -75,7 +75,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 70ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 15ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -103,14 +103,14 @@
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 3 · ❌ 0 · ⚠️ 1 · ⏭️ 0
+`agent` — ✅ 3 · ❌ 1 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Atlas', 'iTinder'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso banir usuários — meu foco exclusivo é **montar e organizar a estrutura do servid' |
-| PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
-| WARN | `memória do canal entre turnos` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Os gratuitos compartilham o IP'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Desculpe, mas meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cat' |
+| FAIL | `agente conhece a estrutura real` | LLMUnavailableError: Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Erros: kilo: kilo: resposta vazia (kilo-auto/free) Os gratuitos compartilham o IP do servidor e estouram limite com facilidade. Para acabar com isso, cadastre uma chave GRATUITA (Groq, Gemini ou OpenRouter — sem cartão) nos segredos do GitHub Actions: LLM_API_KEY + LLM_PROVIDER (cerebras, cohere, … |
+| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
 `mutate` — ✅ 14 · ❌ 0 · ⚠️ 1 · ⏭️ 1
@@ -119,7 +119,7 @@
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-categoria', '🧪-raiz-texto', '🧪-raiz-voz']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -128,8 +128,8 @@
 | PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Pronto! O canal **#🧪-efemero** foi excluído com sucesso. 🗑️' |
-| PASS | `agente pede confirmação em lote e apaga após 'sim'` | pediu confirmação e apagou depois do 'sim' ('Confirma que posso apagar os canais **#🧪-lote-1** e **#🧪-lot') |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'O canal **#🧪-efemero** foi apagado com sucesso! ✅' |
+| PASS | `agente pede confirmação em lote e apaga após 'sim'` | pediu confirmação e apagou depois do 'sim' ('Isso vai apagar **2 canais**: 🧪-lote-1 e 🧪-lote-2. Confirma ') |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -139,11 +139,11 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550299960346546236) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550301442764701769) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'O servidor chama-se **Pinguim**.' |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'O nome deste servidor é **Pinguim**.' |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
 | PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
 
