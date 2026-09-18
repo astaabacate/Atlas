@@ -177,6 +177,17 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
         linhas.append(f"# Sonda de hierarquia de cargos — {eu.get('username')} (`{bot_id}`)")
         linhas.append("")
 
+        # A cor que o farol vai usar nas mensagens em Components V2: medida do avatar DELE.
+        # Sai aqui porque esta sonda é o único lugar que fala com o DNS do Discord sem passar
+        # pelo produto — assim o dono sabe a cor exata, sem precisar subir o bot.
+        cor_medida = await _cor_do_avatar(api, eu, outdir)
+        if cor_medida is not None:
+            from core.look import hex_da_cor
+            linhas.append(f"- Cor de destaque medida no avatar do bot: **{hex_da_cor(cor_medida)}** "
+                          f"(usada nas respostas em Components V2; para fixar outra, defina "
+                          f"`ACCENT_COLOR`).")
+            linhas.append("")
+
         st, guilds = await api.pedir("GET", "/users/@me/guilds")
         if st != 200 or not isinstance(guilds, list):
             linhas.append(f"- ❌ não listei servidores (HTTP {st}: {_erro(guilds)}).")
@@ -258,6 +269,43 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
     _gravar(outdir, linhas, dados)
     print("\n".join(linhas))
     return 0
+
+
+async def _cor_do_avatar(api: "Sondagem", eu: dict[str, Any], outdir: Path) -> int | None:
+    """
+    Baixa o avatar do bot e mede a cor de destaque (a MESMA função que o bot usa ao vivo).
+
+    Devolve None se não der para medir — a sonda não pode falhar por causa de enfeite.
+    """
+    try:
+        from core.look import cor_de_destaque, hex_da_cor, pixels_do_png
+    except Exception as exc:  # noqa: BLE001 - sonda segue sem a cor
+        print(f"::warning title=sonda::não consegui importar o medidor de cor ({exc})")
+        return None
+    avatar = eu.get("avatar")
+    if not avatar:
+        # Sem avatar próprio: usa o padrão do Discord (a imagem cinza), que não tem cor viva.
+        print("::notice title=sonda::o bot não tem avatar próprio — a cor fica na reserva")
+        return None
+    url = f"https://cdn.discordapp.com/avatars/{eu['id']}/{avatar}.png?size=64"
+    try:
+        assert api._sessao is not None  # noqa: SLF001 - mesma sessão da sonda
+        async with api._sessao.get(url) as resp:  # noqa: SLF001
+            if resp.status != 200:
+                print(f"::warning title=sonda::avatar devolveu HTTP {resp.status}")
+                return None
+            dados = await resp.read()
+        cor = cor_de_destaque(pixels_do_png(dados))
+    except Exception as exc:  # noqa: BLE001 - enfeite não derruba a sonda
+        print(f"::warning title=sonda::não consegui medir a cor do avatar ({exc})")
+        return None
+    outdir.mkdir(parents=True, exist_ok=True)
+    (outdir / "cor-do-avatar.txt").write_text(
+        f"{hex_da_cor(cor)}\n\nCor de destaque medida do avatar do bot "
+        f"({eu.get('username')}). É a cor que o farol usa nas respostas em Components V2.\n"
+        f"Para fixar outra: variável ACCENT_COLOR={hex_da_cor(cor)}\n", encoding="utf-8")
+    print(f"::notice title=sonda::cor do avatar medida: {hex_da_cor(cor)}")
+    return cor
 
 
 async def _experimento(api: "Sondagem", gid: str, pos_bot: int) -> dict[str, Any]:
