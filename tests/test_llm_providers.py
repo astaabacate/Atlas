@@ -721,6 +721,89 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
                 self.fail(f"{modelo} já devolveu conteúdo, mas está atrás de modelo que nunca devolveu")
 
 
+class TestHistoricoDeLatencia(unittest.TestCase):
+    """O agregado que decide a fila do `kilo` — testado sem rede, com histórico montado à mão."""
+
+    @staticmethod
+    def _historico():
+        return {"rodadas": [
+            {"em": "2026-09-18T01:40:02Z", "modelos": {
+                "a:free": {"resultado": "200", "ms_mediana": 2000, "amostras": [["200", 2000]]},
+                "b:free": {"resultado": "200 vazio", "ms_mediana": 600, "amostras": [["200 vazio", 600]]},
+                "c:free": {"resultado": "HTTP 429", "ms_mediana": 400, "amostras": [["HTTP 429", 400]]},
+            }},
+            {"em": "2026-09-18T02:53:24Z", "modelos": {
+                "a:free": {"resultado": "200", "ms_mediana": 4000, "amostras": [["200", 4000]]},
+                "b:free": {"resultado": "200", "ms_mediana": 800, "amostras": [["200", 800]]},
+                "c:free": {"resultado": "200 vazio", "ms_mediana": 500, "amostras": [["200 vazio", 500]]},
+            }},
+        ]}
+
+    def test_mediana_conta_so_quem_respondeu_com_conteudo(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        from smoke_llm import resumo_latencia  # noqa: PLC0415
+
+        resumo = resumo_latencia(self._historico())
+        # 2000 e 4000 com conteúdo → mediana fica com a amostra mais lenta (pessimismo)
+        self.assertEqual(resumo["a:free"]["ms"], 4000)
+        self.assertEqual(resumo["a:free"]["taxa_conteudo"], 1.0)
+        # 600 vazio + 800 com conteúdo → 50%, mediana só da que teve conteúdo
+        self.assertEqual(resumo["b:free"]["ms"], 800)
+        self.assertEqual(resumo["b:free"]["taxa_conteudo"], 0.5)
+        # nunca respondeu com conteúdo: sem mediana e taxa zero
+        self.assertIsNone(resumo["c:free"]["ms"])
+        self.assertEqual(resumo["c:free"]["taxa_conteudo"], 0.0)
+
+    def test_relatorio_separa_agregado_da_ultima_rodada(self) -> None:
+        import os
+        import tempfile
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        from smoke_llm import escrever_relatorio_latencia  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(Path(tmp) / "reports", exist_ok=True)
+            anterior = os.getcwd()
+            os.chdir(tmp)
+            try:
+                historico = self._historico()
+                ultima = [(m, i["resultado"], float(i["ms_mediana"]))
+                          for m, i in historico["rodadas"][-1]["modelos"].items()]
+                escrever_relatorio_latencia(historico, ultima)
+                texto = (Path(tmp) / "reports" / "kilo-latencia-modelos.md").read_text(encoding="utf-8")
+            finally:
+                os.chdir(anterior)
+
+        self.assertIn("Agregado", texto)
+        self.assertIn("rodadas no histórico: 2", texto)
+        self.assertIn("`b:free` | 50% (1/2)", texto)
+        # quem nunca devolveu conteúdo aparece sem mediana, e não inventa número
+        self.assertIn("`c:free` | 0% (0/2) | - |", texto)
+
+    def test_historico_guarda_no_maximo_30_rodadas(self) -> None:
+        import os
+        import tempfile
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        from smoke_llm import _registrar_latencia  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(Path(tmp) / "reports", exist_ok=True)
+            anterior = os.getcwd()
+            os.chdir(tmp)
+            try:
+                for indice in range(35):
+                    _registrar_latencia([("a:free", "200", 1000.0 + indice)],
+                                        {"a:free": [("200", 1000.0 + indice)]})
+                dados = json.loads((Path(tmp) / "reports" / "kilo-latencia-historico.json")
+                                   .read_text(encoding="utf-8"))["rodadas"]
+            finally:
+                os.chdir(anterior)
+
+        self.assertEqual(len(dados), 30)
+        self.assertEqual(dados[-1]["modelos"]["a:free"]["ms_mediana"], 1034)
+
+
 class TestFreePool(unittest.TestCase):
     """O pool só é o que a documentação confirma: nada de provedor morto na lista."""
 

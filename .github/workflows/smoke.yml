@@ -64,10 +64,14 @@ jobs:
       - name: Sondar provedores LLM ao vivo
         id: sonda
         run: |
+          # O shell padrão do GitHub roda com `-e`: sem o `|| status=$?` o passo morria aqui
+          # quando nenhum provedor respondia (exit 2) e o relatório 🔴 nunca era publicado —
+          # justamente a rodada em que a prova ao vivo é mais importante. Quem decide vermelho
+          # é o passo "Falhar se nenhum provedor respondeu", abaixo.
           set -o pipefail
+          status=0
           python scripts/smoke_llm.py --timeout "$SMOKE_TIMEOUT" --concurrency "$SMOKE_CONCURRENCY" \
-            --out reports/smoke-llm.md | tee /tmp/sonda.txt
-          status=${PIPESTATUS[0]}
+            --out reports/smoke-llm.md | tee /tmp/sonda.txt || status=$?
           {
             echo "## Sonda de provedores LLM — \`${{ github.sha }}\`"
             echo
@@ -102,6 +106,9 @@ jobs:
           publicar "reports/smoke-llm.md"
           publicar "reports/kilo-modelos-free.md"
           publicar "reports/kilo-latencia-modelos.md"
+          # O histórico acumula as 3 amostras por modelo de cada rodada: é dele que sai a
+          # mediana que ordena a fila do corredor. Precisa sobreviver a rodada ruim também.
+          publicar "reports/kilo-latencia-historico.json"
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -121,4 +128,5 @@ jobs:
             reports/smoke-llm.md
             reports/kilo-modelos-free.md
             reports/kilo-latencia-modelos.md
+            reports/kilo-latencia-historico.json
           if-no-files-found: warn
