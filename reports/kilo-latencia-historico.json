@@ -691,6 +691,227 @@
           ]
         }
       }
+    },
+    {
+      "em": "2026-09-18T03:28:36Z",
+      "modelos": {
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 2320,
+          "amostras": [
+            [
+              "200",
+              2320
+            ],
+            [
+              "200",
+              747
+            ],
+            [
+              "200",
+              6687
+            ]
+          ]
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 1561,
+          "amostras": [
+            [
+              "200",
+              1908
+            ],
+            [
+              "200",
+              1545
+            ],
+            [
+              "200",
+              1561
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 4611,
+          "amostras": [
+            [
+              "200",
+              1895
+            ],
+            [
+              "200",
+              11317
+            ],
+            [
+              "200",
+              4611
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 975,
+          "amostras": [
+            [
+              "200",
+              975
+            ],
+            [
+              "200",
+              1437
+            ],
+            [
+              "200",
+              697
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1448,
+          "amostras": [
+            [
+              "200",
+              1448
+            ],
+            [
+              "200",
+              1840
+            ],
+            [
+              "200",
+              1298
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 1495,
+          "amostras": [
+            [
+              "200",
+              1495
+            ],
+            [
+              "200",
+              763
+            ],
+            [
+              "200",
+              1503
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2185,
+          "amostras": [
+            [
+              "200",
+              4809
+            ],
+            [
+              "200",
+              2078
+            ],
+            [
+              "200",
+              2185
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 956,
+          "amostras": [
+            [
+              "200",
+              956
+            ],
+            [
+              "200",
+              526
+            ],
+            [
+              "200",
+              1972
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 413,
+          "amostras": [
+            [
+              "HTTP 429",
+              364
+            ],
+            [
+              "HTTP 429",
+              499
+            ],
+            [
+              "HTTP 429",
+              413
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 485,
+          "amostras": [
+            [
+              "200",
+              1113
+            ],
+            [
+              "HTTP 429",
+              461
+            ],
+            [
+              "HTTP 429",
+              485
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 4054,
+          "amostras": [
+            [
+              "200 vazio",
+              4054
+            ],
+            [
+              "200 vazio",
+              4831
+            ],
+            [
+              "HTTP 429",
+              520
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 5966,
+          "amostras": [
+            [
+              "200 vazio",
+              7089
+            ],
+            [
+              "HTTP 429",
+              927
+            ],
+            [
+              "200 vazio",
+              5966
+            ]
+          ]
+        }
+      }
     }
   ]
 }
