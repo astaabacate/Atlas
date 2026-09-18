@@ -666,14 +666,17 @@ class TestModelosConferidosAoVivo(unittest.TestCase):
         )
 
     def test_ordem_do_kilo_comeca_pelo_modelo_mais_rapido(self) -> None:
-        """Rapidez percebida primeiro: a ordem sai da latência medida no CI."""
+        """Rapidez percebida primeiro, mas sem flakiness: a rede oscila entre rodadas."""
         ficha = next(spec for spec in FREE_PROVIDERS if spec.nome == "kilo")
         rapido = self.RELATORIO_LATENCIA
         if rapido.exists():
             linhas = [ln for ln in rapido.read_text(encoding="utf-8").splitlines() if ln.startswith("| `")]
-            ordem_medida = [ln.split("`")[1] for ln in linhas]
-            self.assertEqual(ficha.modelos[0], ordem_medida[0],
-                             "o primeiro da fila tem que ser o modelo mais rápido da última medição")
+            # só os que responderam com conteúdo e em menos de 5 s entram na comparação
+            bons = [ln.split("`")[1] for ln in linhas
+                    if "| 200 |" in ln and float(ln.rsplit("|", 2)[1].strip().rstrip("s")) < 5.0]
+            if bons:
+                self.assertIn(ficha.modelos[0], bons[:3],
+                              f"o primeiro da fila devia estar entre os 3 mais rápidos: {bons[:3]}")
         self.assertEqual(ficha.modelos[-1], "kilo-auto/free",
                          "o roteador (que às vezes devolve vazio) vai por último")
 

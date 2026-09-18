@@ -101,6 +101,7 @@ jobs:
           }
           publicar "reports/smoke-llm.md"
           publicar "reports/kilo-modelos-free.md"
+          publicar "reports/kilo-latencia-modelos.md"
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -119,4 +120,5 @@ jobs:
           path: |
             reports/smoke-llm.md
             reports/kilo-modelos-free.md
+            reports/kilo-latencia-modelos.md
           if-no-files-found: warn
