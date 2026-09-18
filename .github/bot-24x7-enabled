@@ -88,3 +88,10 @@ ferramenta quando o LLM cai depois de a ação já ter rodado; e (4) as correç�
 capacidades (hierarquia medida na API, retentativa em 5xx, bitrate pelo teto do servidor,
 export com aviso de recorte).
 
+RESTART PEDIDO EM 2026-09-18T06:27Z
+-------------------------------
+Motivo: incluir na fatia a fila do kilo reordenada pela medição de 7 rodadas (o
+nex-n2.5-pro responde com conteúdo 100% das vezes em 1,21 s; ele assume a ponta no lugar do
+ultra-550b, de 1,93 s) — resposta do bot começa ~0,7 s antes. Entra na fila e substitui a
+execução ainda pendente.
+
