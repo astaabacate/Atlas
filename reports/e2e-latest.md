@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 78 · ❌ 0 · ⚠️ 3 · ⏭️ 1
+- **Resumo:** ✅ 79 · ❌ 0 · ⚠️ 2 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 13ef216
-- **execução:** 35292973732
+- **commit:** 996e835
+- **execução:** 35294164330
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -75,7 +75,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 71ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 21ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -86,20 +86,20 @@
 | PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
 | WARN | `cargos que o bot não consegue gerenciar` | 3 cargo(s) no nível ou acima do bot (Atlas, iTinder, Cupido): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
 | PASS | `hierarquia de cargos` | cargo do bot na posição 1 |
-| PASS | `estrutura do servidor` | 3 categorias · 2 texto · 1 voz · 4 cargos · 4 membros |
-| PASS | `snapshot do servidor` | snapshot com 16 linhas alimenta o prompt |
-| PASS | `estado local bate com a API` | cache local bate com a API REST (6 canais, 4 cargos) |
+| PASS | `estrutura do servidor` | 0 categorias · 1 texto · 1 voz · 4 cargos · 4 membros |
+| PASS | `snapshot do servidor` | snapshot com 11 linhas alimenta o prompt |
+| PASS | `estado local bate com a API` | cache local bate com a API REST (2 canais, 4 cargos) |
 
 ## Ferramentas somente-leitura em servidor real
 `tools` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 6 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00 |
+| PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** None · • **Membros:** 4 · • **Canais:** 2 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.457000+00:00 |
 | PASS | `list_roles` | listou os 4 cargos reais com menção e posição |
-| PASS | `export_structure (JSON válido e completo)` | 3 categorias, 3 canais e 3 cargos exportados em JSON válido |
+| PASS | `export_structure (JSON válido e completo)` | 0 categorias, 2 canais e 3 cargos exportados em JSON válido |
 | PASS | `show_permissions` | O canal <#1550307354233413652> não possui permissões personalizadas configuradas. |
-| PASS | `resolve por ID e por menção` | 6 canais e 4 cargos resolvidos por ID e por menção |
+| PASS | `resolve por ID e por menção` | 2 canais e 4 cargos resolvidos por ID e por menção |
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
@@ -108,18 +108,18 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Atlas', 'iTinder'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso banir usuários — meu foco exclusivo é **montar e organizar a estrutura do servid' |
-| PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Canais de Texto, Canais de Voz, 📁 Canais de Texto) |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, categoria' |
+| PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Geral, oi) |
 | PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 13 · ❌ 0 · ⚠️ 2 · ⏭️ 1
+`mutate` — ✅ 14 · ❌ 0 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -128,8 +128,8 @@
 | PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Pronto! O canal **#🧪-efemero** foi excluído com sucesso. 🗑️' |
-| WARN | `agente pede confirmação em lote e apaga após 'sim'` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Os gratuitos compartilham o IP'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal apagado: <#1550313082352570442> (`#🧪-efemero`). Feito!' |
+| PASS | `agente pede confirmação em lote e apaga após 'sim'` | pediu confirmação e apagou depois do 'sim' ('Confirma que posso apagar os dois canais `<#1550313322891579') |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -139,11 +139,11 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550309322356166716) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550313406894973010) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'O servidor chama-se **Pinguim**.' |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'Pinguim' |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
 | PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
 
