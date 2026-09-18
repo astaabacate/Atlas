@@ -174,10 +174,11 @@ class TestMensagemV2(unittest.TestCase):
 
 class TestAparencia(unittest.TestCase):
     class _Asset:
-        def __init__(self, dados: bytes, erro: Exception | None = None) -> None:
+        def __init__(self, dados: bytes, erro: Exception | None = None, *,
+                     url: str = "https://cdn.discordapp.com/avatars/1/fake.png") -> None:
             self.dados = dados
             self.erro = erro
-            self.url = "https://cdn.discordapp.com/avatars/1/fake.png"
+            self.url = url
             self.formatos: list[str] = []
             self.tamanhos: list[int] = []
 
@@ -244,6 +245,40 @@ class TestAparencia(unittest.TestCase):
         asyncio.run(aparencia.preparar(usuario))
         asyncio.run(aparencia.preparar(usuario))
         self.assertEqual(len(asset.formatos), 1, "a cor fica em cache; não baixa a cada resposta")
+
+    def test_foto_trocada_com_o_bot_no_ar_e_medida_de_novo(self) -> None:
+        """O dono vai colocar a foto dele: a cor nova tem que valer sem reiniciar o farol."""
+        antiga = self._Asset(self._png_vermelho())
+        aparencia = look.Aparencia()
+        asyncio.run(aparencia.preparar(self._Usuario(antiga)))
+        primeira = aparencia.cor
+
+        nova = self._Asset(self._png_vermelho(), url="https://cdn.discordapp.com/avatars/1/outra.png")
+        asyncio.run(aparencia.preparar(self._Usuario(nova)))
+        self.assertEqual(len(nova.formatos), 1, "endereço novo = cor medida de novo")
+        self.assertNotEqual(aparencia.cor, look.COR_RESERVA)
+        self.assertGreater((aparencia.cor >> 16) & 0xFF, 180)
+        self.assertEqual(primeira, aparencia.cor, "as duas fotos de teste são iguais")
+
+    def test_cor_fixa_nunca_e_sobrescrita_pela_foto(self) -> None:
+        aparencia = look.Aparencia(0x00FF00)
+        primeira = self._Asset(self._png_vermelho(), url="https://cdn.discordapp.com/1.png")
+        segunda = self._Asset(self._png_vermelho(), url="https://cdn.discordapp.com/2.png")
+        asyncio.run(aparencia.preparar(self._Usuario(primeira)))
+        asyncio.run(aparencia.preparar(self._Usuario(segunda)))
+        self.assertEqual(aparencia.cor, 0x00FF00)
+        self.assertEqual(primeira.formatos + segunda.formatos, [],
+                         "ACCENT_COLOR fixo manda: nada de medir por cima")
+
+    def test_falha_na_leitura_tenta_de_novo_na_proxima(self) -> None:
+        quebrado = self._Asset(b"", erro=RuntimeError("CDN fora"))
+        aparencia = look.Aparencia()
+        asyncio.run(aparencia.preparar(self._Usuario(quebrado)))
+        self.assertFalse(aparencia.cor_medida, "falhou = não marca como medido")
+        certo = self._Asset(self._png_vermelho())
+        asyncio.run(aparencia.preparar(self._Usuario(certo)))
+        self.assertTrue(aparencia.cor_medida, "a resposta seguinte mede de novo")
+        self.assertGreater((aparencia.cor >> 16) & 0xFF, 180)
 
 
 if __name__ == "__main__":

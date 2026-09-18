@@ -165,12 +165,13 @@ class FarolBot(discord.Client):
                     # Remover menções ao bot do prompt
                     clean_text = re.sub(rf"<@!?{self.user.id}>", "", message.content).strip()
 
-                    if not self.aparencia.cor_medida:
-                        # Avatar trocado/sem medição ainda: mede agora (é a 1ª resposta)
-                        try:
-                            await self.aparencia.preparar(self.user)
-                        except Exception as exc:  # noqa: BLE001 - a resposta não depende disso
-                            logger.debug("Sem medir a cor do avatar: %s", exc)
+                    # Aparência: na 1ª resposta mede a cor do avatar; se o dono trocar a
+                    # foto com o bot no ar, o endereço muda e a cor é medida de novo aqui.
+                    # (Quando não mudou nada, sai na hora — não custa rede.)
+                    try:
+                        await self.aparencia.preparar(self.user)
+                    except Exception as exc:  # noqa: BLE001 - a resposta não depende disso
+                        logger.debug("Sem medir a cor do avatar: %s", exc)
 
                     reply_text = await self.agent.process_turn(
                         guild=message.guild,

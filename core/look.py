@@ -250,28 +250,37 @@ class Aparencia:
     """
     A identidade visual do farol: cor de destaque (medida do próprio avatar) e a mensagem V2.
 
-    A cor é medida UMA vez (ou quando o avatar muda) e fica em cache — ler a imagem a cada
-    resposta seria desperdício de rede e de tempo.
+    A cor é medida UMA vez e fica em cache — ler a imagem a cada resposta seria desperdício de
+    rede e de tempo. Se o dono trocar a foto com o bot no ar, o endereço do avatar muda e a cor
+    é medida de novo na resposta seguinte (sem reiniciar nada).
     """
 
     def __init__(self, cor_fixa: int | None = None, *, v2: bool = True) -> None:
-        self.cor: int = int(cor_fixa) if cor_fixa is not None else COR_RESERVA
-        self.cor_medida: bool = cor_fixa is not None
+        self.cor_fixa: int | None = int(cor_fixa) if cor_fixa is not None else None
+        self.cor: int = self.cor_fixa if self.cor_fixa is not None else COR_RESERVA
+        self.cor_medida: bool = self.cor_fixa is not None
         self.v2 = v2
         self.avatar_url: str | None = None
+        self._avatar_medido: str | None = None  # endereço da imagem que deu a cor atual
 
     async def preparar(self, user: Any, *, forcar: bool = False) -> int:
-        """Mede a cor do avatar (uma vez) e guarda o endereço da imagem para o container."""
+        """Mede a cor do avatar e guarda o endereço da imagem para o container."""
         avatar = getattr(user, "display_avatar", None)
-        self.avatar_url = getattr(avatar, "url", None) or self.avatar_url
-        if avatar is None or (self.cor_medida and not forcar):
+        endereco = getattr(avatar, "url", None)
+        self.avatar_url = endereco or self.avatar_url
+        if avatar is None or self.cor_fixa is not None:
+            # Cor fixada por ACCENT_COLOR: o dono mandou, ninguém mede por cima.
+            return self.cor
+        if not forcar and self.cor_medida and endereco == self._avatar_medido:
             return self.cor
         try:
             dados = await avatar.with_format("png").with_size(LADO_DO_AVATAR).read()
             self.cor = cor_do_avatar(dados, reserva=self.cor or COR_RESERVA)
             self.cor_medida = True
+            self._avatar_medido = endereco
             logger.info("Cor do farol medida no avatar: %s", hex_da_cor(self.cor))
         except Exception as exc:  # noqa: BLE001 - segue com a reserva
+            # Sem marcar como medido: a próxima resposta tenta de novo (a CDN pode ter caído).
             logger.debug("Não consegui medir a cor do avatar (%s); sigo com %s.",
                          exc, hex_da_cor(self.cor))
         return self.cor
