@@ -140,6 +140,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         models_url: str = "",
         auto_discover: bool = True,
         discovery_can_replace: bool = True,
+        cooldown: float = DEFAULT_COOLDOWN,
     ) -> None:
         candidate_models = [m for m in (models or []) if m]
         if default_model and default_model not in candidate_models:
@@ -149,6 +150,8 @@ class OpenAICompatibleHttpProvider(ChatProvider):
 
         self.name = name
         self.endpoint_url = endpoint_url
+        # Tempo de castigo próprio do provedor (vem da ficha do pool).
+        self.cooldown = max(1.0, float(cooldown))
         self.models = candidate_models
         # Lista original, para nunca ficar sem candidato depois de uma descoberta estranha.
         self.configured_models = list(candidate_models)
@@ -310,7 +313,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
                 last_error = exc
 
                 if exc.is_rate_limited:
-                    espera = exc.retry_after if exc.retry_after is not None else DEFAULT_COOLDOWN
+                    espera = exc.retry_after if exc.retry_after is not None else self.cooldown
                     self._start_cooldown(espera)
                     # Uma segunda tentativa rápida resolve fila momentânea ("Queue full for IP").
                     if not retry_429_usado:
@@ -325,7 +328,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
                         except ProviderError as retry_exc:
                             last_error = retry_exc
                             if retry_exc.is_rate_limited:
-                                self._start_cooldown(retry_exc.retry_after or DEFAULT_COOLDOWN)
+                                self._start_cooldown(retry_exc.retry_after or self.cooldown)
                                 raise
                             exc = retry_exc
 
@@ -449,11 +452,17 @@ class FreeProviderSpec:
     contexto: str = ""
     cota: str = ""
     supports_tools: bool = False
+    supports_models: bool = True   # expõe GET /models (a corrida usa para descobrir catálogo)
     conta_id_env: str = ""         # provedores que exigem ID da conta na URL
     headers: tuple[tuple[str, str], ...] = ()
     cooldown: float = 45.0
-    validado: bool = False         # 200 confirmado na sonda ao vivo
+    validado: bool = False         # 200 confirmado na sonda ao vivo (reports/smoke-llm.md)
     observacao: str = ""
+
+    @property
+    def status(self) -> str:
+        """🟢 só com 200 confirmado ao vivo; senão 🟡 (gratuito confirmado, não testado)."""
+        return "🟢 TESTADA E FUNCIONANDO" if self.validado else "🟡 GRATUITA CONFIRMADA, MAS NÃO TESTADA"
 
 
 FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
@@ -467,6 +476,9 @@ FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
         contexto="262K (alguns 1M)",
         cota="200 req/h por IP (anônimo)",
         supports_tools=True,
+        # 200 confirmado na sonda ao vivo de 18/09/2026 (reports/smoke-llm.md):
+        # GET /models 200 (380 modelos), chat PT + tools nativo + fallback textual OK.
+        validado=True,
         observacao="único corredor do pool sem chave; catálogo público em /models (isFree)",
     ),
     # -- chave gratuita no GitHub Actions (secret) ---------------------------
@@ -629,10 +641,36 @@ def build_free_runners(env: dict[str, str] | None = None) -> list[ChatProvider]:
                 models=list(spec.modelos),
                 headers=headers,
                 supports_tools=spec.supports_tools,
-                models_url=f"{base}/models",
+                models_url=f"{base}/models" if spec.supports_models else "",
+                auto_discover=spec.supports_models,
+                cooldown=spec.cooldown,
             )
         )
     return runners
+
+
+def tabela_do_pool(env: dict[str, str] | None = None) -> str:
+    """Config final em markdown: tudo o que a ficha carrega, já com o status de cada um."""
+    relatorio = relatorio_do_pool(env)
+    faltando = {spec.nome: motivo for spec, motivo in relatorio}
+    linhas = [
+        "| corredor | base_url | credencial | modelos | contexto | limite grátis | tools | models | cooldown | status |",
+        "|---|---|---|---|---|---|:---:|:---:|---:|---|",
+    ]
+    for spec in FREE_PROVIDERS:
+        credencial = spec.key_env or "anônimo (sem cadastro)"
+        if spec.conta_id_env:
+            credencial = f"{credencial} + {spec.conta_id_env}"
+        if faltando.get(spec.nome):
+            credencial += f" — ⚠️ {faltando[spec.nome]}"
+        modelos = ", ".join(spec.modelos)
+        status = spec.status
+        linhas.append(
+            f"| `{spec.nome}` | `{spec.base_url}` | {credencial} | {modelos} | {spec.contexto} | "
+            f"{spec.cota} | {'✅' if spec.supports_tools else '—'} | "
+            f"{'✅' if spec.supports_models else '—'} | {spec.cooldown:.0f}s | {status} |"
+        )
+    return "\n".join(linhas)
 
 
 def relatorio_do_pool(env: dict[str, str] | None = None) -> list[tuple[FreeProviderSpec, str]]:
@@ -741,3 +779,7 @@ def build_gateway_provider(
         headers={"Authorization": f"Bearer {resolved_key}"},
         supports_tools=True,
     )
+
+
+if __name__ == "__main__":  # pragma: no cover - conveniência de linha de comando
+    print(tabela_do_pool())

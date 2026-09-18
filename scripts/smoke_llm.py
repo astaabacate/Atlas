@@ -111,12 +111,18 @@ class ProbeResult:
 
     @property
     def aprovado(self) -> bool:
-        """🟢 = respondeu, catálogo OK, pelo menos uma chamada consecutiva sem erro."""
+        """🟢 = respondeu o chat, catálogo alcançável e nenhum 429 nas chamadas seguidas.
+
+        Uma oscilação de rede no meio das consecutivas não reprova o corredor (o modelo já
+        provou responder); 429/vazio sim, porque aí o pool não contaria com ele.
+        """
         if self.status != "200" or self.error:
             return False
         if self.catalogo_status not in {"200", "vazio", "sem endpoint"}:
             return False
-        return "429" not in self.consecutivas and "erro" not in self.consecutivas
+        if "429" in self.consecutivas:
+            return False
+        return "200" in self.consecutivas or self.consecutivas == "-"
 
 
 def truthy(value: str | None) -> bool:
@@ -403,8 +409,8 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
                 if exc.status == 429:
                     retry_after = str(exc.retry_after or "")
                     break
-            except Exception:  # noqa: BLE001
-                marcas.append("erro")
+            except Exception as exc:  # noqa: BLE001 - a marca diz qual falha foi
+                marcas.append(f"ex:{type(exc).__name__}")
                 break
         consecutivas = "/".join(marcas) if marcas else "-"
 

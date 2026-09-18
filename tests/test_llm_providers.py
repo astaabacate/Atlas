@@ -22,7 +22,24 @@ from llm.free_providers import (
     build_gateway_provider,
     descrever_pool,
     relatorio_do_pool,
+    tabela_do_pool,
 )
+
+# Env fake com todas as credenciais do pool: usado para montar a corrida inteira nos testes.
+SECRETS_DO_POOL = {
+    "GEMINI_API_KEY": "x",
+    "GROQ_API_KEY": "x",
+    "MISTRAL_API_KEY": "x",
+    "NVIDIA_API_KEY": "x",
+    "ZAI_API_KEY": "x",
+    "CLOUDFLARE_API_TOKEN": "x",
+    "CLOUDFLARE_ACCOUNT_ID": "x",
+    "OLLAMA_API_KEY": "x",
+    "OPENROUTER_API_KEY": "x",
+    "MODELSCOPE_API_KEY": "x",
+    "SILICONFLOW_API_KEY": "x",
+    "COHERE_API_KEY": "x",
+}
 
 FAKE_TOOL_SCHEMA = [
     {
@@ -493,6 +510,34 @@ class TestAutoProvider(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             build_gateway_provider("nao-existe", api_key="k", env={})
         self.assertIn("LLM_BASE_URL", str(ctx.exception))
+
+
+class TestTabelaDoPool(unittest.TestCase):
+    """A config final precisa sair já com as colunas pedidas pelo dono."""
+
+    def test_tabela_traz_colunas_e_status(self) -> None:
+        tabela = tabela_do_pool(env={})
+        for coluna in ("base_url", "credencial", "modelos", "contexto", "limite grátis",
+                       "tools", "models", "cooldown", "status"):
+            self.assertIn(coluna, tabela)
+        self.assertIn("🟢 TESTADA E FUNCIONANDO", tabela)  # kilo
+        self.assertIn("🟡 GRATUITA CONFIRMADA, MAS NÃO TESTADA", tabela)
+
+    def test_supports_models_vira_descoberta_no_corredor(self) -> None:
+        corredores = {r.name: r for r in build_free_runners(env=SECRETS_DO_POOL)}
+        self.assertEqual(len(corredores), len(FREE_PROVIDERS), "toda ficha com chave entra na corrida")
+        for spec in FREE_PROVIDERS:
+            corredor = corredores[spec.nome]
+            if spec.supports_models:
+                self.assertTrue(corredor.models_url.endswith("/models"), spec.nome)
+                self.assertTrue(corredor.auto_discover, spec.nome)
+            else:
+                self.assertEqual(corredor.models_url, "", spec.nome)
+                self.assertFalse(corredor.auto_discover, spec.nome)
+
+    def test_cooldown_da_ficha_chega_no_corredor(self) -> None:
+        corredor = build_free_runners(env={})[0]
+        self.assertEqual(corredor.cooldown, FREE_PROVIDERS[0].cooldown)
 
 
 class TestFreePool(unittest.TestCase):
