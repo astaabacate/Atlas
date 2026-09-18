@@ -38,7 +38,10 @@ permissions:
 
 concurrency:
   group: e2e-live
-  cancel-in-progress: false
+  # A execução NOVA derruba a antiga de propósito: um travamento (visto em 18/09: a fase de
+  # mutações presa numa espera de rate limit) não pode bloquear a fila para sempre. O que ficar
+  # de sobra no servidor é objeto de teste 🧪 — a fase 8 (varredura) da execução seguinte limpa.
+  cancel-in-progress: true
 
 jobs:
   e2e:
