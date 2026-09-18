@@ -1,6 +1,6 @@
 # 🛰️ Sonda ao vivo dos provedores LLM
 
-- executada em: 2026-09-18T00:39:20Z
+- executada em: 2026-09-18T00:52:35Z
 - python: 3.11.16
 
 Pool gratuito ativo: kilo
@@ -21,7 +21,7 @@ Corredores sondados: kilo (AutoProvider.create_default)
 
 | corredor | status HTTP | modelo que respondeu | latência | tool_call nativo? | contexto | cota | erro compactado |
 |---|---:|---|---:|:---:|---|---|---|
-| kilo | 200 | kilo-auto/free | 9833 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
+| kilo | 200 | kilo-auto/free | 16393 ms | sim | 262K (alguns 1M) | 200 req/h por IP (anônimo) | - |
 
 Protocolo obrigatório (GET /models → POST /chat/completions PT + tools → consecutivas → texto puro):
 
