@@ -216,7 +216,18 @@ class AutoProvider(ChatProvider):
             # desespero"): todo mundo, inclusive os de castigo — melhor tentar do que falhar.
             candidatos = self._candidatos(ultima_onda=onda == self.max_waves)
             if not candidatos:
-                break
+                # TODOS de castigo. Com o pool de UM corredor (o CI tem só o kilo) isso é o
+                # mesmo que falhar na hora — e era assim que "tarefas específicas" (as que
+                # gastam mais de uma chamada) morriam com "não consegui falar com nenhum modelo".
+                # Esperar o castigo mais curto terminar é melhor do que desistir.
+                espera = self._menor_castigo_restante()
+                if (espera is not None and onda < self.max_waves and espera <= 10.0
+                        and (limite - time.monotonic()) > espera + 2.0):
+                    logger.info("Corrida de LLMs: todo o pool de castigo; esperando %.1fs", espera)
+                    await asyncio.sleep(espera + 0.2)
+                    candidatos = self._candidatos(ultima_onda=False)
+                if not candidatos:
+                    break
 
             timeout_onda = min(timeout, max(10.0, restante * 0.8))
             vencedor, erros_onda, transitorio_onda, contexto_onda = await self._correr_onda(
@@ -320,6 +331,10 @@ class AutoProvider(ChatProvider):
     def _anotar_falha(self, provider: ChatProvider, exc: BaseException) -> str:
         """Classifica a falha do corredor e decide se ele merece um tempo de castigo."""
         if isinstance(exc, ProviderError):
+            if exc.is_context_problem:
+                # A culpa é do TAMANHO do pedido, não do corredor: castigá-lo aqui impediria
+                # justamente a nova tentativa com o histórico cortado.
+                return f"{provider.name}: {exc}"
             if exc.is_rate_limited:
                 self._castigar(provider.name, exc.retry_after or BENCH_ON_RATE_LIMIT)
             elif exc.is_transient:
@@ -348,6 +363,13 @@ class AutoProvider(ChatProvider):
         if ate > self._benched.get(nome, 0.0):
             logger.info("Corredor %s de castigo por %.0fs", nome, segundos)
             self._benched[nome] = ate
+
+    def _menor_castigo_restante(self) -> float | None:
+        """Quantos segundos faltam para o corredor de castigo mais próximo voltar (None = nenhum)."""
+        agora = time.monotonic()
+        restantes = [self._benched.get(p.name, 0.0) - agora for p in self.providers]
+        restantes = [r for r in restantes if r > 0]
+        return min(restantes) if restantes else None
 
     def castigados(self) -> list[str]:
         """Nomes dos corredores de castigo agora (diagnóstico)."""

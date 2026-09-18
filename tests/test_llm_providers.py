@@ -1138,6 +1138,56 @@ class TestErroDeContexto(unittest.TestCase):
         self.assertEqual(ctx.exception.motivo, "")
 
 
+class TestPoolDeUmCorredorSo(unittest.TestCase):
+    """
+    O CI tem UM corredor (kilo). Nele, "todo mundo de castigo" virava falha imediata — e as
+    tarefas específicas (as que gastam mais de uma chamada e esbarram no limite de 200 req/h)
+    eram justamente as que morriam com "não consegui falar com nenhum modelo".
+    """
+
+    def test_pool_de_castigo_espera_o_castigo_mais_curto(self) -> None:
+        from llm.auto import BENCH_ON_RATE_LIMIT  # noqa: F401  (documenta de onde vem o castigo)
+
+        # 429 na primeira chamada → castigo curto → o bot espera e tenta de novo com sucesso
+        provider = FlakyProvider("kilo", content="respondi depois do castigo", falhas=1,
+                                 status=429, retry_after=0.4)
+        auto = corrida(provider, waves=2)
+        auto.wave_delay = 0.01
+
+        resposta = asyncio.run(auto.chat(messages=[{"role": "user", "content": "tarefa pesada"}]))
+        self.assertEqual(resposta.content, "respondi depois do castigo")
+        self.assertGreaterEqual(provider.chamadas, 2)
+
+    def test_castigo_longo_nao_trava_o_turno(self) -> None:
+        """Castigo de minutos não pode segurar o cliente: falha rápido com mensagem transitória."""
+        provider = AlwaysFailingProvider("kilo", 429, "Queue full for IP", retry_after=600)
+        auto = corrida(provider, waves=2)
+
+        with self.assertRaises(LLMUnavailableError) as ctx:
+            asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}], timeout=5.0))
+        self.assertTrue(ctx.exception.transient)
+
+    def test_contexto_nao_castiga_o_corredor(self) -> None:
+        """Erro de tamanho é do PEDIDO: castigar o corredor impediria a tentativa com menos contexto."""
+        provider = ProviderDeContexto(exige=8)
+        auto = corrida(provider, waves=2)
+        asyncio.run(auto.chat(messages=[{"role": "system", "content": "s"},
+                                        *[{"role": "user", "content": str(i)} for i in range(30)]]))
+        self.assertEqual(auto.castigados(), [], "corredor castigado por erro de tamanho do pedido")
+
+    def test_modelo_indisponivel_convida_a_tentar_de_novo(self) -> None:
+        """Catálogo dos gratuitos muda sozinho: o cliente deve ler 'tente de novo', não beco sem saída."""
+        auto = corrida(
+            AlwaysFailingProvider("kilo", 400, "Model modelo-x is currently unavailable"),
+            waves=1,
+        )
+        with self.assertRaises(LLMUnavailableError) as ctx:
+            asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
+        self.assertTrue(ctx.exception.transient)
+        from core.bot import FarolBot
+        self.assertIn("tente de novo", FarolBot._mensagem_de_erro(ctx.exception).lower())
+
+
 class TestPodaDeMensagens(unittest.TestCase):
     def test_mantem_system_e_o_mais_recente(self) -> None:
         from llm.base import podar_mensagens

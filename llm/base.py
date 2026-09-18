@@ -60,6 +60,11 @@ class ProviderError(RuntimeError):
     @property
     def is_transient(self) -> bool:
         """Falha passageira: vale repetir a corrida depois de uma pausa curta."""
+        if self.is_model_problem:
+            # Catálogo dos gratuitos muda sem avisar ("model ... is currently unavailable").
+            # Isso volta sozinho em minutos — o cliente deve ser convidado a tentar de novo,
+            # não receber a mensagem de beco sem saída.
+            return True
         if self.is_rate_limited or self.empty_response:
             # Resposta vazia de gateway/roteador grátis costuma ser o modelo do momento
             # devolvendo nada: a próxima onda pode cair noutro modelo do mesmo corredor.
@@ -96,6 +101,10 @@ class ProviderError(RuntimeError):
     @property
     def is_model_problem(self) -> bool:
         """True quando o provedor rejeitou o MODELO (vale tentar o próximo da lista)."""
+        if self.is_context_problem:
+            # "maximum context length" também contém "model", mas trocar de modelo não resolve:
+            # quem resolve é MANDAR MENOS CONTEÚDO (a corrida poda o histórico e repete).
+            return False
         if self.status not in (400, 404, 422):
             return False
         # Página HTML de erro (Vercel/nginx/CDN) significa URL/caminho errado,
