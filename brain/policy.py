@@ -126,8 +126,9 @@ def require(
             target_pos = getattr(target_role, "position", 0)
             if target_pos >= bot_pos:
                 raise ToolError(
-                    f"O cargo '{role_name}' está acima ou na mesma posição do meu cargo mais alto. "
-                    "Suba o cargo do farol nas configurações de cargos do servidor."
+                    f"O cargo '{role_name}' (posição {target_pos}) está acima ou na mesma posição "
+                    f"do meu cargo mais alto (posição {bot_pos}). Suba o cargo do farol nas "
+                    "configurações de cargos do servidor."
                 )
 
         # Posição em relação ao autor (dono do servidor faz bypass de hierarquia)
@@ -141,6 +142,7 @@ def require(
                 target_pos = getattr(target_role, "position", 0)
                 if target_pos >= actor_pos:
                     raise ToolError(
-                        f"Você não pode gerenciar o cargo '{role_name}' porque a posição dele "
-                        "é maior ou igual à do seu cargo mais alto."
+                        f"Você não pode gerenciar o cargo '{role_name}' (posição {target_pos}) "
+                        f"porque a posição dele é maior ou igual à do seu cargo mais alto "
+                        f"(posição {actor_pos})."
                     )

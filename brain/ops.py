@@ -678,11 +678,28 @@ async def op_create_roles(
         raise ToolError(f"Falha ao criar cargos: {err}")
 
     created_roles = " ".join(res.succeeded)
+
+    # Honestidade: cargo criado nasce embaixo na hierarquia. Se o meu cargo mais alto estiver
+    # no chão do servidor, eu crio mas NÃO consigo editar/apagar depois — o dono precisa saber
+    # disso na hora (a matriz ao vivo pegou exatamente esse caso).
+    aviso = ""
+    posicao_bot = getattr(getattr(getattr(guild, "me", None), "top_role", None), "position", None)
+    if posicao_bot is not None:
+        pedidos = {str(r.get("name", "")).strip() for r in roles}
+        criados_no_teto = [r for r in getattr(guild, "roles", [])
+                           if getattr(r, "name", "") in pedidos
+                           and getattr(r, "position", 0) >= posicao_bot]
+        if criados_no_teto:
+            aviso = (f" ⚠️ Meu cargo mais alto está na posição {posicao_bot}, e "
+                     f"{len(criados_no_teto)} cargo(s) criado(s) ficaram nessa altura ou acima: "
+                     "eu NÃO vou conseguir editá-los nem apagá-los (regra de hierarquia do "
+                     "Discord). Suba o meu cargo se quiser gerenciá-los.")
+
     if permissoes_globais:
         nomes_txt = ", ".join(resolver_permissoes(permissoes_globais))
         return (f"Criei {len(res.succeeded)} cargo(s) com as permissões [{nomes_txt}]: "
-                f"{created_roles} ({res.summary()})")
-    return f"Criei {len(res.succeeded)} cargo(s): {created_roles} ({res.summary()})"
+                f"{created_roles} ({res.summary()}).{aviso}")
+    return f"Criei {len(res.succeeded)} cargo(s): {created_roles} ({res.summary()}).{aviso}"
 
 
 async def op_edit_role(
@@ -762,8 +779,33 @@ async def op_delete_role(
     return f"🗑️ Cargo **{name}** excluído com sucesso."
 
 
+async def _membro_do_servidor(ctx: ToolContext, query: str) -> Any:
+    """
+    Localiza um membro aceitando o cache local, mas caindo na API quando ele não está lá.
+
+    Acontece quando a intent de membros está desligada no Developer Portal: o cache fica vazio e
+    `resolve_member` não acha ninguém. Sem isso, dar/tirar cargo de um membro REAL falhava com
+    "Membro '<id>' não foi encontrado no servidor" — foi o que a matriz ao vivo pegou.
+    """
+    try:
+        return resolve_member(ctx.guild, query)
+    except ToolError:
+        texto = str(query).strip()
+        achado = re.search(r"\d{5,}", texto)
+        alvo_id = int(achado.group()) if achado else None
+        busca = getattr(ctx.guild, "fetch_member", None)
+        if alvo_id is not None and busca is not None:
+            try:
+                return await busca(alvo_id)
+            except Exception as exc:  # noqa: BLE001 - sem membro na API, erro original abaixo
+                raise ToolError(
+                    f"Membro '{query}' não foi encontrado no servidor ({exc})."
+                ) from exc
+        raise
+
+
 async def op_give_role(ctx: ToolContext, member: str, role: str) -> str:
-    m_obj = resolve_member(ctx.guild, member)
+    m_obj = await _membro_do_servidor(ctx, member)
     r_obj = resolve_role(ctx.guild, role)
 
     require("give_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
@@ -780,7 +822,7 @@ async def op_give_role(ctx: ToolContext, member: str, role: str) -> str:
 
 
 async def op_take_role(ctx: ToolContext, member: str, role: str) -> str:
-    m_obj = resolve_member(ctx.guild, member)
+    m_obj = await _membro_do_servidor(ctx, member)
     r_obj = resolve_role(ctx.guild, role)
 
     require("take_role", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,

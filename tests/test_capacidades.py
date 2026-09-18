@@ -154,6 +154,7 @@ class Servidor:
         self.categories: list[Any] = []
         self.roles = [Entidade("@everyone", 1, 0)]
         self.members: list[Any] = []
+        self.na_api: dict[int, Any] = {}  # existem no servidor, mas fora do cache local
         self.bitrate_limit = 96000  # sem boost, como no servidor real de teste
         self.criados: list[tuple[str, str, dict[str, Any]]] = []
         self.me = types.SimpleNamespace(id=999, name="farol",
@@ -164,6 +165,15 @@ class Servidor:
     def _id(self) -> int:
         self._seq += 1
         return self._seq
+
+    async def fetch_member(self, membro_id: int) -> Any:
+        """Como no Discord: busca na API quem não está no cache."""
+        if membro_id in self.na_api:
+            return self.na_api[membro_id]
+        for m in self.members:
+            if getattr(m, "id", None) == membro_id:
+                return m
+        raise Exception("404 Not Found (10007): Unknown Member")
 
     # criação (registra TUDO que chegou)
     async def create_text_channel(self, name: str, **kwargs: Any) -> Canal:
@@ -770,6 +780,61 @@ class TestAchadosDaMatrizAoVivo(unittest.TestCase):
         saida = executar("move_channel", {"channel": "geral", "position": 0}, ctx)
         self.assertIn("pedida 0", saida)
         self.assertIn("real 2", saida)
+
+
+class TestMembroForaDoCache(unittest.TestCase):
+    """Cache vazio (intent de membros desligada no portal) não pode impedir dar/tirar cargo."""
+
+    def test_give_e_take_role_acham_o_membro_pela_api(self) -> None:
+        ctx, servidor = contexto()
+        cargo = Entidade("🧪-cargo", 77, 1)
+        servidor.roles.append(cargo)
+        membro = Entidade("dono", 1521612392105250836, 0)
+        async def add_roles(*a: Any, **k: Any) -> None:
+            return None
+
+        membro.add_roles = add_roles  # type: ignore[attr-defined]
+        servidor.na_api[membro.id] = membro  # existe no servidor, mas fora do cache
+
+        saida = executar("give_role", {"member": str(membro.id), "role": str(cargo.id)}, ctx)
+        self.assertIn(str(membro.id), saida)
+
+        removidos: list[Any] = []
+
+        async def remove_roles(r: Any) -> None:
+            removidos.append(r)
+
+        membro.remove_roles = remove_roles  # type: ignore[attr-defined]
+        executar("take_role", {"member": str(membro.id), "role": str(cargo.id)}, ctx)
+        self.assertEqual(len(removidos), 1)
+
+    def test_membro_que_realmente_nao_existe_da_erro_claro(self) -> None:
+        ctx, _ = contexto()
+        msg = falha("give_role", {"member": "111222333444555666", "role": "geral"}, ctx)
+        self.assertIn("não foi encontrado", msg)
+
+
+class TestRecusaDeHierarquiaComNumeros(unittest.TestCase):
+    """A recusa diz AS POSIÇÕES — sem isso a matriz ao vivo não conseguiu diagnosticar nada."""
+
+    def test_recusa_do_bot_mostra_as_posicoes(self) -> None:
+        ctx, servidor = contexto()
+        servidor.me.top_role.position = 1
+        cargo = Entidade("alto", 99, 7)
+        servidor.roles.append(cargo)
+
+        msg = falha("edit_role", {"role": str(cargo.id), "name": "x"}, ctx)
+        self.assertIn("posição 7", msg)
+        self.assertIn("posição 1", msg)
+
+    def test_recusa_do_autor_mostra_as_posicoes(self) -> None:
+        ctx, _ = contexto()
+        ctx.actor.top_role.position = 40
+        alvo = Entidade("alto", 97, 41)
+        ctx.guild.roles.append(alvo)
+        msg = falha("edit_role", {"role": str(alvo.id), "name": "x"}, ctx)
+        self.assertIn("posição 41", msg)
+        self.assertIn("posição 40", msg)
 
 
 class TestCoerenciaSchemaExecucao(unittest.TestCase):

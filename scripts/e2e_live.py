@@ -2571,6 +2571,19 @@ class Harness:
             return await guild.fetch_channel(canal.id)
 
         # -------------------------------------------------------------- cargos
+        def gerencia_cargos() -> bool:
+            """O bot só mexe em cargo abaixo do cargo mais alto dele (regra do Discord)."""
+            papel = estado.get("cargo")
+            return papel is not None and papel.position < guild.me.top_role.position
+
+        def aviso_de_hierarquia(motivo: str) -> str:
+            """Registra ⚠️ dizendo o que NÃO foi verificado e por quê — nunca um ✅ de fachada."""
+            self.rep.record(phase, "cargos: gerenciar o cargo criado", WARN,
+                            f"{motivo} — suba o cargo do farol acima dos cargos de teste para a "
+                            "auditoria de cargos ficar completa ao vivo (as validações de valor, "
+                            "hierarquia e @everyone seguem cobertas por tests/test_capacidades.py)")
+            return f"não verificável neste servidor: {motivo}"
+
         async def cargos_criacao_completa() -> str:
             antes = await self._api_state(guild)
             await ferramenta("create_roles", {"roles": [{
@@ -2602,6 +2615,21 @@ class Harness:
             papel = estado.get("cargo")
             if papel is None:
                 self.assert_true(False, "sem cargo criado para editar")
+            if not gerencia_cargos():
+                # A recusa EM SI é verificável (e importante): confere que é clara e que nada mudou.
+                antes_r = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+                try:
+                    await ferramenta("edit_role", {"role": str(papel.id), "name": "x"})
+                    self.assert_true(False, "editou cargo na altura do topo do bot")
+                except ToolError as exc:
+                    self.assert_true("posição" in str(exc) or "acima" in str(exc),
+                                     f"recusa de hierarquia confusa: {exc}")
+                depois_r = next(r for r in await guild.fetch_roles() if r.id == papel.id)
+                self.assert_true(antes_r.name == depois_r.name, "a recusa mexeu no cargo")
+                return aviso_de_hierarquia(
+                    f"o cargo do farol está na posição {guild.me.top_role.position} e o cargo "
+                    f"criado ficou na {papel.position}: o Discord recusa a edição (recusa conferida "
+                    "como clara, sem alterar nada)")
             alvo = str(papel.id)
             conferidos: list[str] = []
 
@@ -2648,6 +2676,11 @@ class Harness:
 
         async def cargos_valores_invalidos_e_hierarquia() -> str:
             papel = estado.get("cargo")
+            if not gerencia_cargos():
+                return aviso_de_hierarquia(
+                    "com o cargo no nível do topo do bot, o gate de hierarquia dispara antes da "
+                    "validação de valor — sem cargo gerenciável não dá para provar valor inválido "
+                    "ao vivo")
             alvo = str(papel.id)
             antes = next(r for r in await guild.fetch_roles() if r.id == papel.id)
 
@@ -2694,7 +2727,10 @@ class Harness:
 
         async def cargos_dar_e_tirar_de_membro() -> str:
             papel = estado.get("cargo")
-            membro = live.actor
+            if not gerencia_cargos():
+                return aviso_de_hierarquia(
+                    "não posso atribuir cargo que ficou na altura do meu topo")
+            membro = guild.owner or live.actor
             # garante o membro no cache (resolve_member depende dele quando a intent falha)
             await guild.fetch_member(membro.id)
             await ferramenta("give_role", {"member": str(membro.id), "role": str(papel.id)})
@@ -3004,11 +3040,24 @@ class Harness:
         # -------------------------------------------------------------- estrutura
         async def export_guarda_capacidades() -> str:
             papel = estado.get("cargo")
+            if papel is None:
+                return aviso_de_hierarquia("sem cargo criado para exportar")
             # garante um canal de texto com todas as propriedades e um de voz com limites
             await ferramenta("edit_channel", {"channel": str(texto.id), "topic": "tópico do export",
                                               "nsfw": True, "slowmode_delay": 9})
             await ferramenta("edit_channel", {"channel": str(voz.id), "bitrate": 96000, "user_limit": 3})
             saida = await ferramenta("export_structure", {})
+            if "NÃO serve para importar" in saida:
+                # servidor grande: o JSON completo não cabe numa mensagem do Discord. Cobra o
+                # aviso explícito e os campos de capacidade no recorte — antes o JSON vinha
+                # cortado no meio, sem aviso, e o round-trip não podia ser feito.
+                self.assert_true("não cabe" in saida, "recorte sem explicação do tamanho")
+                for campo in ('"permissions"', '"mentionable"', '"hoist"', '"nsfw"',
+                              '"slowmode_delay"', '"user_limit"', '"bitrate"'):
+                    self.assert_true(campo in saida, f"export não guardou o campo {campo}")
+                return ("export grande: recorte AVISADO (não serve para importar) e os campos de "
+                        "capacidade (permissões, hoist, mentionable, nsfw, slowmode, bitrate, "
+                        "limite) presentes no JSON")
             dados = json.loads(saida[saida.find("{"): saida.rfind("}") + 1])
 
             atual_papel = next(r for r in await guild.fetch_roles() if r.id == papel.id)
