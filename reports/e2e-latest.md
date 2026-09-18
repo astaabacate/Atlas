@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 104 · ❌ 0 · ⚠️ 8 · ⏭️ 1
+- **Resumo:** ✅ 100 · ❌ 2 · ⚠️ 9 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 3809884
-- **execução:** 35310362333
+- **commit:** aaf256d
+- **execução:** 35314578209
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
@@ -81,7 +81,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 69ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 31ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -90,42 +90,42 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
-| WARN | `cargos que o bot não consegue gerenciar` | 13 cargo(s) no nível ou acima do bot (Cupido, iTinder, Atlas, asta, asta): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
+| WARN | `cargos que o bot não consegue gerenciar` | 18 cargo(s) no nível ou acima do bot (Cupido, iTinder, Atlas, asta, asta): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
 | PASS | `hierarquia de cargos` | cargo do bot na posição 1 |
-| PASS | `estrutura do servidor` | 0 categorias · 0 texto · 0 voz · 14 cargos · 4 membros |
-| PASS | `snapshot do servidor` | snapshot com 17 linhas alimenta o prompt |
-| PASS | `estado local bate com a API` | cache local bate com a API REST (0 canais, 14 cargos) |
+| PASS | `estrutura do servidor` | 3 categorias · 8 texto · 4 voz · 19 cargos · 4 membros |
+| PASS | `snapshot do servidor` | snapshot com 40 linhas alimenta o prompt |
+| PASS | `estado local bate com a API` | cache local bate com a API REST (15 canais, 19 cargos) |
 
 ## Ferramentas somente-leitura em servidor real
-`tools` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`tools` — ✅ 5 · ❌ 1 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** <@1521612392105250836> · • **Membros:** 4 · • **Canais:** 0 · • **Cargos:** 14 · • **Criado em:** 2026-09-08 06:04:16.4570 |
-| PASS | `list_roles` | listou os 14 cargos reais com menção e posição |
-| PASS | `export_structure (JSON válido e completo)` | 0 categorias, 0 canais e 13 cargos exportados em JSON válido |
-| PASS | `show_permissions` | O canal <#1550378066432360488> não possui permissões personalizadas configuradas. |
-| PASS | `resolve por ID e por menção` | 0 canais e 6 cargos resolvidos por ID e por menção |
+| PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** <@1521612392105250836> · • **Membros:** 4 · • **Canais:** 15 · • **Cargos:** 19 · • **Criado em:** 2026-09-08 06:04:16.457 |
+| PASS | `list_roles` | listou os 19 cargos reais com menção e posição |
+| FAIL | `export_structure (JSON válido e completo)` | JSONDecodeError: Expecting ',' delimiter: line 1 column 1776 (char 1775) |
+| PASS | `show_permissions` | O canal <#1550389344815288380> não possui permissões personalizadas configuradas. |
+| PASS | `resolve por ID e por menção` | 6 canais e 6 cargos resolvidos por ID e por menção |
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 3 · ❌ 0 · ⚠️ 1 · ⏭️ 0
+`agent` — ✅ 1 · ❌ 0 · ⚠️ 3 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| WARN | `prompt → ferramenta → resposta coerente` | o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 28, 'ferramentas_chamadas': [], 'chars': 139, 'vencedor': 'kilo'}]) — o provedor gratuito não cooperou nesta rodada ('Cargos existentes no servidor **Pinguim**:\n\n- @Cupido\n- @asta (10 cargos com o mesmo nome, IDs diferentes)\n- @'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento d… |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, permissõe' |
-| PASS | `agente conhece a estrutura real` | citou itens reais do servidor (🧪-estrutura) |
-| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
+| WARN | `prompt → ferramenta → resposta coerente` | o LLM não chamou nenhuma ferramenta (rodadas: [{'ferramentas_oferecidas': 28, 'ferramentas_chamadas': [], 'chars': 159, 'vencedor': 'kilo'}]) — o provedor gratuito não cooperou nesta rodada ('Cargos do servidor **Pinguim**:\n\n- @Cupido\n- @Membro\n- @VIP\n- @Admin\n- @Moderador\n- @Streamer\n- @asta (8 cargo'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamen… |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não faço moderação, bans ou expulsões — meu foco exclusivo é montar e organizar a estrutur' |
+| WARN | `agente conhece a estrutura real` | não deu para perguntar: nenhum corredor grátis atendeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 3 tentativa(s). Erros: kilo: kilo: falha de re'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
+| WARN | `memória do canal entre turnos` | não deu para conversar: o LLM não respondeu — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 3 tentativa(s). Os gratuitos compartilham o IP'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 17 · ❌ 0 · ⚠️ 2 · ⏭️ 1
+`mutate` — ✅ 17 · ❌ 0 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -137,15 +137,14 @@
 | PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
 | PASS | `clear_messages apaga mensagens reais do canal` | apagou 3 mensagem(ns) reais e o canal ficou vazio |
 | PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 6.7s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.)' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 44.9s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-2, #🧪-lote-1 (✅ 2/2 concluído' |
-| WARN | `modo cauteloso pergunta e apaga após 'sim'` | o 'sim' não pôde ser processado — o provedor gratuito não cooperou nesta rodada ('Nenhum dos 1 provedores de LLM respondeu (kilo/tools) depois de 2 tentativa(s). Os gratuitos compartilham o IP'). Sem chave de LLM paga isso é intermitente; rode de novo para conferir. (O comportamento do bot está coberto offline nas fases spy/policy e em tests/.) |
-| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | não conclusivo por causa do LLM gratuito: o 'sim' não pôde ser processado |
+| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 9.5s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído' |
+| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | pediu confirmação e apagou depois do 'sim' ('**Resumo das ações:**\n- ✅ **#🧪-efemero** — excluído.\n- ✅ **#') |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
 ## Matriz de capacidades: cada parâmetro, valor e combinação no Discord real
-`caps` — ✅ 17 · ❌ 0 · ⚠️ 4 · ⏭️ 0
+`caps` — ✅ 16 · ❌ 1 · ⚠️ 4 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
@@ -166,7 +165,7 @@
 | PASS | `permissões: allow, deny, conflito, leitura e limpeza` | allow e deny em português viraram permissões reais (view_channel/send_messages/mention_everyone), conflito recusado e limpeza conferida na API |
 | PASS | `permissões: sincronizar canal com a categoria` | permissão da categoria copiada para o canal filho (conferido na API) |
 | PASS | `permissões: autor sem permissão é barrado antes da API` | 4 ferramentas recusadas ANTES de tocar no Discord (autor sem permissão) e nenhum objeto criado ou apagado |
-| PASS | `estrutura: export guarda as capacidades reais` | export grande: recorte AVISADO (não serve para importar) e os campos de capacidade (permissões, hoist, mentionable, nsfw, slowmode, bitrate, limite) presentes no JSON |
+| FAIL | `estrutura: export guarda as capacidades reais` | export não guardou o campo "permissions" |
 | PASS | `estrutura: import recria com os mesmos campos (round-trip)` | import recriou cargo (cor, hoist, mentionable, permissões) e canais (tópico, nsfw, slowmode, bitrate, limite, categoria e sem categoria) — conferido na API · '✅ Estrutura importada: 1 cargo(s) e 3 canal(is) recriados com tipo, tópico, nsfw, slowmode, bitrate,' |
 | PASS | `repetição: mesma ordem várias vezes não quebra nem duplica efeito` | 3 canais iguais criados e editados em sequência, todos com o estado esperado |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -176,11 +175,11 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550380282035838988) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550393463487471629) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
-| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'O servidor se chama **Pinguim**.' |
+| PASS | `menção dispara o agente e responde` | on_message → agente → resposta real no canal: 'Pinguim' |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
 | PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
 
@@ -189,4 +188,4 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `varredura de sobras` | 4 objeto(s) de teste removidos (#🧪-estrutura, #🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot) |
+| PASS | `varredura de sobras` | 3 objeto(s) de teste removidos (#🧪-loop-do-bot, #🧪 categoria-loop, #🧪-via-bot) |
