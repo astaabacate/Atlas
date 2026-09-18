@@ -1,10 +1,10 @@
 # 🏮 Farol — relatório de teste E2E
 
-- **Resumo:** ✅ 79 · ❌ 0 · ⚠️ 2 · ⏭️ 1
+- **Resumo:** ✅ 72 · ❌ 7 · ⚠️ 2 · ⏭️ 1
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** 996e835
-- **execução:** 35294164330
+- **commit:** 8064214
+- **execução:** 35295354856
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, botloop, sweep
 - **mutações reais:** sim
@@ -13,7 +13,7 @@
 - conectado como Atlas#1985 em 1 servidor(es)
 
 ## Checagens estáticas (schemas ↔ executores)
-`static` — ✅ 6 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`static` — ✅ 5 · ❌ 1 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
@@ -21,11 +21,11 @@
 | PASS | `assinaturas ↔ schemas` | 27 assinaturas conferem com os schemas |
 | PASS | `toda ferramenta tem política` | as 27 ferramentas têm política declarada |
 | PASS | `qualidade dos schemas enviados ao LLM` | descrições e schemas bem formados para function calling |
-| PASS | `prompt de sistema completo` | prompt com os 5 blocos obrigatórios |
-| PASS | `tamanho do payload enviado ao LLM` | schema com 11386 chars + prompt de 1877 chars |
+| FAIL | `prompt de sistema completo` | prompt de sistema sem: ['confirmed=true'] |
+| PASS | `tamanho do payload enviado ao LLM` | schema com 11386 chars + prompt de 1238 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
-`spy` — ✅ 19 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`spy` — ✅ 17 · ❌ 2 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
@@ -35,7 +35,7 @@
 | PASS | `move_channel move de verdade` | chamou edit() e respondeu 'Canal <#1008> movido com sucesso!' |
 | PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado com sucesso: <#1014> 🎉' |
 | PASS | `delete_channels apaga de verdade (1 canal)` | chamou delete() e respondeu '🗑️ Exclusão concluída: #canal-renomeado (✅ 1/1 concluídos co' |
-| PASS | `delete_channels em lote pede confirmação` | 2 canais: exige confirmação e só apaga com confirmed=true |
+| FAIL | `delete_channels em lote pede confirmação` | apagar 2 canais não pediu confirmação |
 | PASS | `edit_server altera de verdade` | chamou edit() e respondeu 'Informações do servidor atualizadas com sucesso!' |
 | PASS | `set_icon altera de verdade (baixa a URL e envia os bytes)` | baixou a URL, mandou os bytes em guild.edit(icon=...) e aceitou data URI |
 | PASS | `set_icon com estilo gera imagem sem rede` | gerou um PNG 256x256 sem tocar a rede |
@@ -47,10 +47,10 @@
 | PASS | `somente-leitura não muta nada` | 8 ferramentas de leitura rodaram sem mutar nada |
 | PASS | `conversation_clear limpa a memória` | histórico do canal apagado de verdade |
 | PASS | `conversa isolada por servidor (multi-servidor)` | conversa, contexto e pendência de confirmação separados por servidor (mesmo id de canal) |
-| PASS | `agente não se auto-confirma (offline)` | sem confirmação do usuário nada é apagado; a pergunta sempre aparece; com o 'sim', apaga |
+| FAIL | `agente não se auto-confirma (offline)` | o agente apagou 2 canais sem a confirmação do usuário |
 
 ## Política de permissões e confirmação destrutiva
-`policy` — ✅ 11 · ❌ 0 · ⚠️ 0 · ⏭️ 0
+`policy` — ✅ 9 · ❌ 2 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
@@ -60,9 +60,9 @@
 | PASS | `cargo de integração é intocável` | cargo de integração protegido: O cargo 'CargoDeBot' é gerenciado por uma integração ou aplicativo e não pode ser modificado. |
 | PASS | `cargo acima do bot é protegido` | cargo acima do bot protegido: O cargo 'CargoDoDono' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor. |
 | PASS | `autor não edita cargo no próprio nível` | cargo no nível do autor protegido: O cargo 'CargoDoAutor' está acima ou na mesma posição do meu cargo mais alto. Suba o cargo do farol nas configurações de cargos do servidor. |
-| PASS | `exclusão em lote exige confirmação` | 2 canais: pede confirmação e não apaga nada antes |
+| FAIL | `exclusão em lote exige confirmação` | apagar 2 canais não pediu confirmação |
 | PASS | `canal único apaga sem confirmação` | canal único nominal executa sem travar o fluxo |
-| PASS | `exclusão de cargo exige confirmação` | cargo: exige confirmação e apaga com confirmed=true |
+| FAIL | `exclusão de cargo exige confirmação` | delete_role apagou sem confirmação |
 | PASS | `ferramenta inexistente é rejeitada` | ferramenta desconhecida rejeitada: A ferramenta 'ferramenta_inexistente' não foi encontrada. |
 | PASS | `argumentos inválidos são rejeitados` | lista vazia rejeitada com ToolError: Nenhum canal foi informado para exclusão. |
 
@@ -75,7 +75,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 21ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 52ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -108,18 +108,18 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Atlas', 'iTinder'] |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, categoria' |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso fazer isso — meu foco exclusivo é montar e organizar a estrutura do servidor (ca' |
 | PASS | `agente conhece a estrutura real` | citou itens reais do servidor (Geral, oi) |
 | PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 14 · ❌ 0 · ⚠️ 1 · ⏭️ 1
+`mutate` — ✅ 12 · ❌ 2 · ⚠️ 1 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
-| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-categoria', '🧪-raiz-voz']) |
+| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-voz', '🧪-raiz-texto', '🧪-raiz-categoria']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
 | PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
@@ -127,9 +127,9 @@
 | PASS | `cargos: criar/editar/atribuir de verdade` | cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do cargo do bot no servidor |
 | PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
-| PASS | `fluxo de confirmação em canais reais` | 2 canais: pediu confirmação e só apagou com confirmed=true |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal apagado: <#1550313082352570442> (`#🧪-efemero`). Feito!' |
-| PASS | `agente pede confirmação em lote e apaga após 'sim'` | pediu confirmação e apagou depois do 'sim' ('Confirma que posso apagar os dois canais `<#1550313322891579') |
+| FAIL | `fluxo de confirmação em canais reais` | apagar 2 canais não pediu confirmação |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto: 'Canal <#1550317541627396208> (`#🧪-efemero`) apagado. ✅' |
+| FAIL | `agente pede confirmação em lote e apaga após 'sim'` | o agente apagou 2 canais SEM pedir confirmação: 'Canais <#1550317763841626144> (`#🧪-lote-1`) e <#1550317764009402398> (`#🧪-lote-2`) apagados. ✅' |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
@@ -139,7 +139,7 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550313406894973010) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550317871777976410) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
