@@ -1528,11 +1528,13 @@ async def op_export_structure(ctx: ToolContext) -> str:
     limite = 1800
     if len(dumped) <= limite:
         return f"📦 Estrutura exportada ({len(dumped)} caracteres):\n```json\n{dumped}\n```"
+    partes = (len(dumped) + limite - 1) // limite
     return (f"📦 Estrutura exportada, mas o JSON completo tem {len(dumped)} caracteres e não cabe "
-            f"numa mensagem do Discord (limite ~2000). Primeiros {limite} caracteres para "
-            f"conferência:\n```json\n{dumped[:limite]}\n```\n"
-            "⚠️ **Este recorte NÃO serve para importar** (está cortado). Para backup completo, "
-            "exporte por partes ou use um servidor menor por vez.")
+            f"numa mensagem do Discord (limite ~2000; daria {partes} mensagens). Primeiros "
+            f"{limite} caracteres para conferência:\n```json\n{dumped[:limite]}\n```\n"
+            "⚠️ **Este recorte NÃO serve para importar** (está cortado). Se o objetivo é "
+            "backup/restauração, faça por partes (uma categoria por vez) — o Discord não aceita "
+            "um JSON deste tamanho numa mensagem só.")
 
 
 async def op_import_structure(ctx: ToolContext, structure_json: str | None = None) -> str:

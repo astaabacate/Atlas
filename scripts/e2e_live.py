@@ -1772,6 +1772,16 @@ class Harness:
 
         async def export_structure() -> tuple[str, dict[str, Any]]:
             out = await execute_tool("export_structure", {}, ctx)
+            if "NÃO serve para importar" in out:
+                # Servidor grande: o JSON completo não cabe numa mensagem. O produto AVISA; aqui
+                # conferimos o aviso e os campos que o recorte tem que trazer. (Antes o JSON era
+                # cortado em silêncio e este check morria com JSONDecodeError — bug do harness.)
+                self.assert_true("não cabe" in out, "recorte sem explicação do tamanho")
+                self.assert_true("daria" in out, "recorte sem dizer em quantas mensagens caberia")
+                for campo in ('"categories"', '"roles"', '"channels"', '"permissions"'):
+                    self.assert_true(campo in out, f"export não mostrou o campo {campo}")
+                return (f"servidor grande: JSON completo com {len(out)} chars no recorte AVISADO "
+                        f"(categorias, cargos e canais presentes)"), {"truncado": True}
             bruto = out[out.find("{"): out.rfind("}") + 1] if "{" in out else out
             data = json.loads(bruto)
             self.assert_true("categories" in data and "roles" in data, "JSON sem categories/roles")

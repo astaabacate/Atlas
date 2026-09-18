@@ -763,6 +763,8 @@ class TestAchadosDaMatrizAoVivo(unittest.TestCase):
         saida = executar("export_structure", {}, ctx)
         self.assertIn("NÃO serve para importar", saida)
         self.assertIn("não cabe", saida)
+        self.assertIn("daria", saida, "o aviso tem que dizer em quantas mensagens o JSON caberia")
+        self.assertIn("por partes", saida)
 
         pequeno = Servidor()  # servidor pequeno: o JSON vem inteiro e parseável
         ctx_pequeno, _ = contexto(pequeno)

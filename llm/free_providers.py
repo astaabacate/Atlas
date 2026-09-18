@@ -527,23 +527,26 @@ FREE_PROVIDERS: tuple[FreeProviderSpec, ...] = (
         #      smoke (a lista é revisada a cada rodada medida);
         #   4) o roteador `kilo-auto` é sempre o último (só existe para o caso de todos os
         #      nomeados falharem).
-        # Medido em 18/09 (7 rodadas, 3 amostras por rodada — reports/kilo-latencia-modelos.md).
+        # Medido em 18/09 (8 rodadas, 3 amostras por rodada — reports/kilo-latencia-modelos.md).
         # Entre os que acertam sempre, o mais rápido vem primeiro: a mediana do nex caiu para
         # 1,21 s (era 2,13 s com 4 rodadas) e ele assumiu a ponta do ultra (1,93 s).
         modelos=(
             "nex-agi/nex-n2.5-pro:free",                  # 100% · 1,21 s · 262K
             "nvidia/nemotron-3-ultra-550b-a55b:free",     # 100% · 1,93 s · 1M
             "nvidia/nemotron-3.5-lightning:free",         # 100% · 2,48 s · 1M
-            "nvidia/nemotron-3-super-120b-a12b:free",     #  86% · 0,97 s · 262K
-            "dots-studio/dots-3-note-preview:free",       #  86% · 1,51 s · 512K
+            "nvidia/nemotron-3-super-120b-a12b:free",     #  88% · 0,84 s · 262K
+            "dots-studio/dots-3-note-preview:free",       #  88% · 1,45 s · 512K
             # -- responderam com conteúdo na maioria das rodadas: entram quando os de cima
             #    falham, mas ainda não são primeira escolha.
-            "liquid/lfm-2.5-2.6b:free",                   #  71% · 0,80 s · 65.536 (emergência)
-            "stepfun/step-3.7-flash:free",                #  71% · 2,21 s · 262K
-            "cohere/north-mini-code:free",                #  57% · 0,96 s · 256K
-            # -- reservas: ainda não devolveram conteúdo nas rodadas medidas.
+            "liquid/lfm-2.5-2.6b:free",                   #  75% · 0,84 s · 65.536 (emergência)
+            "stepfun/step-3.7-flash:free",                #  75% · 2,22 s · 262K
+            "cohere/north-mini-code:free",                #  62% · 0,81 s · 256K
+            # -- 8ª rodada (06:29): o qwen devolveu conteúdo pela primeira vez (12% = 1/8), então
+            #    ele sobe acima dos que nunca devolveram — a regra é não gastar a vez com quem não
+            #    responde enquanto houver quem responda.
+            "qwen/qwen3.8-27b:free",                      #  12% · 1,06 s · 262.144
+            # -- reservas: ainda não devolveram conteúdo em nenhuma rodada medida.
             "thinkingmachines/inkling-small:free",        # 1.048.576
-            "qwen/qwen3.8-27b:free",                      # 262.144
             "poolside/laguna-s-2.1:free",                 # 262.144
             "kilo-auto/free",                             # roteador do gateway (por último)
         ),
