@@ -27,6 +27,13 @@ REGRAS ABSOLUTAS:
 2. Não fique pedindo licença: se o pedido é claro e não destrutivo, execute agora e conte o resultado.
 3. Se vier Erro de uma ferramenta, repasse o motivo do Erro e o que o usuário precisa fazer (exemplo: falta de permissão).
 4. Nunca invente IDs ou nomes: use a ESTRUTURA ATUAL abaixo para localizar canais e cargos existentes.
+   NUNCA diga que fez algo que uma ferramenta não confirmou — se não chamou, não aconteceu.
+4.1. Limpar CONVERSA tem duas ferramentas e elas NÃO são a mesma coisa:
+   - "exclua/apague esse chat", "limpe as mensagens", "apague a conversa daqui" → `clear_messages`
+     (apaga as MENSAGENS do canal de verdade; informe quantas apagou);
+   - "esqueça o que eu falei", "reinicie a conversa", "limpe meu histórico com você" →
+     `conversation_clear` (limpa só a MEMÓRIA do bot; as mensagens do canal continuam).
+   Na dúvida entre as duas, use `clear_messages`.
 5. Prefira UMA chamada com listas a várias chamadas repetidas (ex: use create_channels com a lista completa).
 6. Responda em português (PT-BR), de forma curta, direta e amigável, incluindo os links dos itens criados ou alterados (<#id>, <@&id>).
 7. Ações destrutivas e confirmação: {confirmacao}
@@ -45,7 +52,16 @@ CONFIRMATION_TOOLS = frozenset({"delete_channels", "delete_role"})
 # delas e deu certo, responder com o próprio texto evita uma segunda ida ao LLM (o que
 # corta quase metade do tempo até a mensagem aparecer). O resumo do modelo, nesses casos,
 # só repetia o que a ferramenta já disse.
-TERMINAL_TOOLS = frozenset({"delete_channels", "delete_role", "conversation_clear"})
+TERMINAL_TOOLS = frozenset({"delete_channels", "delete_role", "clear_messages"})
+
+# Pedido extra na mesma frase ("apague os canais E MANDE OI", "e depois me diga"): nesse caso
+# o resultado da ferramenta NÃO é a resposta completa — o modelo precisa continuar.
+_PEDIDO_EXTRA_RE = re.compile(
+    r"\b(?:e|depois|tambem|tb|em seguida|entao|ai|apos|apos isso)\s+"
+    r"(?:mande|manda|diga|diz|fale|fala|responda|responde|avise|avisa|resuma|resume|conte|conta|"
+    r"mostre|mostra|liste|lista|verifique|verifica|confira|confere|crie|cria|faca|"
+    r"me\s+(?:diga|diz|fale|fala|conte|conta|mostre|mostra|explique|explica|resuma))"
+)
 
 _AFFIRMATIVE_RE = re.compile(
     r"\b(sim|s|ss|confirmo|confirmado|confirma|pode|pode apagar|pode sim|manda|manda ver|claro|"
@@ -145,6 +161,11 @@ class Agent:
             return texto
         pergunta = 'Confirma que posso apagar? Responda "sim, pode apagar" que eu executo na hora.'
         return f"{texto}\n\n{pergunta}".strip() if texto else pergunta
+
+    @staticmethod
+    def _pedido_extra(prompt: str) -> bool:
+        """True quando a frase pede algo ALÉM do comando (ex.: 'apague X e mande oi')."""
+        return bool(_PEDIDO_EXTRA_RE.search(_strip_accents(prompt.lower())))
 
     def _authorize_confirmed(self, channel_id: int, tool_name: str, args: dict[str, Any],
                              prompt: str) -> dict[str, Any]:
@@ -305,7 +326,8 @@ class Agent:
             # Atalho de velocidade: uma única ferramenta terminal que deu certo já produziu
             # a resposta final — devolvê-la direto evita a segunda chamada ao LLM.
             if (self.direct_tool_reply and len(tool_calls) == 1 and not pedindo_confirmacao
-                    and tool_calls[0].name in TERMINAL_TOOLS):
+                    and tool_calls[0].name in TERMINAL_TOOLS
+                    and not self._pedido_extra(prompt)):
                 resultado = execucoes_finais[-1] if execucoes_finais else ""
                 if resultado and not resultado.startswith("Erro"):
                     self.memory.add_message(channel_id, {"role": "assistant", "content": resultado})

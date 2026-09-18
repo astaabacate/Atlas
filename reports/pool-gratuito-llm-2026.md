@@ -125,6 +125,27 @@ usuário já é a autorização, então *"apague todos os canais e deixe apenas 
 que fez, em uma linha. O modo cauteloso continua existindo (ligue com `CONFIRM_DESTRUCTIVE=true`) e
 é o que os testes de confirmação exercitam — os dois modos têm cobertura no E2E.
 
+## 3.3) Bug reportado pelo dono: "ele diz que fez e não fez" (18/09)
+
+O dono pediu *"exclua esse chat aqui todo e mande oi"* e o bot respondeu
+*"🧹 Histórico de conversa deste canal foi limpo com sucesso."* — com o chat intacto. Eram **três**
+problemas somados:
+
+1. **Não existia ferramenta para apagar mensagens.** A única parecida era `conversation_clear`, que
+   limpa a *memória* do bot. Corrigido: nova ferramenta **`clear_messages`** (bulk delete de verdade,
+   exige "Gerenciar mensagens", relata quantas apagou, respeita `CONFIRM_DESTRUCTIVE`).
+2. **A mensagem de `conversation_clear` enganava** ("histórico limpo com sucesso" soava como chat
+   apagado). Agora ela diz exatamente o que fez e aponta `clear_messages` para apagar mensagens.
+3. **O atalho de velocidade engoliu o "e mande oi".** Quando a frase pede algo além do comando, o bot
+   **não** responde com a saída da ferramenta: chama o modelo para completar o pedido
+   (`_pedido_extra`). Também deixou de ser atalho o `conversation_clear`.
+4. O prompt do sistema ganhou a regra explícita: **nunca dizer que fez o que nenhuma ferramenta
+   confirmou**, e a diferença entre limpar conversa e apagar mensagens.
+
+Cobertura: 4 testes unitários novos (mensagem honesta, bulk delete, permissão, modo cauteloso),
+1 teste de agente (pedido extra) e 3 checagens novas no E2E (spy de bulk delete, política de
+permissão e **apagar mensagens reais** num canal temporário).
+
 ## 4) Realmente gratuitos (sem trial que expira)
 
 Todos os 12 têm camada gratuita descrita na documentação oficial do provedor, com link e data na

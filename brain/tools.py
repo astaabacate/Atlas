@@ -398,11 +398,30 @@ TOOLS: list[ToolDef] = [
             "required": ["text"],
         },
     ),
-    # Sessão (1)
+    # Sessão (2)
     ToolDef(
         name="conversation_clear",
-        description="Limpa o histórico de memória e conversas deste canal no bot.",
+        description=(
+            "Limpa SÓ A MEMÓRIA do bot nesta conversa (ele esquece o que foi dito antes). "
+            "NÃO apaga as mensagens do canal — para apagar mensagens use clear_messages."
+        ),
         parameters={"type": "object", "properties": {}},
+    ),
+    ToolDef(
+        name="clear_messages",
+        description=(
+            "Apaga mensagens de um canal de verdade (limpeza de conversa/chat). "
+            "Use quando o pedido for apagar o chat, limpar as mensagens, 'exclua essa conversa'. "
+            "Padrão: últimas 50 mensagens do canal atual."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "channel": {"type": "string", "description": "Canal (nome, menção ou ID). Padrão: o canal atual."},
+                "limit": {"type": "integer", "description": "Quantas mensagens apagar (1 a 500; padrão 50)."},
+                "confirmed": {"type": "boolean", "description": "Trabalha com o modo cauteloso; no modo direto é opcional."},
+            },
+        },
     ),
 ]
 

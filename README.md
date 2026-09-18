@@ -150,6 +150,11 @@ Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
 *"apague todos os canais e deixe só esse"* executa na hora e responde o que apagou. Ligue com
 `CONFIRM_DESTRUCTIVE=true` para o modo cauteloso (2+ canais, categoria ou cargo pedem um "sim" antes).
 
+**Limpar conversa ≠ apagar mensagens:** `conversation_clear` limpa só a memória do bot (o histórico
+interno), `clear_messages` apaga as mensagens do canal de verdade (exige "Gerenciar mensagens" e relata
+quantas apagou). Pedido do tipo *"exclua esse chat"* cai em `clear_messages`; *"esqueça o que eu falei"*
+cai em `conversation_clear`. O bot nunca responde ter feito o que a ferramenta não confirmou.
+
 **Resposta pronta não passa pelo LLM de novo (`DIRECT_TOOL_REPLY`, padrão ligado):** quando o turno
 tem **uma** ferramenta terminal (excluir canal/cargo, limpar conversa) e ela deu certo, o bot responde
 com o próprio resultado em vez de pedir um resumo ao modelo — isso corta quase metade do tempo até a

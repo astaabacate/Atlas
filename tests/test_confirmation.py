@@ -123,3 +123,105 @@ class TestConfirmation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLimparConversaEMensagens(unittest.TestCase):
+    """O que o dono reclamou: o bot disse que limpou o chat e o chat continuava lá."""
+
+    def setUp(self) -> None:
+        self.perms = SimpleNamespace(administrator=True, manage_channels=True,
+                                     manage_roles=True, manage_messages=True)
+        self.bot_member = SimpleNamespace(id=2, guild_permissions=self.perms,
+                                          top_role=SimpleNamespace(position=100))
+        self.actor = SimpleNamespace(id=1, guild_permissions=self.perms)
+
+    def test_conversation_clear_nao_diz_que_apagou_mensagens(self) -> None:
+        from brain.memory import ChannelMemory, memory_key
+        from brain.ops import op_conversation_clear
+
+        memoria = ChannelMemory()
+        guild = SimpleNamespace(id=9, me=self.bot_member, channels=[], roles=[], owner_id=1)
+        canal = SimpleNamespace(id=55, name="geral")
+        chave = memory_key(guild.id, canal.id)
+        memoria.add_message(chave, {"role": "user", "content": "oi"})
+
+        ctx = ToolContext(guild=guild, channel=canal, actor=self.actor, memory=memoria)
+        resposta = asyncio.run(op_conversation_clear(ctx))
+
+        self.assertEqual(memoria.get_history(chave), [], "a memória não foi limpa de verdade")
+        self.assertIn("clear_messages", resposta, "a resposta tem que apontar a ferramenta certa")
+
+        texto = resposta.lower()
+        for mentira in ("chat está limpo", "mensagens apagadas", "conversa apagada"):
+            self.assertNotIn(mentira, texto, f"resposta mentiu: {resposta!r}")
+        self.assertIn("as mensagens do canal continuam", texto)
+
+    def test_clear_messages_apaga_de_verdade_e_conta_o_que_apagou(self) -> None:
+        from brain.ops import op_clear_messages
+
+        apagadas: list[str] = []
+
+        class Msg:
+            def __init__(self, n: int) -> None:
+                self.n = n
+
+            async def delete(self) -> None:
+                apagadas.append(str(self.n))
+
+        class Canal:
+            id, name = 77, "geral"
+
+            def __init__(self) -> None:
+                self.usou_purge = False
+
+            async def purge(self, limit: int = 50) -> list[Any]:
+                self.usou_purge = True
+                return [Msg(i) for i in range(min(limit, 3))]
+
+        canal = Canal()
+        guild = SimpleNamespace(id=9, me=self.bot_member, channels=[canal], roles=[], owner_id=1)
+        ctx = ToolContext(guild=guild, channel=canal, actor=self.actor)
+
+        resposta = asyncio.run(op_clear_messages(ctx, limit=3))
+
+        self.assertTrue(canal.usou_purge, "não usou o caminho de bulk delete")
+        self.assertIn("Apaguei 3 mensagem", resposta)
+        self.assertIn("#geral", resposta)
+
+    def test_clear_messages_sem_permissao_e_bloqueado(self) -> None:
+        from brain.ops import op_clear_messages
+
+        sem_permissao = SimpleNamespace(administrator=False, manage_messages=False)
+        autor = SimpleNamespace(id=1, guild_permissions=sem_permissao)
+        bot = SimpleNamespace(id=2, guild_permissions=self.perms, top_role=SimpleNamespace(position=100))
+
+        class Canal:
+            id, name = 77, "geral"
+
+            async def purge(self, limit: int = 50) -> list[Any]:
+                raise AssertionError("não podia nem tentar apagar")
+
+        canal = Canal()
+        guild = SimpleNamespace(id=9, me=bot, channels=[canal], roles=[], owner_id=1)
+        ctx = ToolContext(guild=guild, channel=canal, actor=autor)
+
+        with self.assertRaises(ToolError) as ctx_err:
+            asyncio.run(op_clear_messages(ctx, limit=5))
+        self.assertIn("Gerenciar mensagens", str(ctx_err.exception))
+
+    def test_clear_messages_no_modo_cauteloso_pede_confirmacao(self) -> None:
+        from brain.ops import op_clear_messages
+
+        class Canal:
+            id, name = 77, "geral"
+
+            async def purge(self, limit: int = 50) -> list[Any]:
+                raise AssertionError("apagou antes da confirmação")
+
+        canal = Canal()
+        guild = SimpleNamespace(id=9, me=self.bot_member, channels=[canal], roles=[], owner_id=1)
+        ctx = ToolContext(guild=guild, channel=canal, actor=self.actor, confirm_destructive=True)
+
+        with self.assertRaises(ToolError) as ctx_err:
+            asyncio.run(op_clear_messages(ctx, limit=5))
+        self.assertIn("confirmed=true", str(ctx_err.exception))

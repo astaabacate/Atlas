@@ -48,6 +48,7 @@ import os
 import platform
 import re
 import sys
+from types import SimpleNamespace
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -320,6 +321,29 @@ class SpyChannel(Spy):
         self.record("delete")
         if self.guild is not None:
             self.guild.channels = [c for c in self.guild.channels if c is not self]
+
+    async def purge(self, limit: int = 50, **_kwargs: Any) -> list[Any]:
+        """Bulk delete do discord.py: registra a chamada e devolve o que apagou."""
+        self.record("purge", limit=limit)
+        apagadas = [SimpleNamespace(id=i + 1, content=f"msg {i + 1}") for i in range(min(limit, 5))]
+        self.mensagens = []
+        return apagadas
+
+    async def history(self, limit: int = 50, **_kwargs: Any):
+        """Fallback (sem purge): percorre as mensagens para apagar uma a uma."""
+        self.record("history", limit=limit)
+        for mensagem in list(getattr(self, "mensagens", []))[:limit]:
+            yield mensagem
+
+    async def send(self, content: str = "", **_kwargs: Any) -> Any:
+        self.record("send", content=content)
+        mensagem = SimpleNamespace(id=len(getattr(self, "mensagens", [])) + 1, content=content,
+                                   delete=self._apagar_mensagem)
+        self.mensagens = list(getattr(self, "mensagens", [])) + [mensagem]
+        return mensagem
+
+    async def _apagar_mensagem(self) -> None:
+        self.record("delete_message")
 
     async def set_permissions(self, target: Any, **kwargs: Any) -> None:
         self.record("set_permissions", target=getattr(target, "name", str(target)), **kwargs)
@@ -757,7 +781,7 @@ class Harness:
         async def prompt_rules() -> str:
             from brain.agent import SYSTEM_PROMPT_TEMPLATE
 
-            obrigatorios = ("REGRAS ABSOLUTAS", "português", "Ações destrutivas",
+            obrigatorios = ("REGRAS ABSOLUTAS", "português", "Ações destrutivas", "clear_messages",
                             "FORA DE ESCOPO", "{snapshot}", "{confirmacao}")
             faltando = [r for r in obrigatorios if r not in SYSTEM_PROMPT_TEMPLATE]
             self.assert_true(not faltando, f"prompt de sistema sem: {faltando}")
@@ -869,7 +893,35 @@ class Harness:
         await self.check(phase, "conversation_clear limpa a memória", self._spy_clear_memory, skip_when=None)
         await self.check(phase, "conversa isolada por servidor (multi-servidor)", self._spy_isolamento_servidores,
                          skip_when=None)
+        await self.check(phase, "clear_messages apaga o chat de vero (bulk delete)",
+                         self._spy_clear_messages, skip_when=None)
         await self.check(phase, "agente não se auto-confirma (offline)", self._spy_agente_confirmacao, skip_when=None)
+
+    async def _spy_clear_messages(self) -> str:
+        """'exclua esse chat' precisa apagar MENSAGENS — e relatar quantas apagou."""
+        from brain.executors import execute_tool
+        from brain.tools import ToolContext
+
+        ctx, guild, _, canal = await self._spy_ctx()
+        canal.calls.clear()
+        resultado = await execute_tool("clear_messages", {"limit": 4}, ctx)
+        self.assert_true("purge" in canal.actions(), "não chamou o bulk delete do canal")
+        self.assert_true("4 mensagem" in resultado, f"não relatou quantas apagou: {resultado!r}")
+
+        # conversation_clear NÃO pode dizer que apagou mensagens (bug reportado pelo dono)
+        from brain.memory import ChannelMemory, memory_key
+        memoria = ChannelMemory()
+        chave = memory_key(guild.id, canal.id)
+        memoria.add_message(chave, {"role": "user", "content": "oi"})
+        ctx.memoria = memoria
+        ctx = ToolContext(guild=guild, channel=canal, actor=guild.members[0], memory=memoria)
+        limpo = await execute_tool("conversation_clear", {}, ctx)
+        self.assert_true(memoria.get_history(chave) == [], "a memória não foi limpa")
+        self.assert_true("clear_messages" in limpo,
+                         f"conversation_clear não apontou a ferramenta certa: {limpo!r}")
+        self.assert_true("chat está limpo" not in limpo.lower(),
+                         f"conversation_clear mentiu que limpou o chat: {limpo!r}")
+        return "chat apagado com bulk delete e memória limpa sem mentir"
 
     async def _spy_bulk_direto(self) -> str:
         """Padrão do bot: o pedido já autoriza — 2 canais apagam direto, com o resultado na hora."""
@@ -1311,6 +1363,18 @@ class Harness:
             raise AssertionError("membro comum passou pela política")
 
         await self.check(phase, "membro comum é bloqueado", membro_comum)
+
+        async def sem_gerenciar_mensagens() -> str:
+            fraco = SpyMember("sem-permissao", perms=FakePerms())
+            try:
+                await execute_tool("clear_messages", {"limit": 5}, ToolContext(
+                    guild=guild, channel=canal, actor=fraco))
+            except ToolError as exc:
+                self.assert_true("Gerenciar mensagens" in str(exc), f"erro inesperado: {exc}")
+                return f"apagar mensagens exige 'Gerenciar mensagens': {exc}"
+            raise AssertionError("quem não gerencia mensagens conseguiu apagar o chat")
+
+        await self.check(phase, "apagar mensagens exige permissão", sem_gerenciar_mensagens)
 
         async def bot_sem_permissao() -> str:
             original = guild.me.guild_permissions
@@ -2134,6 +2198,32 @@ class Harness:
             return "2 canais reais apagados direto, sem perguntar, com o resultado na resposta"
 
         await self.check(phase, "exclusão em lote direta em canais reais", lote_direto_em_canais_reais)
+
+        async def apagar_mensagens_reais() -> str:
+            """'exclua esse chat' tem que apagar MENSAGENS de verdade (com manage_messages)."""
+            antes_msg = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-chat", "type": "text", "category": str(categoria.id)}]})
+            novos_msg = await self._capture_new(guild, antes_msg)
+            alvo = next((c for c in novos_msg if c.type.name == "text"), None)
+            self.assert_true(alvo is not None, "não consegui criar o canal do teste de mensagens")
+
+            for i in range(3):
+                await alvo.send(f"mensagem de teste {i + 1} ({TEMP_MARK})")
+            antes_hist = [m async for m in alvo.history(limit=10)]
+            self.assert_true(len(antes_hist) >= 3, f"não consegui postar as mensagens: {len(antes_hist)}")
+
+            resultado = await ferramenta("clear_messages", {"channel": str(alvo.id), "limit": 20})
+            self.assert_true("Apaguei" in resultado or "Não havia" in resultado,
+                             f"resposta estranha do clear_messages: {resultado[:120]!r}")
+            restantes = [m async for m in alvo.history(limit=10)]
+            self.assert_true(not restantes,
+                             f"o chat não foi limpo: ainda tem {len(restantes)} mensagem(ns)")
+            await alvo.delete()
+            self.owned_channels.discard(alvo.id)
+            return f"apagou {len(antes_hist)} mensagem(ns) reais e o canal ficou vazio"
+
+        await self.check(phase, "clear_messages apaga mensagens reais do canal", apagar_mensagens_reais)
 
         async def agente_apaga_nominal() -> str:
             antes_efemero = await self._api_state(guild)

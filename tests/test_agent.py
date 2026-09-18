@@ -284,6 +284,18 @@ class TestConfirmacaoDestrutiva(unittest.TestCase):
         self.assertIn("Exclusão concluída", resposta)
         self.assertEqual(self.apagados, ["canal-a"])
 
+    def test_pedido_extra_na_mesma_frase_nao_usa_o_atalho(self) -> None:
+        """'apague esse chat e mande oi': o 'oi' faz parte do pedido — o modelo tem que responder."""
+        agent, llm = self._agent_com([
+            LLMResponse(content="", tool_calls=[ToolCall(id="c1", name="conversation_clear", args={})]),
+            LLMResponse(content="oi 👋", tool_calls=[]),
+        ], cauteloso=False)
+
+        resposta = self._turno(agent, "blz agr exclua esse chat aqui todo e mande oi")
+
+        self.assertEqual(len(llm.call_history), 2, "o atalho engoliu o 'mande oi'")
+        self.assertEqual(resposta, "oi 👋")
+
     def test_ferramenta_nao_terminal_ainda_pede_o_resumo(self) -> None:
         """Criar canal NÃO é terminal: o modelo precisa continuar a conversa."""
         agent, llm = self._agent_com([

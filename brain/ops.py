@@ -12,6 +12,10 @@ import logging
 from typing import Any
 
 from core.bulk import run_bulk
+
+# Teto de mensagens por chamada (o Discord limita bulk delete a 100 por vez;
+# 500 é o máximo que o bot aceita numa única ordem, em lotes internos do purge).
+MAX_PURGE_MESSAGES = 500
 from brain.policy import require
 from brain.resolve import resolve_channel, resolve_member, resolve_role
 from brain.tools import ToolContext, ToolError
@@ -1029,11 +1033,69 @@ async def op_translate_text(ctx: ToolContext, text: str, target_lang: str = "pt"
 # --- 8. Sessão (1) ---
 
 async def op_conversation_clear(ctx: ToolContext) -> str:
+    """Limpa a MEMÓRIA do bot. Não toca nas mensagens do canal — a resposta diz isso."""
+    havia = False
     if ctx.memory is not None:
         from brain.memory import memory_key
 
         cid = getattr(ctx.channel, "id", None)
         if cid is not None:
             # mesma chave usada pelo agente: servidor + canal (isolamento entre servidores)
-            ctx.memory.clear(memory_key(getattr(ctx.guild, "id", None), cid))
-    return "🧹 Histórico de conversa deste canal foi limpo com sucesso."
+            chave = memory_key(getattr(ctx.guild, "id", None), cid)
+            havia = bool(ctx.memory.get_history(chave))
+            ctx.memory.clear(chave)
+    return (
+        "🧹 Limpei a MINHA memória desta conversa (esqueci o que foi dito antes). "
+        + ("Havia histórico guardado. " if havia else "Não havia nada guardado. ")
+        + "As mensagens do canal continuam aí — se o pedido era apagá-las, use clear_messages."
+    )
+
+
+async def op_clear_messages(
+    ctx: ToolContext,
+    channel: str = "",
+    limit: int = 50,
+    confirmed: bool = False,
+) -> str:
+    """Apaga mensagens do canal DE VERDADE (bulk delete). Só relata o que apagou."""
+    alvo = resolve_channel(ctx.guild, channel) if channel else ctx.channel
+    if alvo is None:
+        raise ToolError(f"Canal '{channel}' não encontrado para limpar as mensagens.")
+
+    require("clear_messages", ctx.actor.guild_permissions, ctx.guild.me.guild_permissions,
+            actor=ctx.actor, bot_member=ctx.guild.me, guild=ctx.guild)
+
+    try:
+        quantas = int(limit)
+    except (TypeError, ValueError):
+        quantas = 50
+    quantas = max(1, min(quantas, MAX_PURGE_MESSAGES))
+
+    if ctx.confirm_destructive and not confirmed:
+        raise ToolError(
+            f"Isso apaga até {quantas} mensagem(ns) de {getattr(alvo, 'name', 'canal')} — "
+            "confirme com o usuário e chame de novo com confirmed=true."
+        )
+
+    purger = getattr(alvo, "purge", None)
+    if callable(purger):
+        apagadas = await purger(limit=quantas)
+        total = len(apagadas) if hasattr(apagadas, "__len__") else quantas
+    else:
+        history = getattr(alvo, "history", None)
+        if not callable(history):
+            raise ToolError(
+                f"Não consigo listar mensagens de '{getattr(alvo, 'name', 'canal')}' "
+                "(o canal não expõe histórico nem purge)."
+            )
+        total = 0
+        async for mensagem in history(limit=quantas):
+            deleter = getattr(mensagem, "delete", None)
+            if callable(deleter):
+                await deleter()
+                total += 1
+
+    nome = getattr(alvo, "name", "canal")
+    if total == 0:
+        return f"🧹 Não havia mensagens para apagar em #{nome}."
+    return f"🗑️ Apaguei {total} mensagem(ns) em #{nome}. O chat está limpo."

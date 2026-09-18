@@ -45,12 +45,14 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     "topic_suggest": [],
     "translate_text": [],
     "conversation_clear": [],
+    "clear_messages": ["manage_messages"],
 }
 
 PERMISSION_LABELS: dict[str, str] = {
     "manage_channels": "Gerenciar canais",
     "manage_roles": "Gerenciar cargos",
     "manage_guild": "Gerenciar servidor",
+    "manage_messages": "Gerenciar mensagens",
     "administrator": "Administrador",
 }
 

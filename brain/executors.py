@@ -16,6 +16,7 @@ from brain.ops import (
     op_clone_channel,
     op_color_name,
     op_color_palette,
+    op_clear_messages,
     op_conversation_clear,
     op_create_channels,
     op_create_roles,
@@ -78,8 +79,9 @@ _OPS: dict[str, Callable[..., Awaitable[str]]] = {
     "emoji_search": op_emoji_search,
     "topic_suggest": op_topic_suggest,
     "translate_text": op_translate_text,
-    # Sessão (1)
+    # Sessão (2)
     "conversation_clear": op_conversation_clear,
+    "clear_messages": op_clear_messages,
 }
 
 # Trava de coerência exigida na especificação:
