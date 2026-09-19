@@ -49,6 +49,7 @@ jobs:
         if: steps.ligado.outputs.sim == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
           # Um bot por token: enquanto o antigo estiver rodando, cada mensagem seria respondida

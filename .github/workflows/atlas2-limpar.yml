@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}   # sem checkout, o gh não deduz o repositório sozinho
     steps:
       - name: Cancelar toda execução do bot antigo que não terminou
         run: |
@@ -34,9 +35,12 @@ jobs:
           # Lista TODAS as execuções recentes e filtra por status no jq: "pending" e "waiting"
           # não entram nos filtros --status e ficariam rodando (foi assim que uma fatia antiga
           # continuou no ar depois de ligar o bot novo).
-          ids=$(gh run list --workflow=bot.yml --limit 50 \
-                  --json databaseId,status \
-                  --jq '.[] | select(.status != "completed") | .databaseId' 2>/dev/null || true)
+          if ! ids=$(gh run list --workflow=bot.yml --limit 50 \
+                       --json databaseId,status \
+                       --jq '.[] | select(.status != "completed") | .databaseId'); then
+            echo "::error title=atlas2 limpar::não consegui listar as execuções do bot antigo"
+            exit 1
+          fi
           if [ -z "${ids:-}" ]; then
             echo "::notice title=atlas2 limpar::nenhuma execução do bot antigo no ar — nada a fazer."
             exit 0
