@@ -46,13 +46,14 @@ def _pedacos(texto: str) -> list[str]:
 
 
 class Atlas(discord.Client):
-    def __init__(self, cfg: Config) -> None:
+    def __init__(self, cfg: Config, com_conteudo: bool = True) -> None:
         intents = discord.Intents.default()
-        intents.message_content = True
+        intents.message_content = bool(com_conteudo)
         intents.guilds = True
         intents.members = False
         super().__init__(intents=intents)
         self.cfg = cfg
+        self.com_conteudo = bool(com_conteudo)
         self.llm = LLM(cfg)
         self.cerebro = Cerebro(self.llm)
         self.travas: dict[int, asyncio.Lock] = {}
@@ -65,6 +66,9 @@ class Atlas(discord.Client):
         if not self.cfg.tem_llm:
             logger.warning("Sem OmniRoute configurado: só os comandos reconhecidos vão funcionar "
                            "(cadastre OMNIROUTE_URL e OMNIROUTE_KEY).")
+        if not self.com_conteudo:
+            logger.warning("Sem 'Message Content Intent': respondo quando for MARCADO. "
+                           "Ligue a intent no portal para eu ler as mensagens do canal.")
         await self.change_presence(activity=discord.Game(name="faço o que você mandar ⚡"))
 
     async def on_message(self, mensagem: discord.Message) -> None:

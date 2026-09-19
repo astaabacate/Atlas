@@ -41,9 +41,21 @@ def main() -> int:
         print(f"\n❌ Token recusado pelo Discord ({exc}). Gere outro e atualize o segredo.\n")
         return 2
     except discord.PrivilegedIntentsRequired:
-        print("\n❌ O portal do Discord precisa das intents: ative 'Message Content Intent' "
-              "em https://discord.com/developers/applications → Bot.\n")
-        return 2
+        # O bot PRECISA ler o texto das mensagens, mas se o portal ainda não tem a intent ligada
+        # é melhor subir e funcionar quando for marcado do que não subir e deixar o servidor sem
+        # bot nenhum. O aviso fica no log desta execução.
+        print("\n⚠️ 'Message Content Intent' não está ligada no portal do Discord.\n"
+              "   Vou subir assim mesmo: só responde quando o bot é MARCADO.\n"
+              "   Para ele ler tudo: https://discord.com/developers/applications → Bot →\n"
+              "   Privileged Gateway Intents → Message Content Intent (liga e salva).\n")
+        bot = Atlas(cfg, com_conteudo=False)
+        try:
+            bot.run(cfg.token, log_handler=None)
+        except discord.LoginFailure as exc:
+            print(f"\n❌ Token recusado pelo Discord ({exc}). Gere outro e atualize o segredo.\n")
+            return 2
+        except KeyboardInterrupt:
+            return 0
     except KeyboardInterrupt:
         return 0
     return 0

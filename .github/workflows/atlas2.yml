@@ -90,6 +90,7 @@ jobs:
           CANAIS_PERMITIDOS: ${{ vars.CANAIS_PERMITIDOS || '' }}
           LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '20' }}
         run: |
+          set +e
           set -uo pipefail
           # O log de um job deste repositório às vezes não baixa (erro do GitHub). Então o motivo
           # de qualquer falha vira ANOTAÇÃO, que sempre chega — inclusive com pedaços da última
