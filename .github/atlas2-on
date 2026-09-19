@@ -1,0 +1,15 @@
+BOT NOVO LIGADO (Atlas 2)
+=========================
+
+Este arquivo liga o workflow "Atlas 2 (novo)", que roda `python -m atlas2.run` em fatias de
+~5h35m e reagenda a próxima sozinho.
+
+COMO DESLIGAR: apague este arquivo (ou crie .github/bot-disabled, que vale para os dois).
+
+POR QUE ELE SUBSTITUIU O ANTIGO (19/09/2026): o bot antigo (`main.py`) mandava TODO pedido para
+um modelo de IA antes de agir — era isso que fazia o comando demorar ~15s e, às vezes, o modelo
+responder outra coisa (o dono pediu "apague todos os canais" e recebeu a ficha do servidor).
+O novo lê o pedido no próprio processo (menos de 1ms) e só usa IA quando o pedido não é
+reconhecido — e aí com streaming, mostrando o texto enquanto ele sai.
+
+Um bot por token: o antigo está desligado por .github/bot-disabled. Não ligue os dois.

@@ -45,6 +45,29 @@ jobs:
             echo "::notice title=atlas2::desligado (.github/atlas2-on não existe) — nada a fazer"
           fi
 
+      - name: Derrubar o bot antigo (se ainda estiver rodando)
+        if: steps.ligado.outputs.sim == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Um bot por token: enquanto o antigo estiver rodando, cada mensagem seria respondida
+          # duas vezes. Aqui a fatia antiga é derrubada na hora em que o novo sobe (o arquivo
+          # .github/bot-disabled impede que ela volte).
+          ids=$(gh run list --workflow=bot.yml --status=in_progress --status=queued \
+                  --json=databaseId --jq '.[].databaseId' 2>/dev/null || true)
+          if [ -z "${ids:-}" ]; then
+            echo "::notice title=atlas2::nenhuma execução do bot antigo no ar."
+            exit 0
+          fi
+          for id in $ids; do
+            if gh run cancel "$id"; then
+              echo "::notice title=atlas2::bot antigo derrubado (execução ${id})."
+            else
+              echo "::warning title=atlas2::não consegui derrubar a execução ${id} — cancele na aba Actions para não ter resposta duplicada."
+            fi
+          done
+
       - name: Preparar o Python
         if: steps.ligado.outputs.sim == 'true'
         uses: actions/setup-python@v5
