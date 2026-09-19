@@ -1,5 +1,5 @@
 """
-Isolamento entre SERVIDORES — requisito de produto do Farol.
+Isolamento entre SERVIDORES — requisito de produto do Atlas.
 
 O bot é vendido para vários donos de servidor e roda como UM processo atendendo todos:
 conversa, pendência de confirmação e lock de um servidor NUNCA podem aparecer no outro.
@@ -257,11 +257,11 @@ class TestLocksDoBot(unittest.TestCase):
     def test_lock_e_por_conversa_e_nao_cresce_sem_limite(self) -> None:
         import core.bot as bot_mod
 
-        if not hasattr(bot_mod.FarolBot, "_lock_for"):  # pragma: no cover - sanidade
-            self.skipTest("FarolBot sem _lock_for")
+        if not hasattr(bot_mod.AtlasBot, "_lock_for"):  # pragma: no cover - sanidade
+            self.skipTest("AtlasBot sem _lock_for")
 
         class BotFalso:
-            _lock_for = bot_mod.FarolBot._lock_for
+            _lock_for = bot_mod.AtlasBot._lock_for
             max_channel_locks = 3
 
             def __init__(self) -> None:

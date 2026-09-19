@@ -12,7 +12,7 @@ import aiohttp
 
 from llm.base import ChatProvider, LLMResponse, ToolCall, parse_openai_tool_calls
 
-logger = logging.getLogger("farol.llm.key")
+logger = logging.getLogger("atlas.llm.key")
 
 
 class OpenAIProvider(ChatProvider):

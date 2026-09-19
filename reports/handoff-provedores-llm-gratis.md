@@ -1,4 +1,4 @@
-# 🤖 Pedido de pesquisa: LLMs grátis com contexto gigante para o bot **Farol**
+# 🤖 Pedido de pesquisa: LLMs grátis com contexto gigante para o bot **Atlas**
 
 > **Para quem receber este documento (outra IA):** este é o contexto completo de um bot de Discord
 > em produção, hospedado de graça no GitHub Actions, que hoje usa apenas APIs de LLM **gratuitas
@@ -11,7 +11,7 @@
 
 ## 1. O que é o bot (contexto mínimo)
 
-- **Nome:** Farol (`farol`) — bot de Discord em **Python 3.11 + discord.py 2.7.1**.
+- **Nome:** Atlas (`atlas`) — bot de Discord em **Python 3.11 + discord.py 2.7.1**.
 - **Propósito:** montar, organizar, auditar e consertar servidores Discord (27 ferramentas reais:
   criar/editar/mover/clonar/apagar canais, categorias, cargos, permissões, templates, ícone etc.).
 - **Hospedagem:** 100% gratuita no **GitHub Actions**, com encadeamento de execuções de ~5h35m para

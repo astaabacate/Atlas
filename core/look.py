@@ -1,5 +1,5 @@
 """
-A cara das respostas do farol: mensagem em Components V2 com a cor do avatar dele.
+A cara das respostas do atlas: mensagem em Components V2 com a cor do avatar dele.
 
 O dono pediu (18/09): "queria que ele respondesse em embed naquele componente V2 ... as
 mensagens dele vão vim organizadas", e não sabia qual cor usar — queria uma que combinasse
@@ -11,7 +11,7 @@ com a foto do bot. Então a cor é CALCULADA da própria foto, não chutada:
      cinza, que são fundo), ponderada pelo quanto a cor "salta";
   4. devolve essa cor em `accent_color` do container — e o resultado é cacheado.
 
-Se qualquer passo falhar (avatar sem cor viva, PNG exótico, rede), o farol usa a cor de
+Se qualquer passo falhar (avatar sem cor viva, PNG exótico, rede), o atlas usa a cor de
 reserva e continua respondendo normalmente: enfeite nunca pode derrubar a resposta.
 """
 
@@ -22,9 +22,9 @@ import struct
 import zlib
 from typing import Any, Iterable
 
-logger = logging.getLogger("farol.look")
+logger = logging.getLogger("atlas.look")
 
-# Cor de reserva (o amarelo do farol) — usada quando não dá para medir o avatar.
+# Cor de reserva (o amarelo do atlas) — usada quando não dá para medir o avatar.
 COR_RESERVA = 0xF1C40F
 
 # Largura em que pedimos o avatar: pequena de propósito (só precisamos da paleta).
@@ -216,19 +216,20 @@ def hex_da_cor(cor: int) -> str:
 # Teto de texto por mensagem em Components V2 (o Discord aceita 4000 no total). Acima disso,
 # é resposta comprida demais para um container: cai no envio em blocos de texto normal.
 LIMITE_V2 = 3800
-TITULO_V2 = "**🏮 Farol**"
-RODAPE_V2 = "-# resposta automática do farol"
-# Capa do card (imagem hospedada no próprio repositório). TODO(merge): quando a PR da sessão
-# entrar na main, trocar a referência para o raw da main e apagar esta nota.
-URL_BANNER_V2 = "https://raw.githubusercontent.com/astaabacate/Atlas/arena/01a0b13c-atlas/assets/banner-farol.png"
+# O card é enxuto de propósito: sem capa, sem marca desenhada, sem selo. O dono pediu (18/09)
+# que nada do bot ficasse exposto — a mensagem organizada fica, o enfeite com nome e imagem sai.
+# O que identifica a resposta é a COR (medida do avatar) e a organização.
+TITULO_V2 = ""  # vazio = card sem cabeçalho de texto (o Discord já mostra o nome da conta)
+RODAPE_V2 = ""  # vazio = card sem rodapé
 
 
 def montar_view(texto: str, cor: int, avatar_url: str | None = None) -> Any:
     """
-    Monta a resposta como mensagem em Components V2: card com capa, cabeçalho com o nome
-    (e o avatar, quando conhecido), divisória, a mensagem e um rodapé discreto.
+    Monta a resposta como mensagem em Components V2: um card com a cor de destaque do bot e
+    a mensagem dentro, organizada (blocos e negrito funcionam; imagem e marca não entram).
 
-    Enfeite na medida: hierarquia de leitura, sem virar cartão de Natal.
+    O dono pediu (18/09) que nada do bot ficasse exposto a quem conversa com ele, então o
+    card não leva capa, título, nome, rodapé nem imagem: só a resposta, legível.
     O `LayoutView` do discord.py liga sozinho a flag de Components V2 na mensagem. Se qualquer
     coisa falhar (versão do discord.py, texto fora do limite, componente exótico), devolve None
     e quem chamou responde em texto normal — enfeite nunca pode custar a resposta.
@@ -241,20 +242,19 @@ def montar_view(texto: str, cor: int, avatar_url: str | None = None) -> Any:
     try:
         view = discord.ui.LayoutView(timeout=None)
         filhos: list[Any] = []
-        if URL_BANNER_V2:
-            filhos.append(discord.ui.MediaGallery(
-                discord.MediaGalleryItem(URL_BANNER_V2, description="Farol")))
-        cabecalho: Any
-        if avatar_url:
-            cabecalho = discord.ui.Section(discord.ui.TextDisplay(TITULO_V2),
-                                           accessory=discord.ui.Thumbnail(avatar_url))
-        else:
-            cabecalho = discord.ui.TextDisplay(TITULO_V2)
-        filhos.append(cabecalho)
-        filhos.append(discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
+        if TITULO_V2:
+            if avatar_url:
+                filhos.append(discord.ui.Section(discord.ui.TextDisplay(TITULO_V2),
+                                                 accessory=discord.ui.Thumbnail(avatar_url)))
+            else:
+                filhos.append(discord.ui.TextDisplay(TITULO_V2))
+            filhos.append(discord.ui.Separator(visible=True,
+                                               spacing=discord.ui.SeparatorSpacing.small))
         filhos.append(discord.ui.TextDisplay(conteudo))
-        filhos.append(discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
-        filhos.append(discord.ui.TextDisplay(RODAPE_V2))
+        if RODAPE_V2:
+            filhos.append(discord.ui.Separator(visible=True,
+                                               spacing=discord.ui.SeparatorSpacing.small))
+            filhos.append(discord.ui.TextDisplay(RODAPE_V2))
         view.add_item(discord.ui.Container(*filhos, accent_color=int(cor)))
         return view
     except Exception as exc:  # noqa: BLE001 - cai no texto simples
@@ -264,7 +264,7 @@ def montar_view(texto: str, cor: int, avatar_url: str | None = None) -> Any:
 
 class Aparencia:
     """
-    A identidade visual do farol: cor de destaque (medida do próprio avatar) e a mensagem V2.
+    A identidade visual do atlas: cor de destaque (medida do próprio avatar) e a mensagem V2.
 
     A cor é medida UMA vez e fica em cache — ler a imagem a cada resposta seria desperdício de
     rede e de tempo. Se o dono trocar a foto com o bot no ar, o endereço do avatar muda e a cor
@@ -294,7 +294,7 @@ class Aparencia:
             self.cor = cor_do_avatar(dados, reserva=self.cor or COR_RESERVA)
             self.cor_medida = True
             self._avatar_medido = endereco
-            logger.info("Cor do farol medida no avatar: %s", hex_da_cor(self.cor))
+            logger.info("Cor do atlas medida no avatar: %s", hex_da_cor(self.cor))
         except Exception as exc:  # noqa: BLE001 - segue com a reserva
             # Sem marcar como medido: a próxima resposta tenta de novo (a CDN pode ter caído).
             logger.debug("Não consegui medir a cor do avatar (%s); sigo com %s.",

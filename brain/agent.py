@@ -1,5 +1,5 @@
 """
-Loop do Agente Farol: Prompt de sistema + Snapshot + Histórico → LLM → Tools → Resposta.
+Loop do Agente Atlas: Prompt de sistema + Snapshot + Histórico → LLM → Tools → Resposta.
 Suporta fallback de extração de ferramentas em texto puro (```tool {...}```).
 NÃO importa discord (duck-typing estrito).
 """
@@ -20,9 +20,9 @@ from brain.tools import ToolContext, ToolError, get_tool_definitions
 from llm.base import (ChatProvider, parece_raciocinio, separar_raciocinio, extract_text_tool_calls,
                       LLMResponse, ToolCall)
 
-logger = logging.getLogger("farol.brain.agent")
+logger = logging.getLogger("atlas.brain.agent")
 
-SYSTEM_PROMPT_TEMPLATE = """Você é o `farol`, um bot de Discord especialista em construir, estruturar e organizar servidores.
+SYSTEM_PROMPT_TEMPLATE = """Você é o `atlas`, um bot de Discord especialista em construir, estruturar e organizar servidores.
 Você executa ações reais no servidor chamando ferramentas.
 
 REGRAS ABSOLUTAS:
@@ -58,7 +58,7 @@ REGRAS ABSOLUTAS:
 CONFIRMATION_TOOLS = frozenset({"delete_channels", "delete_role"})
 
 # Teto de tamanho da mensagem final. Acima disso não é resposta: é despejo de texto
-# (rascunho de modelo grátis, lista imensa, etc.) — o Farol responde curto.
+# (rascunho de modelo grátis, lista imensa, etc.) — o Atlas responde curto.
 MAX_RESPOSTA_CHARS = 1000
 
 # Palavras que aparecem MUITO em inglês e quase nunca em português (com espaço em volta,

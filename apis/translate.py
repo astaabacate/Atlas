@@ -9,7 +9,7 @@ import urllib.parse
 
 import aiohttp
 
-logger = logging.getLogger("farol.apis.translate")
+logger = logging.getLogger("atlas.apis.translate")
 
 
 def fallback_translate(text: str, target_lang: str = "pt") -> str:

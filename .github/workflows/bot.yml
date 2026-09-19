@@ -1,4 +1,4 @@
-name: Farol Bot 24/7
+name: Atlas Bot 24/7
 
 on:
   workflow_dispatch:
@@ -84,10 +84,10 @@ jobs:
         run: |
           if [ -f .github/bot-disabled ]; then
             echo "rodar=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=farol 24/7::DESLIGADO por .github/bot-disabled — o bot não sobe e a corrente para aqui."
+            echo "::notice title=atlas 24/7::DESLIGADO por .github/bot-disabled — o bot não sobe e a corrente para aqui."
           else
             echo "rodar=true" >> "$GITHUB_OUTPUT"
-            echo "::notice title=farol 24/7::ligado — o bot sobe por ~5h35m e reagenda a própria execução."
+            echo "::notice title=atlas 24/7::ligado — o bot sobe por ~5h35m e reagenda a própria execução."
           fi
 
       - name: Configurar Python
@@ -157,7 +157,7 @@ jobs:
           # Continua no MESMO ramo que começou (main ou um branch de sessão).
           ACTIVE_RUNS=$(gh run list --workflow bot.yml --status in_progress --status queued --json databaseId -q '.[]' | wc -l)
           if [ "$ACTIVE_RUNS" -le 1 ]; then
-            echo "Nenhuma outra execução concorrente detectada. Encadeando próxima run do Farol em ${GITHUB_REF_NAME}..."
+            echo "Nenhuma outra execução concorrente detectada. Encadeando próxima run do Atlas em ${GITHUB_REF_NAME}..."
             gh workflow run bot.yml --ref "${GITHUB_REF_NAME}" \
               || echo "::warning::Não consegui encadear (o vigia retoma em até 30 minutos)."
           else

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Harness de teste do Farol — offline (duplos de teste) e AO VIVO (Discord + LLM reais).
+Harness de teste do Atlas — offline (duplos de teste) e AO VIVO (Discord + LLM reais).
 
 Cada verificação vira uma linha do relatório com status PASS/FAIL/WARN/SKIP, detalhe e
 tempo. O relatório sai em JSON + Markdown; em GitHub Actions também vira anotação de
@@ -16,7 +16,7 @@ Fases:
   tools   — ferramentas somente-leitura contra um servidor real (verificação via API)
   agent   — Agent + corrida de LLMs reais: prompt → ferramenta → resposta
   mutate  — cria/edita/apaga objetos REAIS de teste (só com --mutate) e limpa tudo
-  botloop — instancia o core.bot.FarolBot de produção e aciona on_message de verdade
+  botloop — instancia o core.bot.AtlasBot de produção e aciona on_message de verdade
   sweep   — remove sobras de teste marcadas com 🧪
 
 Segurança das mutações (só rodam com --mutate):
@@ -76,7 +76,7 @@ PHASE_TITLES = {
     "agent": "Agente + LLM ao vivo (prompt → ferramenta → resposta)",
     "mutate": "Mutações reais em objetos de teste (com limpeza)",
     "caps": "Matriz de capacidades: cada parâmetro, valor e combinação no Discord real",
-    "botloop": "core.bot.FarolBot: on_message → resposta real no Discord",
+    "botloop": "core.bot.AtlasBot: on_message → resposta real no Discord",
     "sweep": "Varredura de sobras de teste",
     "cobertura": "Cobertura: quais ferramentas foram exercitadas nesta execução",
 }
@@ -93,7 +93,7 @@ LIMITE_DA_FASE = {
 LIMITE_PADRAO = 300
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
-log = logging.getLogger("farol.e2e")
+log = logging.getLogger("atlas.e2e")
 
 # Acima disso, a resposta "demora" para o padrão que o dono espera (o alvo dele é instantâneo).
 LIMITE_DE_DEMORA_S = 6.0
@@ -192,7 +192,7 @@ class Reporter:
     def to_markdown(self) -> str:
         counts = self.counts()
         lines = [
-            "# 🏮 Farol — relatório de teste E2E",
+            "# 🏮 Atlas — relatório de teste E2E",
             "",
             f"- **Resumo:** ✅ {counts[PASS]} · ❌ {counts[FAIL]} · ⚠️ {counts[WARN]} · ⏭️ {counts[SKIP]}",
         ]
@@ -424,9 +424,9 @@ class SpyGuild(Spy):
         self.created_at = None
         self.channels: list[SpyChannel] = []
         self.categories: list[SpyChannel] = []
-        self.roles: list[SpyRole] = [SpyRole("@everyone", position=0, is_default=True), SpyRole("farol", position=5)]
+        self.roles: list[SpyRole] = [SpyRole("@everyone", position=0, is_default=True), SpyRole("atlas", position=5)]
         self.members: list[SpyMember] = [SpyMember("dono", roles=[SpyRole("Dono", position=9)])]
-        self.me = SpyMember("farol", roles=[self.roles[1]])
+        self.me = SpyMember("atlas", roles=[self.roles[1]])
         self.members.append(self.me)
 
     # ---- criadores (assinaturas fiéis ao discord.py: keyword-only, sem **kwargs frouxo)
@@ -1439,7 +1439,7 @@ class Harness:
     @staticmethod
     def silenciar_mensagens_reais(bot: Any) -> Any:
         """
-        Impede o FarolBot DESTE teste de responder mensagens que chegarem pelo gateway.
+        Impede o AtlasBot DESTE teste de responder mensagens que chegarem pelo gateway.
 
         O bot de produção (workflow 24/7) usa o MESMO token e está online enquanto o teste
         roda: sem isso, dois processos responderiam a mesma mensagem de um cliente real.
@@ -1795,7 +1795,7 @@ class Harness:
             if acima:
                 self.rep.record(phase, "cargos que o bot não consegue gerenciar", WARN,
                                 f"{len(acima)} cargo(s) no nível ou acima do bot ({', '.join(r.name for r in acima[:5])}): "
-                                "ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3).")
+                                "ele não conseguirá editar/apagar esses cargos. Suba o cargo do atlas (README Passo 3).")
                 return f"cargo do bot na posição {pos}", data
             return f"cargo do bot no topo (posição {pos}) — pode gerenciar todos os cargos", data
 
@@ -2254,7 +2254,7 @@ class Harness:
         guild = live.primary
         registro_llm: list[dict[str, Any]] = []
         live.agent.llm = LLMRegistro(live.agent.llm, registro_llm)
-        cat_nome, txt_nome, voz_nome = f"{TEMP_MARK} teste-farol", f"{TEMP_MARK}-texto", f"{TEMP_MARK}-voz"
+        cat_nome, txt_nome, voz_nome = f"{TEMP_MARK} teste-atlas", f"{TEMP_MARK}-texto", f"{TEMP_MARK}-voz"
         holder: dict[str, Any] = {}
 
         async def infraestrutura() -> str:
@@ -2384,8 +2384,8 @@ class Harness:
                 if "mesma posição do meu cargo mais alto" not in str(exc):
                     raise
                 self.rep.record(
-                    phase, "cargo do farol no chão do servidor", WARN,
-                    f"{exc} Ação do dono (README Passo 3): arraste o cargo do farol para cima dos outros — "
+                    phase, "cargo do atlas no chão do servidor", WARN,
+                    f"{exc} Ação do dono (README Passo 3): arraste o cargo do atlas para cima dos outros — "
                     "sem isso ele não edita nem os cargos que ele mesmo cria.")
                 return ("cargo criado e conferido na API; editar/dar/tirar ficou bloqueado pela posição do "
                         "cargo do bot no servidor")
@@ -2776,7 +2776,7 @@ class Harness:
             topo = estado.get("topo_bot")
             onde = f" (meu cargo mais alto está na posição {topo})" if topo else ""
             self.rep.record(phase, "cargos: gerenciar o cargo criado", WARN,
-                            f"{motivo}{onde} — suba o cargo do farol acima dos cargos de teste "
+                            f"{motivo}{onde} — suba o cargo do atlas acima dos cargos de teste "
                             "para a auditoria de cargos ficar completa ao vivo (as validações de "
                             "valor, hierarquia e @everyone seguem em tests/test_capacidades.py)")
             return f"não verificável neste servidor: {motivo}{onde}"
@@ -3480,7 +3480,7 @@ class Harness:
     async def phase_botloop(self) -> None:
         import discord
 
-        from core.bot import FarolBot
+        from core.bot import AtlasBot
 
         phase = "botloop"
         if not self.args.mutate:
@@ -3494,7 +3494,7 @@ class Harness:
         guild = live.primary
         registro_llm: list[dict[str, Any]] = []
         live.agent.llm = LLMRegistro(live.agent.llm, registro_llm)
-        bot = FarolBot(config=live.config, agent=live.agent)
+        bot = AtlasBot(config=live.config, agent=live.agent)
         connect_task = None
         canal = None
         try:
@@ -3644,7 +3644,7 @@ class Harness:
                 msg = FakeDMMessage()
                 await bot.on_message(msg)
                 self.assert_true(bool(enviados), "o bot não respondeu na DM")
-                self.assert_true("farol" in enviados[0].lower(), f"resposta de DM inesperada: {enviados[0][:80]}")
+                self.assert_true("atlas" in enviados[0].lower(), f"resposta de DM inesperada: {enviados[0][:80]}")
                 self.assert_true(not chamadas, "o bot tentou processar comando em DM")
                 return f"DM respondida com o aviso de escopo: {enviados[0][:60]!r}"
 
@@ -3685,7 +3685,7 @@ class Harness:
                 import discord
 
                 if not getattr(bot, "aparencia", None) or not bot.aparencia.v2:
-                    self.rep.record(phase, "resposta em Components V2 com a cor do farol", WARN,
+                    self.rep.record(phase, "resposta em Components V2 com a cor do atlas", WARN,
                                     "MENSAGEM_V2 está desligado nesta configuração — a resposta "
                                     "sai em texto simples (o padrão é ligado)")
                     return "desligado por configuração"
@@ -3697,7 +3697,7 @@ class Harness:
                 container = vistas_da_resposta[-1].children[0]
                 cor_do_container = getattr(container, "accent_color", None)
                 self.assert_true(cor_do_container == bot.aparencia.cor,
-                                 f"a cor do container ({cor_do_container}) não é a do farol "
+                                 f"a cor do container ({cor_do_container}) não é a do atlas "
                                  f"({bot.aparencia.cor})")
                 tem_miniatura = any(isinstance(filho, discord.ui.Section)
                                     for filho in getattr(container, "children", []))
@@ -3705,7 +3705,7 @@ class Harness:
                         f"#{cor_do_container:06X} (medida do avatar) e "
                         f"{'com' if tem_miniatura else 'sem'} miniatura do avatar")
 
-            await self.check(phase, "resposta em Components V2 com a cor do farol",
+            await self.check(phase, "resposta em Components V2 com a cor do atlas",
                              resposta_em_components_v2)
 
             async def tempo_ate_responder() -> str:
@@ -3911,15 +3911,15 @@ class Harness:
                             "nenhuma fase desta execução chamou ferramenta (rodada só de merge?)")
             return
         if faltando:
-            # Algumas ficam de fora de propósito: set_icon mexe na identidade do farol (proibido
+            # Algumas ficam de fora de propósito: set_icon mexe na identidade do atlas (proibido
             # sem autorização explícita) e diagnostic_report manda DM — o motivo não é escondido.
-            # Fora de propósito nesta suíte: set_icon mexe na IDENTIDADE do farol (proibido sem
+            # Fora de propósito nesta suíte: set_icon mexe na IDENTIDADE do atlas (proibido sem
             # autorização explícita do dono) e diagnostic_report manda DM para o dono (não se manda
             # DM em teste). Todos os outros ficam registrados como lacuna desta execução.
             self.rep.record("cobertura", "ferramentas exercitadas nesta execução", WARN,
                             f"{len(exercitadas)}/{len(todas)} ferramentas — não exercitadas: "
                             f"{', '.join(faltando)} (de propósito nesta suíte: set_icon, que mexe "
-                            "na identidade do farol, e diagnostic_report, que manda DM ao dono; "
+                            "na identidade do atlas, e diagnostic_report, que manda DM ao dono; "
                             "qualquer outra que apareça aqui é lacuna a fechar)")
         else:
             self.rep.record("cobertura", "ferramentas exercitadas nesta execução", PASS,
@@ -3968,7 +3968,7 @@ class Harness:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Harness de teste E2E do Farol")
+    parser = argparse.ArgumentParser(description="Harness de teste E2E do Atlas")
     parser.add_argument("--phases", default="static,spy,policy",
                         help="fases separadas por vírgula, ou 'all'")
     parser.add_argument("--outdir", default="reports/parts", help="diretório de saída dos relatórios")

@@ -6,10 +6,10 @@ DELAY=2
 MAX_DELAY=300
 
 while true; do
-  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Iniciando FarolBot..."
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Iniciando AtlasBot..."
   python3 main.py
   EXIT_CODE=$?
-  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] FarolBot finalizado com código ${EXIT_CODE}."
+  echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] AtlasBot finalizado com código ${EXIT_CODE}."
 
   # Exit 0: encerramento gracioso
   # Exit 2: erro fatal de configuração ou credenciais (não adianta reiniciar)

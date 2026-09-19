@@ -1,5 +1,5 @@
 """
-Configuração do bot farol a partir de variáveis de ambiente.
+Configuração do bot atlas a partir de variáveis de ambiente.
 Apenas stdlib (sem dependências externas nesta etapa).
 """
 
@@ -81,7 +81,7 @@ class Config:
     members_intent: bool = False
     message_content_intent: bool = False
     github_token: str = ""
-    # Cara das respostas: mensagem em Components V2 (organizada) com a cor do farol.
+    # Cara das respostas: mensagem em Components V2 (organizada) com a cor do atlas.
     # ACCENT_COLOR vazio/"auto" = a cor é MEDIDA do avatar do bot; ou um hex (#5865F2).
     accent_color: int | None = None
     mensagem_v2: bool = True

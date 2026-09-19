@@ -10,7 +10,7 @@ import time
 from enum import Enum
 from typing import Any, Awaitable, Callable
 
-logger = logging.getLogger("farol.apis.base")
+logger = logging.getLogger("atlas.apis.base")
 
 
 class CircuitState(Enum):

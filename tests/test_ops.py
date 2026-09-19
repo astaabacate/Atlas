@@ -100,8 +100,8 @@ class FakeGuild:
         self.categories: list[Any] = []
         self.roles = [types.SimpleNamespace(id=1, name="@everyone", position=0, is_default=lambda: True)]
         self.members: list[Any] = []
-        self.me = types.SimpleNamespace(id=999, name="farol", guild_permissions=FakePerms(administrator=True),
-                                        top_role=types.SimpleNamespace(id=2, name="farol", position=9))
+        self.me = types.SimpleNamespace(id=999, name="atlas", guild_permissions=FakePerms(administrator=True),
+                                        top_role=types.SimpleNamespace(id=2, name="atlas", position=9))
         self.edits: list[dict[str, Any]] = []
         self.creates: list[str] = []
 

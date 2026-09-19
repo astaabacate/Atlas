@@ -1,4 +1,4 @@
-"""Manda um "oi" ao vivo no servidor do Farol (teste real de ponta a ponta).
+"""Manda um "oi" ao vivo no servidor do Atlas (teste real de ponta a ponta).
 
 Fluxo: conecta com o DISCORD_TOKEN (igual ao main.py/E2E), escolhe o servidor
 (E2E_GUILD_ID ou o maior por membros), escolhe um canal onde o bot pode escrever,
@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-MENSAGEM_PADRAO = "Oi! 👋 A nova IA assumiu o farol — teste de envio ao vivo."
+MENSAGEM_PADRAO = "Oi! 👋 A nova IA assumiu o atlas — teste de envio ao vivo."
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -26,7 +26,7 @@ if str(ROOT) not in sys.path:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Envia um oi ao vivo pelo bot do Farol.")
+    parser = argparse.ArgumentParser(description="Envia um oi ao vivo pelo bot do Atlas.")
     parser.add_argument("--guild-id", default="", help="ID do servidor (senão: E2E_GUILD_ID, senão o maior)")
     parser.add_argument("--channel-id", default="", help="ID do canal (senão: OI_CHANNEL_ID, senão o primeiro canal de texto onde o bot pode escrever)")
     parser.add_argument("--criar-canal", default=os.environ.get("OI_CRIAR_CANAL", "").strip(), help="nome de canal de texto para USAR (e criar se não existir)")
@@ -102,7 +102,7 @@ async def _canal_por_nome(guild: Any, nome: str, res: OiResultado) -> Any:
     if not guild.me.guild_permissions.manage_channels:
         res.nota(f"sem permissão de manage_channels para criar #{nome}; caindo para o primeiro canal escrevível")
         return None
-    criado = await asyncio.wait_for(guild.create_text_channel(nome, reason="oi ao vivo do Farol (teste de ponta a ponta)"), timeout=30)
+    criado = await asyncio.wait_for(guild.create_text_channel(nome, reason="oi ao vivo do Atlas (teste de ponta a ponta)"), timeout=30)
     res.nota(f"canal #{nome} criado agora ({criado.id})")
     return criado
 
@@ -144,7 +144,7 @@ async def rodar() -> int:
         if canal is None:
             canal = _escolher_canal(discord, guild, args.channel_id or os.environ.get("OI_CHANNEL_ID", ""), res)
 
-        # Mesma cara das respostas do farol: Components V2 com a cor medida do avatar.
+        # Mesma cara das respostas do atlas: Components V2 com a cor medida do avatar.
         from core.look import Aparencia
 
         aparencia = Aparencia(getattr(config, "accent_color", None), v2=getattr(config, "mensagem_v2", True))
@@ -183,7 +183,7 @@ def _escrever_relatorio(outdir: str, res: OiResultado, guild: Any, canal: Any, l
     pasta.mkdir(parents=True, exist_ok=True)
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     linhas = [
-        "# 🏮 Oi ao vivo — Farol",
+        "# 🏮 Oi ao vivo — Atlas",
         "",
         f"- Quando: {agora}",
         f"- Resultado: {'✅ ' + res.resumo if res.sucesso else '❌ ' + res.resumo}",

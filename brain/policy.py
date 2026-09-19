@@ -1,5 +1,5 @@
 """
-Política de permissões do FarolBot.
+Política de permissões do AtlasBot.
 Verifica os dois lados: permissões do autor e permissões do bot, além da hierarquia de cargos.
 NÃO importa discord (duck-typing estrito).
 """
@@ -135,7 +135,7 @@ def require(
             if target_pos >= bot_pos:
                 raise ToolError(
                     f"O cargo '{role_name}' (posição {target_pos}) está acima ou na mesma posição "
-                    f"do meu cargo mais alto (posição {bot_pos}). Suba o cargo do farol nas "
+                    f"do meu cargo mais alto (posição {bot_pos}). Suba o cargo do atlas nas "
                     "configurações de cargos do servidor."
                 )
 

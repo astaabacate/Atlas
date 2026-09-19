@@ -310,7 +310,7 @@
           "phase": "policy",
           "name": "cargo acima do bot é protegido",
           "status": "PASS",
-          "detail": "cargo acima do bot protegido: O cargo 'CargoDoDono' (posição 6) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do farol nas configurações de cargos do servidor.",
+          "detail": "cargo acima do bot protegido: O cargo 'CargoDoDono' (posição 6) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do atlas nas configurações de cargos do servidor.",
           "ms": 0,
           "data": {}
         },
@@ -318,7 +318,7 @@
           "phase": "policy",
           "name": "autor não edita cargo no próprio nível",
           "status": "PASS",
-          "detail": "cargo no nível do autor protegido: O cargo 'CargoDoAutor' (posição 9) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do farol nas configurações de cargos do servidor.",
+          "detail": "cargo no nível do autor protegido: O cargo 'CargoDoAutor' (posição 9) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do atlas nas configurações de cargos do servidor.",
           "ms": 0,
           "data": {}
         },
@@ -387,7 +387,7 @@
           "phase": "cobertura",
           "name": "ferramentas exercitadas nesta execução",
           "status": "WARN",
-          "detail": "29/31 ferramentas — não exercitadas: delete_roles, diagnostic_report, performance_report (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
+          "detail": "29/31 ferramentas — não exercitadas: delete_roles, diagnostic_report, performance_report (de propósito nesta suíte: set_icon, que mexe na identidade do atlas, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
           "ms": 0,
           "data": {}
         },
@@ -403,7 +403,7 @@
           "phase": "cobertura",
           "name": "ferramentas exercitadas nesta execução",
           "status": "WARN",
-          "detail": "10/31 ferramentas — não exercitadas: apply_template, clear_messages, clear_permissions, clone_channel, conversation_clear, create_channels, create_roles, delete_channels, delete_role, delete_roles, diagnostic_report, edit_channel, edit_role, edit_server, give_role, import_structure, move_channel, set_icon, set_permissions, sync_permissions, take_role (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
+          "detail": "10/31 ferramentas — não exercitadas: apply_template, clear_messages, clear_permissions, clone_channel, conversation_clear, create_channels, create_roles, delete_channels, delete_role, delete_roles, diagnostic_report, edit_channel, edit_role, edit_server, give_role, import_structure, move_channel, set_icon, set_permissions, sync_permissions, take_role (de propósito nesta suíte: set_icon, que mexe na identidade do atlas, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
           "ms": 0,
           "data": {}
         },
@@ -419,7 +419,7 @@
           "phase": "cobertura",
           "name": "ferramentas exercitadas nesta execução",
           "status": "WARN",
-          "detail": "16/31 ferramentas — não exercitadas: color_name, color_palette, conversation_clear, delete_role, delete_roles, diagnostic_report, edit_server, emoji_search, export_structure, list_roles, performance_report, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
+          "detail": "16/31 ferramentas — não exercitadas: color_name, color_palette, conversation_clear, delete_role, delete_roles, diagnostic_report, edit_server, emoji_search, export_structure, list_roles, performance_report, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do atlas, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
           "ms": 0,
           "data": {}
         },
@@ -427,7 +427,7 @@
           "phase": "cobertura",
           "name": "ferramentas exercitadas nesta execução",
           "status": "WARN",
-          "detail": "18/31 ferramentas — não exercitadas: apply_template, color_name, color_palette, conversation_clear, delete_role, diagnostic_report, edit_server, emoji_search, list_roles, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
+          "detail": "18/31 ferramentas — não exercitadas: apply_template, color_name, color_palette, conversation_clear, delete_role, diagnostic_report, edit_server, emoji_search, list_roles, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do atlas, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar)",
           "ms": 0,
           "data": {}
         },
@@ -527,7 +527,7 @@
           "phase": "audit",
           "name": "cargos que o bot não consegue gerenciar",
           "status": "WARN",
-          "detail": "1 cargo(s) no nível ou acima do bot (Atlas): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3).",
+          "detail": "1 cargo(s) no nível ou acima do bot (Atlas): ele não conseguirá editar/apagar esses cargos. Suba o cargo do atlas (README Passo 3).",
           "ms": 0,
           "data": {}
         },
@@ -708,7 +708,7 @@
           "phase": "mutate",
           "name": "infra: categoria e canais de teste",
           "status": "PASS",
-          "detail": "categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
+          "detail": "categoria 🧪 teste-atlas + 🧪-texto + 🧪-voz criados (registrados para limpeza)",
           "ms": 2501,
           "data": {}
         },
@@ -1038,7 +1038,7 @@
       ]
     },
     "botloop": {
-      "title": "core.bot.FarolBot: on_message → resposta real no Discord",
+      "title": "core.bot.AtlasBot: on_message → resposta real no Discord",
       "checks": [
         {
           "phase": "botloop",
@@ -1068,7 +1068,7 @@
           "phase": "botloop",
           "name": "DM é respondida com o aviso de escopo",
           "status": "PASS",
-          "detail": "DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi'",
+          "detail": "DM respondida com o aviso de escopo: 'Olá! Eu sou o **atlas**, especialista em estruturar e organi'",
           "ms": 0,
           "data": {}
         },
@@ -1082,7 +1082,7 @@
         },
         {
           "phase": "botloop",
-          "name": "resposta em Components V2 com a cor do farol",
+          "name": "resposta em Components V2 com a cor do atlas",
           "status": "FAIL",
           "detail": "a resposta não veio em Components V2 (container)",
           "ms": 0,

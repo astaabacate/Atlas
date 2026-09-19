@@ -46,7 +46,7 @@ class CargoTeimoso(Entidade):
 def _servidor_com_bot_no_chao() -> tuple[Any, Servidor]:
     """O cenário do dono: o cargo do bot está na posição 1 e tudo mais está acima."""
     ctx, servidor = contexto()
-    servidor.me.top_role = Entidade("farol", 999, 1)
+    servidor.me.top_role = Entidade("atlas", 999, 1)
     ctx.guild.me.top_role = servidor.me.top_role
     return ctx, servidor
 
@@ -183,7 +183,7 @@ class TestPosicaoMedidaNaApiAntesDeRecusar(unittest.TestCase):
         # a API diz que o meu cargo é o de posição 3; o alvo está na 1 (abaixo) — pode
         cargo = Entidade("abaixo do bot", 80, 1)
         servidor.roles.append(cargo)
-        posicao_de_topo = Entidade("farol", 999, 3)
+        posicao_de_topo = Entidade("atlas", 999, 3)
         servidor.roles.append(posicao_de_topo)
         servidor.me._roles = [999]
 

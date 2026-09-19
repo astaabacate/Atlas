@@ -1,4 +1,4 @@
-# 🏮 Farol — resumo do teste ao vivo do bot
+# 🏮 Atlas — resumo do teste ao vivo do bot
 
 Pedido: *"se conecte ao bot e teste as coisas dele"*.
 Resultado: o bot foi testado **de verdade** no servidor `asta`, 5 bugs foram encontrados (3 deles
@@ -8,7 +8,7 @@ registrada. O PR #4 segue **aberto** — o merge é manual.
 ## Como o teste roda
 
 O ambiente de desenvolvimento não tem rota para `discord.com` nem para os provedores de LLM, então
-os testes ao vivo rodam no **GitHub Actions** (workflow *E2E ao vivo do Farol*), onde o
+os testes ao vivo rodam no **GitHub Actions** (workflow *E2E ao vivo do Atlas*), onde o
 `DISCORD_TOKEN` está nos secrets do repositório. Cada execução publica o relatório completo no
 próprio branch (`reports/e2e-latest.json` e `.md`) e comenta no PR.
 
@@ -54,8 +54,8 @@ tocados.
 ## Pendências honestas
 
 - ⚠️ **Ação do dono do servidor:** os cargos `Atlas`, `iTinder` e `Cupido` estão no nível ou acima do
-  cargo do `farol`. Enquanto isso, o bot não edita nem os cargos que ele mesmo cria — arraste o cargo
-  do `farol` para cima (README, Passo 3).
+  cargo do `atlas`. Enquanto isso, o bot não edita nem os cargos que ele mesmo cria — arraste o cargo
+  do `atlas` para cima (README, Passo 3).
 - ⚠️ **LLM gratuito é intermitente — e agora o bot se defende:** quando os três corredores gratuitos
   falharam juntos (ovh 429, llm7 com modelo aposentado, pollinations "Queue full for IP"), o cliente
   recebia a parede de erro. Correção aplicada: `429` tem nova tentativa + castigo temporário do
@@ -96,7 +96,7 @@ ele não responde mais as mensagens reais dos clientes (só as mensagens falsas 
 
 ## Duas coisas que dependem de você
 
-1. **Suba o cargo do `farol`** acima de `Atlas`, `iTinder` e `Cupido` (README Passo 3). Enquanto ele
+1. **Suba o cargo do `atlas`** acima de `Atlas`, `iTinder` e `Cupido` (README Passo 3). Enquanto ele
    estiver no chão, o bot não edita nem os cargos que ele mesmo cria.
 2. **Faça o merge do PR #4** para o código corrigido virar `main`. Enquanto o bot rodar a partir do
    ramo da sessão ele usa o código corrigido; o cron de 5 em 5 horas pode pegá-lo a partir da `main`
@@ -109,6 +109,6 @@ ele não responde mais as mensagens reais dos clientes (só as mensagens falsas 
 - Suíte offline: `python -W error::ResourceWarning -m unittest discover -s tests` → **149 testes OK**
   (11 novos cobrem a corrida de LLM: 429/Retry-After, castigo, redescoberta de catálogo, segunda onda
   e mensagem amigável ao cliente).
-- Bot 24/7: workflow *Farol Bot 24/7* (execução em andamento no ramo da sessão).
+- Bot 24/7: workflow *Atlas Bot 24/7* (execução em andamento no ramo da sessão).
 - Harness: `scripts/e2e_live.py` · testes dele: `tests/test_e2e_live.py` · workflow: `.github/workflows/e2e.yml`.
 - PR: https://github.com/astaabacate/Atlas/pull/4 (aberto de propósito; **sem merge**).

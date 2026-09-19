@@ -1,5 +1,5 @@
 """
-Implementação das 27 operações do farol.
+Implementação das 27 operações do atlas.
 Executa ações no servidor do Discord de forma duck-typed (sem importar discord).
 """
 
@@ -21,7 +21,7 @@ from brain.policy import require
 from brain.resolve import resolve_channel, resolve_member, resolve_role
 from brain.tools import ToolContext, ToolError
 
-logger = logging.getLogger("farol.brain.ops")
+logger = logging.getLogger("atlas.brain.ops")
 
 # ---------------------------------------------------------------------------
 # Permissões: nome amigável (PT-BR ou EN) → atributo do Discord
@@ -921,10 +921,10 @@ async def op_edit_role(
 def _nome_do_meu_cargo(ctx: ToolContext) -> str:
     """Nome do cargo mais alto do bot — é ele que o dono precisa arrastar para cima."""
     topo = getattr(getattr(ctx.guild, "me", None), "top_role", None)
-    return str(getattr(topo, "name", "") or "farol")
+    return str(getattr(topo, "name", "") or "atlas")
 
 
-def _instrucao_hierarquia(pos_alvo: int | None, pos_bot: int, bot_name: str = "farol") -> str:
+def _instrucao_hierarquia(pos_alvo: int | None, pos_bot: int, bot_name: str = "atlas") -> str:
     """
     O QUE fazer para o bot poder gerenciar o cargo — em português e com o caminho exato.
 
@@ -2140,7 +2140,7 @@ async def op_diagnostic_report(ctx: ToolContext, limit: int = 80) -> str:
 
     linhas.reverse()  # da mensagem mais antiga para a mais nova
     corpo = (
-        "🏮 Farol — diagnóstico da conversa\n"
+        "🏮 Atlas — diagnóstico da conversa\n"
         f"servidor: {getattr(ctx.guild, 'name', '?')} · canal: #{getattr(canal, 'name', '?')}\n"
         f"{resumo_de_tempos(getattr(ctx, 'tempos', None))}\n"
         "\n--- conversa (mais antiga primeiro) ---\n"
@@ -2153,8 +2153,8 @@ async def op_diagnostic_report(ctx: ToolContext, limit: int = 80) -> str:
     if autor is not None and hasattr(autor, "send"):
         try:
             await autor.send(content="🏮 Aqui está o diagnóstico da nossa conversa (arquivo). "
-                                     "Se puder, repasse para quem dá suporte ao Farol.",
-                             file=_arquivo_de_texto("farol-diagnostico.txt", corpo))
+                                     "Se puder, repasse para quem dá suporte ao Atlas.",
+                             file=_arquivo_de_texto("atlas-diagnostico.txt", corpo))
             enviei = "Mandei o arquivo na sua **mensagem direta**"
         except Exception as exc:  # noqa: BLE001 - DM fechada/menor de idade: cai no canal
             logger.info("diagnóstico por DM falhou (%s); tentando no canal", exc)
@@ -2163,7 +2163,7 @@ async def op_diagnostic_report(ctx: ToolContext, limit: int = 80) -> str:
         enviar = getattr(canal, "send", None)
         if callable(enviar):
             try:
-                await enviar(file=_arquivo_de_texto("farol-diagnostico.txt", corpo))
+                await enviar(file=_arquivo_de_texto("atlas-diagnostico.txt", corpo))
                 enviei = "Não consegui abrir sua DM, então mandei o arquivo aqui no canal"
             except Exception as exc:  # noqa: BLE001
                 raise ToolError(f"Não consegui entregar o diagnóstico: {exc}")

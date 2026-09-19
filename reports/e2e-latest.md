@@ -1,4 +1,4 @@
-# 🏮 Farol — relatório de teste E2E
+# 🏮 Atlas — relatório de teste E2E
 
 - **Resumo:** ✅ 110 · ❌ 3 · ⚠️ 8 · ⏭️ 4
 - **python:** 3.11.16
@@ -63,8 +63,8 @@
 | PASS | `bot sem permissão é bloqueado` | bot sem permissão bloqueado: Eu preciso da permissão 'Gerenciar canais' no meu cargo para executar 'create_channels'. Ajuste meu cargo e tente de novo. |
 | PASS | `@everyone é intocável` | @everyone protegido: Não é possível alterar ou excluir o cargo @everyone. |
 | PASS | `cargo de integração é intocável` | cargo de integração protegido: O cargo 'CargoDeBot' é gerenciado por uma integração ou aplicativo e não pode ser modificado. |
-| PASS | `cargo acima do bot é protegido` | cargo acima do bot protegido: O cargo 'CargoDoDono' (posição 6) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do farol nas configurações de cargos do servidor. |
-| PASS | `autor não edita cargo no próprio nível` | cargo no nível do autor protegido: O cargo 'CargoDoAutor' (posição 9) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do farol nas configurações de cargos do servidor. |
+| PASS | `cargo acima do bot é protegido` | cargo acima do bot protegido: O cargo 'CargoDoDono' (posição 6) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do atlas nas configurações de cargos do servidor. |
+| PASS | `autor não edita cargo no próprio nível` | cargo no nível do autor protegido: O cargo 'CargoDoAutor' (posição 9) está acima ou na mesma posição do meu cargo mais alto (posição 5). Suba o cargo do atlas nas configurações de cargos do servidor. |
 | PASS | `exclusão em lote exige confirmação (modo cauteloso)` | 2 canais: pede confirmação e não apaga nada antes |
 | PASS | `exclusão em lote executa direto no padrão` | 2 canais: modo direto apaga e informa, sem perguntar |
 | PASS | `canal único apaga sem confirmação` | canal único nominal executa sem travar o fluxo |
@@ -91,7 +91,7 @@
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
 | PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
-| WARN | `cargos que o bot não consegue gerenciar` | 1 cargo(s) no nível ou acima do bot (Atlas): ele não conseguirá editar/apagar esses cargos. Suba o cargo do farol (README Passo 3). |
+| WARN | `cargos que o bot não consegue gerenciar` | 1 cargo(s) no nível ou acima do bot (Atlas): ele não conseguirá editar/apagar esses cargos. Suba o cargo do atlas (README Passo 3). |
 | PASS | `hierarquia de cargos` | cargo do bot na posição 27 |
 | PASS | `estrutura do servidor` | 0 categorias · 1 texto · 0 voz · 4 cargos · 4 membros |
 | PASS | `snapshot do servidor` | snapshot com 10 linhas alimenta o prompt |
@@ -127,7 +127,7 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-farol + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
+| PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-atlas + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
 | PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro-voz', '🧪-dentro']) |
 | PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-texto', '🧪-raiz-voz', '🧪-raiz-categoria']) |
 | PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
@@ -174,7 +174,7 @@
 | PASS | `repetição: mesma ordem várias vezes não quebra nem duplica efeito` | 3 ordens iguais = 1 canal (sem duplicata), lote com nome repetido = 1 canal, nome novo nasce normalmente e a edição continua pegando |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
-## core.bot.FarolBot: on_message → resposta real no Discord
+## core.bot.AtlasBot: on_message → resposta real no Discord
 `botloop` — ✅ 7 · ❌ 2 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
@@ -182,9 +182,9 @@
 | PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550653671984078931) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
-| PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **farol**, especialista em estruturar e organi' |
+| PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **atlas**, especialista em estruturar e organi' |
 | FAIL | `menção dispara o agente e responde` | o bot não respondeu à menção |
-| FAIL | `resposta em Components V2 com a cor do farol` | a resposta não veio em Components V2 (container) |
+| FAIL | `resposta em Components V2 com a cor do atlas` | a resposta não veio em Components V2 (container) |
 | PASS | `tempo até responder (mensagem → resposta)` | o cliente espera **3.7s** (mediana de 3) entre mandar e receber: 3.0s, 3.7s, 6.4s |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
 | PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
@@ -201,10 +201,10 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| WARN | `ferramentas exercitadas nesta execução` | 29/31 ferramentas — não exercitadas: delete_roles, diagnostic_report, performance_report (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar) |
+| WARN | `ferramentas exercitadas nesta execução` | 29/31 ferramentas — não exercitadas: delete_roles, diagnostic_report, performance_report (de propósito nesta suíte: set_icon, que mexe na identidade do atlas, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar) |
 | SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
 | WARN | `ferramentas exercitadas nesta execução` | 10/31 ferramentas — não exercitadas: apply_template, clear_messages, clear_permissions, clone_channel, conversation_clear, create_channels, create_roles, delete_channels, delete_role, delete_roles, diagnostic_report, edit_channel, edit_role, edit_server, give_role, import_structure, move_channel, set_icon, set_permissions, sync_permissions, take_role (de propósito nesta suíte: set_icon, que mexe … |
 | SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |
-| WARN | `ferramentas exercitadas nesta execução` | 16/31 ferramentas — não exercitadas: color_name, color_palette, conversation_clear, delete_role, delete_roles, diagnostic_report, edit_server, emoji_search, export_structure, list_roles, performance_report, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça… |
-| WARN | `ferramentas exercitadas nesta execução` | 18/31 ferramentas — não exercitadas: apply_template, color_name, color_palette, conversation_clear, delete_role, diagnostic_report, edit_server, emoji_search, list_roles, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do farol, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar) |
+| WARN | `ferramentas exercitadas nesta execução` | 16/31 ferramentas — não exercitadas: color_name, color_palette, conversation_clear, delete_role, delete_roles, diagnostic_report, edit_server, emoji_search, export_structure, list_roles, performance_report, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do atlas, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça… |
+| WARN | `ferramentas exercitadas nesta execução` | 18/31 ferramentas — não exercitadas: apply_template, color_name, color_palette, conversation_clear, delete_role, diagnostic_report, edit_server, emoji_search, list_roles, server_info, set_icon, topic_suggest, translate_text (de propósito nesta suíte: set_icon, que mexe na identidade do atlas, e diagnostic_report, que manda DM ao dono; qualquer outra que apareça aqui é lacuna a fechar) |
 | SKIP | `ferramentas exercitadas nesta execução` | nenhuma fase desta execução chamou ferramenta (rodada só de merge?) |

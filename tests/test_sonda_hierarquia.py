@@ -382,7 +382,7 @@ class TestCorDoAvatarDaSonda(unittest.TestCase):
             outdir = pathlib.Path(tmp)
             api = _ApiDaCor(_Resposta(200))
             with contextlib.redirect_stdout(io.StringIO()):
-                cor = asyncio.run(sonda._cor_do_avatar(api, {"id": "1", "username": "farol"}, outdir))
+                cor = asyncio.run(sonda._cor_do_avatar(api, {"id": "1", "username": "atlas"}, outdir))
             texto = (outdir / "cor-do-avatar.txt").read_text(encoding="utf-8")
             self.assertIsNone(cor)
             self.assertIn("NÃO MEDIDA", texto)
@@ -394,7 +394,7 @@ class TestCorDoAvatarDaSonda(unittest.TestCase):
 
         px = _cor_de(_fundo_branco(8, 8), (230, 40, 60, 255), amostra=2)
         api = _ApiDaCor(_Resposta(200, _png(8, 8, px, alfa=True)))
-        eu = {"id": "42", "username": "farol", "avatar": "abc123"}
+        eu = {"id": "42", "username": "atlas", "avatar": "abc123"}
         with tempfile.TemporaryDirectory() as tmp:
             outdir = pathlib.Path(tmp)
             with contextlib.redirect_stdout(io.StringIO()):
@@ -412,7 +412,7 @@ class TestCorDoAvatarDaSonda(unittest.TestCase):
             outdir = pathlib.Path(tmp)
             with contextlib.redirect_stdout(io.StringIO()):
                 cor = asyncio.run(sonda._cor_do_avatar(
-                    api, {"id": "42", "username": "farol", "avatar": "abc"}, outdir))
+                    api, {"id": "42", "username": "atlas", "avatar": "abc"}, outdir))
             texto = (outdir / "cor-do-avatar.txt").read_text(encoding="utf-8")
         self.assertIsNone(cor)
         self.assertIn("HTTP 503", texto)

@@ -1,10 +1,10 @@
-# 🏮 HANDOFF — Farol (bot do Discord) · 18/09/2026
+# 🏮 HANDOFF — Atlas (bot do Discord) · 18/09/2026
 
 Documento para **outra IA (ou outra pessoa) assumir este projeto**. Aqui está o que é, como está
 AGORA (medido, não suposto), o que pode e o que não pode, como rodar e onde estão as armadilhas.
 
 > **Repositório:** `github.com/astaabacate/Atlas` (público) · **Ramo de trabalho:** `arena/01a0b13c-atlas`
-> **Bot:** "Atlas"/farol, roda 24/7 no GitHub Actions atendendo vários servidores.
+> **Bot:** "Atlas"/atlas, roda 24/7 no GitHub Actions atendendo vários servidores.
 
 ---
 
@@ -29,7 +29,7 @@ política de permissão (`brain/policy.py`).
 | E2E ao vivo (execução `35391125443`, commit `3ae66cc`) | **✅ 67 · ❌ 0 · ⚠️ 7 · ⏭️ 6** |
 | Bot 24/7 | no ar; fatia mais recente subiu; há pedido de reinício pendente em `.github/bot-24x7-enabled` para assumir o código novo |
 | Cargo do bot no servidor | **posição 27 de 27** (`Administrator`) — medido pela sonda na API crua |
-| Cor do farol | **ainda a reserva `#F1C40F`**: o bot **não tem foto de perfil própria** (`reports/cor-do-avatar.txt`) |
+| Cor do atlas | **ainda a reserva `#F1C40F`**: o bot **não tem foto de perfil própria** (`reports/cor-do-avatar.txt`) |
 | PR aberta | https://github.com/astaabacate/Atlas/pull/4 |
 
 **Últimos feitos (todos medidos):** respostas em Components V2 com a cor medida do avatar; o canal
@@ -62,7 +62,7 @@ diz o que **não** foi testado.
 | --- | --- |
 | `main.py` | Entrada: carrega config, sobe o bot + servidor de saúde |
 | `config.py` | Configuração por variável de ambiente (inclui `ACCENT_COLOR`, `MENSAGEM_V2`) |
-| `core/bot.py` | `FarolBot` (discord.py): `on_message` → agente → resposta (em Components V2, caindo para texto) |
+| `core/bot.py` | `AtlasBot` (discord.py): `on_message` → agente → resposta (em Components V2, caindo para texto) |
 | `core/look.py` | A "cara": decodificador PNG sem lib externa, medição da cor do avatar, montagem da mensagem V2, cache (`Aparencia`) |
 | `core/bulk.py` | Execução em lote com concorrência limitada |
 | `core/health.py` | Servidor HTTP de saúde (usado em hospedagem com porta) |
@@ -162,7 +162,7 @@ cancelar uma fatia do bot, criar/editar segredos e variáveis é ação do dono 
 9. **Nunca editar strings grandes com escape por script** (já gerou erro de sintaxe); conferir
    sempre com `pyflakes` antes de rodar a suíte.
 10. **`set_icon` e `diagnostic_report` ficam fora dos testes ao vivo de propósito** (identidade do
-    farol / DM ao dono). Ficam registrados como lacuna no relatório — não como ✅.
+    atlas / DM ao dono). Ficam registrados como lacuna no relatório — não como ✅.
 
 ---
 

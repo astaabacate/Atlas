@@ -1,4 +1,4 @@
-name: Farol — sonda de hierarquia de cargos
+name: Atlas — sonda de hierarquia de cargos
 
 # Pergunta DIRETO à API do Discord (sem passar pelo produto, sem LLM) se o bot consegue
 # editar/apagar um cargo na MESMA posição do cargo mais alto dele. Foi o que ficou em

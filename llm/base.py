@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-logger = logging.getLogger("farol.llm")
+logger = logging.getLogger("atlas.llm")
 
 
 class ProviderError(RuntimeError):

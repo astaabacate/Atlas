@@ -1,5 +1,5 @@
 """
-Matriz de capacidades: para CADA ferramenta do Farol, cada parâmetro, cada valor (válido e
+Matriz de capacidades: para CADA ferramenta do Atlas, cada parâmetro, cada valor (válido e
 inválido) e as combinações — não "chamar uma vez e dizer que testou".
 
 Protocolo do dono do projeto: testar tudo que o código implementa, e não apenas os exemplos
@@ -158,9 +158,9 @@ class Servidor:
         self.na_api: dict[int, Any] = {}  # existem no servidor, mas fora do cache local
         self.bitrate_limit = 96000  # sem boost, como no servidor real de teste
         self.criados: list[tuple[str, str, dict[str, Any]]] = []
-        self.me = types.SimpleNamespace(id=999, name="farol",
+        self.me = types.SimpleNamespace(id=999, name="atlas",
                                         guild_permissions=FakePerms(administrator=True),
-                                        top_role=Entidade("farol", 999, 50))
+                                        top_role=Entidade("atlas", 999, 50))
         self.edits: list[dict[str, Any]] = []
 
     def _id(self) -> int:
@@ -432,7 +432,7 @@ class TestExclusaoEmLoteDeCargos(unittest.TestCase):
 
             papel.delete = delete
             servidor.roles.append(papel)
-        servidor.me.top_role = Entidade("farol", 999, bot_posicao)
+        servidor.me.top_role = Entidade("atlas", 999, bot_posicao)
         return ctx, servidor
 
     def test_nao_apaga_nada_quando_esta_no_chao_e_explica_o_que_fazer(self) -> None:
@@ -443,7 +443,7 @@ class TestExclusaoEmLoteDeCargos(unittest.TestCase):
         self.assertEqual(len(servidor.roles), antes, "não podia apagar nada mesmo")
         self.assertIn("Não consegui apagar 24 cargo(s)", saida)
         self.assertIn("Configurações do Servidor", saida, "tem que dizer ONDE resolver")
-        self.assertIn("farol", saida)
+        self.assertIn("atlas", saida)
         self.assertIn("Nada foi apagado nesta rodada", saida, "não pode fingir que fez")
         # antes: assertNotIn("@everyone") — o cargo @everyone nunca pode entrar na lista de
         # cargos que o bot tentou apagar. Agora a mensagem CITA o @everyone de propósito, para
@@ -539,7 +539,7 @@ class TestDiagnostico(unittest.TestCase):
                 self.attachments: list[Any] = []
 
         mensagens = [Msg("asta", "crie o canal avisos"),
-                     Msg("farol", "Pronto! Criei 1 canal(is) 🎉", bot=True),
+                     Msg("atlas", "Pronto! Criei 1 canal(is) 🎉", bot=True),
                      Msg("asta", "ele demorou demais")]
 
         async def history(limit: int = 80):  # noqa: ANN202 - gerador assíncrono como no discord.py
@@ -560,7 +560,7 @@ class TestDiagnostico(unittest.TestCase):
         self.assertIn("mensagem direta", saida)
         self.assertEqual(len(enviados), 1, "não mandou nada na DM")
         arquivo = enviados[0]["file"]
-        self.assertEqual(arquivo.filename, "farol-diagnostico.txt")
+        self.assertEqual(arquivo.filename, "atlas-diagnostico.txt")
         bruto = arquivo.fp.read() if hasattr(arquivo, "fp") else arquivo.content
         conteudo = bruto.decode() if isinstance(bruto, bytes) else bruto
         self.assertIn("crie o canal avisos", conteudo)
@@ -1237,8 +1237,8 @@ class TestHierarquiaComCacheQuebrado(unittest.TestCase):
 
     def _servidor_com_cache_ruim(self) -> tuple[Any, Servidor]:
         ctx, servidor = contexto()
-        farol = Entidade("farol", 999, 3)
-        servidor.roles.append(farol)
+        atlas = Entidade("atlas", 999, 3)
+        servidor.roles.append(atlas)
         # o cache do membro do bot perdeu os cargos: top_role vira @everyone
         servidor.me.top_role = types.SimpleNamespace(id=1, name="@everyone", position=0,
                                                      is_default=lambda: True)
@@ -1273,7 +1273,7 @@ class TestHierarquiaComCacheQuebrado(unittest.TestCase):
 
     def test_create_roles_avisa_quando_nascem_na_altura_do_bot(self) -> None:
         ctx, servidor = contexto()
-        servidor.me.top_role.position = 1  # cargo do farol no chão do servidor
+        servidor.me.top_role.position = 1  # cargo do atlas no chão do servidor
         saida = executar("create_roles", {"roles": [{"name": "🧪-no-chao"}]}, ctx)
         self.assertIn("Suba o meu cargo", saida)
 

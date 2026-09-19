@@ -1,4 +1,4 @@
-name: E2E ao vivo do Farol
+name: E2E ao vivo do Atlas
 
 # Testa o bot de verdade: conecta com o DISCORD_TOKEN, audita o servidor, roda as
 # ferramentas, aciona o Agente com a corrida de LLMs real e (quando autorizado) cria e

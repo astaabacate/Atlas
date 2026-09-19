@@ -1,5 +1,5 @@
-# Cor do avatar do farol: NÃO MEDIDA
+# Cor do avatar do atlas: NÃO MEDIDA
 
 Motivo: o bot não tem foto de perfil própria (avatar padrão do Discord)
 
-O farol segue respondendo com a cor de reserva (e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).
+O atlas segue respondendo com a cor de reserva (e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).

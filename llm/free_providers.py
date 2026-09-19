@@ -48,7 +48,7 @@ from llm.base import (
     sanitize_messages_for_plain_text,
 )
 
-logger = logging.getLogger("farol.llm.free")
+logger = logging.getLogger("atlas.llm.free")
 
 # Auto-descoberta de modelos: com que frequência consultar e quantos candidatos manter.
 MODEL_REFRESH_INTERVAL = 1800.0   # 30 min
@@ -294,7 +294,7 @@ class OpenAICompatibleHttpProvider(ChatProvider):
         session = await self._get_session()
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "FarolDiscordBot/1.0",
+            "User-Agent": "AtlasDiscordBot/1.0",
             **self.headers,
         }
         client_timeout = aiohttp.ClientTimeout(total=timeout)

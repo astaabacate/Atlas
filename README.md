@@ -1,4 +1,4 @@
-# 🏮 Farol — Chatbot Discord de Estruturação e Organização
+# 🏮 Atlas — Chatbot Discord de Estruturação e Organização
 
 > **O bot de Discord que conversa e EXECUTA.**
 > 100% gratuito, sem chave de IA obrigatória, sem comandos slash para decorar e online 24/7 hospedado no GitHub Actions.
@@ -7,26 +7,26 @@
 
 ## 📖 1. Visão Geral
 
-O **Farol** é um bot de Discord em Python (`discord.py` 2.x) projetado para **ouvir em linguagem natural e alterar o servidor na prática**. Em vez de obrigar o usuário a decorar dezenas de comandos de barra (`/`), você simplesmente marca `@farol` e pede o que precisa. O Farol interpreta via Inteligência Artificial, aciona ferramentas reais no servidor e responde com os links dos recursos criados (`<#canal>`, `<@&cargo>`).
+O **Atlas** é um bot de Discord em Python (`discord.py` 2.x) projetado para **ouvir em linguagem natural e alterar o servidor na prática**. Em vez de obrigar o usuário a decorar dezenas de comandos de barra (`/`), você simplesmente marca `@atlas` e pede o que precisa. O Atlas interpreta via Inteligência Artificial, aciona ferramentas reais no servidor e responde com os links dos recursos criados (`<#canal>`, `<@&cargo>`).
 
 ```
-você:  @farol cria 3 canais de voz: Lobby 1, 2 e 3
-farol: Pronto! Criei #🔊-lobby-1 #🔊-lobby-2 #🔊-lobby-3 🎉
+você:  @atlas cria 3 canais de voz: Lobby 1, 2 e 3
+atlas: Pronto! Criei #🔊-lobby-1 #🔊-lobby-2 #🔊-lobby-3 🎉
 
-você:  @farol monta um servidor gamer completo
-farol: ✅ Modelo gamer aplicado: 5 cargos, 3 categorias, 11 canais.
+você:  @atlas monta um servidor gamer completo
+atlas: ✅ Modelo gamer aplicado: 5 cargos, 3 categorias, 11 canais.
 
-você:  @farol apaga tudo da categoria antiga
-farol: Isso apaga 8 canais de **antiga** — posso confirmar? 👀
+você:  @atlas apaga tudo da categoria antiga
+atlas: Isso apaga 8 canais de **antiga** — posso confirmar? 👀
 ```
 
 ### 🎯 Três Princípios Inegociáveis
-1. **Sem comandos para decorar:** Apenas menção `@farol` e texto livre.
+1. **Sem comandos para decorar:** Apenas menção `@atlas` e texto livre.
 2. **Sem chave de IA obrigatória:** O cérebro padrão corre sobre provedores gratuitos e anônimos. Chaves (OpenAI, Anthropic, Gemini) são opcionais.
 3. **Online 24/7 sem servidor pago:** Hospedado continuamente no GitHub Actions com auto-encadeamento infinito.
 
 ### 🚫 Fora de Escopo por Design
-O Farol não faz moderação (kick/ban/mute), punições, sorteios, enquetes, matchmaking ou jogos. Quando solicitado, o bot esclarece gentilmente que sua especialidade exclusiva é **estruturar e organizar servidores**.
+O Atlas não faz moderação (kick/ban/mute), punições, sorteios, enquetes, matchmaking ou jogos. Quando solicitado, o bot esclarece gentilmente que sua especialidade exclusiva é **estruturar e organizar servidores**.
 
 ---
 
@@ -38,7 +38,7 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 1. Acesse o [Discord Developer Portal](https://discord.com/developers/applications).
 2. Selecione a sua aplicação e vá na aba **Bot** no menu lateral esquerdo.
 3. Role até a seção **Privileged Gateway Intents**:
-   - O Farol foi desenvolvido para funcionar com menção direta **sem necessidade de intents privilegiadas**.
+   - O Atlas foi desenvolvido para funcionar com menção direta **sem necessidade de intents privilegiadas**.
    - Contudo, se desejar que o bot leia mensagens sem ser explicitamente mencionado ou responda a mensagens em reply com contexto estendido, ative **MESSAGE CONTENT INTENT** e defina a variável `MESSAGE_CONTENT_INTENT=true`.
    - Se desejar que o bot liste membros offline com alta precisão, ative **SERVER MEMBERS INTENT** e defina `MEMBERS_INTENT=true`.
 4. Em **Token**, clique em **Reset Token**, copie o token e guarde-o (será o seu `DISCORD_TOKEN`).
@@ -70,24 +70,24 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 
 **Como arrumar (2 minutos):**
 1. No seu servidor Discord, abra **Configurações do Servidor** → **Cargos**.
-2. Encontre o cargo do **farol** (o mesmo nome do bot; é o que ele usa para falar).
-3. **Arraste o cargo do farol para cima** dos cargos que ele deve gerenciar.
+2. Encontre o cargo do **atlas** (o mesmo nome do bot; é o que ele usa para falar).
+3. **Arraste o cargo do atlas para cima** dos cargos que ele deve gerenciar.
 
 ⚠️ **A direção da lista depende do aparelho** (isso confunde muita gente — e já confundiu o dono deste projeto):
 
-| Onde você está | Como a lista aparece | Para onde arrastar o farol |
+| Onde você está | Como a lista aparece | Para onde arrastar o atlas |
 | --- | --- | --- |
 | **PC** (app ou navegador) | o cargo **mais forte** fica no **topo**, e o `@everyone` no **fim** | para **CIMA** |
 | **Celular** (Android/iOS) | a lista é **invertida**: o `@everyone` aparece **primeiro** e o mais forte no **fim** | para **BAIXO** (para o fim da lista) |
 
 > Se você está no celular e viu o `@everyone` no topo da lista, é essa tela invertida: ali o cargo que aparece em 3º lugar é o 3º **mais fraco**, não o 3º mais forte.
 4. Não existe botão de salvar: o Discord grava a nova ordem na hora.
-5. Pronto — o farol passa a criar, colorir, dar, tirar e apagar os cargos abaixo dele. Para conferir, peça "liste os cargos": os que estiverem **abaixo** do cargo dele são gerenciáveis.
+5. Pronto — o atlas passa a criar, colorir, dar, tirar e apagar os cargos abaixo dele. Para conferir, peça "liste os cargos": os que estiverem **abaixo** do cargo dele são gerenciáveis.
 
 ---
 
 ### Passo 4: Permissões do Usuário (Quem pode dar comandos)
-O Farol possui uma **política de segurança de mão dupla** (`brain/policy.py`). Antes de executar qualquer ação, ele valida:
+O Atlas possui uma **política de segurança de mão dupla** (`brain/policy.py`). Antes de executar qualquer ação, ele valida:
 1. Se o **bot** tem permissão técnica no servidor.
 2. Se o **usuário que chamou o bot** tem legitimidade para pedir aquilo.
 
@@ -102,10 +102,10 @@ O Farol possui uma **política de segurança de mão dupla** (`brain/policy.py`)
 
 ### Passo 4.1: A cara das respostas (`ACCENT_COLOR` e `MENSAGEM_V2`)
 
-O farol responde em **Components V2**: um container com a cor de destaque, que organiza o texto
+O atlas responde em **Components V2**: um container com a cor de destaque, que organiza o texto
 e mostra o avatar dele ao lado — em vez de um textão solto.
 
-* **`ACCENT_COLOR`** (variável de repositório / ambiente): vazio ou `auto` faz o farol **medir a
+* **`ACCENT_COLOR`** (variável de repositório / ambiente): vazio ou `auto` faz o atlas **medir a
   cor do próprio avatar** e usá-la (é o padrão — nada a configurar). Para fixar uma cor, use
   `ACCENT_COLOR=#5865F2`.
 * **`MENSAGEM_V2`** (padrão `true`): `false` volta para o texto simples. Serve de plano B se
@@ -114,13 +114,13 @@ e mostra o avatar dele ao lado — em vez de um textão solto.
   impede a resposta de sair.
 | Consultas públicas (listar cargos, ver permissões, info, cores, emojis, tradução) | *Nenhuma (Livre para todos os membros)* |
 
-*Nota:* Administradores do servidor possuem bypass natural em suas próprias checagens, mas o Farol **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
+*Nota:* Administradores do servidor possuem bypass natural em suas próprias checagens, mas o Atlas **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
 
 ---
 
-## ⚡ 3. As 31 Ferramentas do Farol
+## ⚡ 3. As 31 Ferramentas do Atlas
 
-O Farol inclui 31 ferramentas com validação estrita de schemas e executores:
+O Atlas inclui 31 ferramentas com validação estrita de schemas e executores:
 
 - **Canais (5):** `create_channels`, `edit_channel`, `delete_channels`, `move_channel`, `clone_channel`
 - **Cargos (7):** `create_roles`, `edit_role`, `delete_role`, `delete_roles` (lote), `give_role`, `take_role`, `list_roles`
@@ -133,16 +133,16 @@ O Farol inclui 31 ferramentas com validação estrita de schemas e executores:
   `performance_report` ("quanto tempo você está levando?") e `diagnostic_report` (manda por DM um arquivo com a conversa + tempos)
 
 ### Confirmação Inteligente de Ações Destrutivas
-- **Exclusão de 1 canal nominal:** O usuário disse explicitamente `@farol apaga o canal #teste` → **Executa imediatamente** sem travar o fluxo.
+- **Exclusão de 1 canal nominal:** O usuário disse explicitamente `@atlas apaga o canal #teste` → **Executa imediatamente** sem travar o fluxo.
 - **Exclusão em massa (2+ canais ou categoria inteira):** O bot calcula o dano, interrompe e avisa: *"Isso apaga 8 canais de **antiga** — posso confirmar?"*. Ao receber "sim" ou "confirmo", executa na mesma rodada.
 - **Exclusão de cargo:** Sempre solicita confirmação prévia para evitar perda acidental de permissões.
-- **O canal da conversa NUNCA é apagado:** se o pedido for "apague todos os canais menos esse" e a lista vier com o canal atual dentro, o farol tira ele da lista e avisa ("Mantive <#canal> fora da lista: é aqui que estamos conversando"). Pedir só esse canal é recusado, explicando o motivo e o caminho alternativo (`clear_messages`, para apagar as mensagens daqui).
+- **O canal da conversa NUNCA é apagado:** se o pedido for "apague todos os canais menos esse" e a lista vier com o canal atual dentro, o atlas tira ele da lista e avisa ("Mantive <#canal> fora da lista: é aqui que estamos conversando"). Pedir só esse canal é recusado, explicando o motivo e o caminho alternativo (`clear_messages`, para apagar as mensagens daqui).
 
 ---
 
 ## 🧠 4. O Cérebro: Corrida de LLMs
 
-O Farol utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
+O Atlas utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
 1. Cada mensagem do usuário dispara chamadas simultâneas para todos os corredores configurados, com o mesmo timeout.
 2. A primeira resposta válida vence a rodada e as requisições restantes são **canceladas imediatamente**.
 3. Se um provedor cair, limitar (`429`) ou recusar o modelo (`400/404`), ele perde a corrida — e cada corredor ainda tenta o próximo modelo da sua lista antes de desistir.
@@ -302,34 +302,34 @@ detecta o erro, degrada para o protocolo de texto e repete a chamada sozinho.
 2. Se só houver corredores gratuitos, eles provavelmente caíram ou mudaram de modelo — cadastre uma chave (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`…) e defina `LLM_PROVIDER`.
 3. Se a mensagem trouxer `HTTP 401`, a chave está errada; `HTTP 404` em HTML indica `LLM_BASE_URL` errado.
 4. Provedor gratuito de castigo (`HTTP 429`, "queue full") é passageiro: o bot já repete a onda sozinho e o cliente vê apenas um pedido para tentar de novo em segundos.
-5. Depois de mudar segredos/variáveis, rode **Actions → Farol Bot 24/7 → Run workflow** para reiniciar o processo.
+5. Depois de mudar segredos/variáveis, rode **Actions → Atlas Bot 24/7 → Run workflow** para reiniciar o processo.
 
 ---
 
 ## ♾️ 5. Hospedagem 24/7 no GitHub Actions
 
-O Farol mantém-se online gratuitamente no GitHub Actions através de um loop auto-sustentável:
+O Atlas mantém-se online gratuitamente no GitHub Actions através de um loop auto-sustentável:
 1. Cada execução roda por até **~5 horas e 35 minutos** (`timeout 20100s bash run.sh`).
 2. O script `run.sh` mantém o processo vivo e aplica backoff exponencial se houver quedas transitórias de conexão.
 3. Ao término do tempo limite, o job finaliza com sucesso (`exit 124` mapeado para sucesso) e aciona a etapa **Encadear**, que agenda a próxima execução via `gh workflow run`.
 4. Um gatilho de cron agendado (`cron: '25 */5 * * *'`) serve como redundância de segurança.
 
 ### 🛡️ Guarda de Obsolescência (`freshness.py`)
-No primeiro passo da esteira (antes mesmo do checkout), o Farol verifica a ponta do repositório remoto (`git ls-remote --heads origin`). Se um novo commit tiver sido enviado enquanto uma run estava na fila, o commit desatualizado **aborta imediatamente com `sys.exit(1)`**, impedindo que código antigo desfaça correções recentes.
+No primeiro passo da esteira (antes mesmo do checkout), o Atlas verifica a ponta do repositório remoto (`git ls-remote --heads origin`). Se um novo commit tiver sido enviado enquanto uma run estava na fila, o commit desatualizado **aborta imediatamente com `sys.exit(1)`**, impedindo que código antigo desfaça correções recentes.
 
 ### 🔌 Ligar / reiniciar / parar o bot
 
 | Quero | Como fazer |
 | --- | --- |
-| **Ligar ou reiniciar** | Toque no arquivo `.github/bot-24x7-enabled` (qualquer alteração) ou faça um merge na `main`. O workflow *Farol Bot 24/7* dispara na hora. |
-| **Conferir se está no ar** | Aba **Actions** → *Farol Bot 24/7*: deve existir uma execução *In progress*. O workflow *Farol Vigia 24/7* também avisa nas anotações a cada 30 min. |
+| **Ligar ou reiniciar** | Toque no arquivo `.github/bot-24x7-enabled` (qualquer alteração) ou faça um merge na `main`. O workflow *Atlas Bot 24/7* dispara na hora. |
+| **Conferir se está no ar** | Aba **Actions** → *Atlas Bot 24/7*: deve existir uma execução *In progress*. O workflow *Atlas Vigia 24/7* também avisa nas anotações a cada 30 min. |
 | **Parar só agora** | Cancele a execução em andamento. O vigia reergue em até 30 minutos. |
 | **Parar de vez** | Crie o arquivo `.github/bot-disabled` (o bot não sobe e o vigia não o reergue) ou desative o workflow na aba Actions. |
 
 ### 🐕 O vigia (`bot-watchdog.yml`)
 
 A corrente sozinha já mantém o bot no ar, mas ela pode romper (erro, runner perdido, cancelamento
-acidental, push no meio da run). O *Farol Vigia 24/7* fecha essas brechas:
+acidental, push no meio da run). O *Atlas Vigia 24/7* fecha essas brechas:
 
 1. confere a cada **30 minutos** se existe execução do bot ativa/na fila — se não existir, sobe uma;
 2. se a ponta do ramo estiver parada há **mais de 45 dias**, grava um batimento (commit trivial) para
@@ -342,7 +342,7 @@ push na `main` faz o bot se atualizar sozinho no fim da fatia de 5h35m.
 
 ### 🧩 Vários servidores ao mesmo tempo (isolamento)
 
-O Farol é feito para ser vendido e usado em muitos servidores por UM processo só. Tudo que é
+O Atlas é feito para ser vendido e usado em muitos servidores por UM processo só. Tudo que é
 por conversa usa a chave `servidor:canal` (`brain/memory.py`):
 
 - **histórico da conversa** — o que foi dito no servidor A nunca entra no prompt do servidor B;
@@ -358,7 +358,7 @@ e a checagem *conversa isolada por servidor* na fase `spy` do E2E.
 ### ⏰ Como Reativar o Schedule Após 60 Dias
 O GitHub suspende cron schedules automaticamente em repositórios sem atividade após 60 dias. Para manter ou reativar:
 1. Acesse a aba **Actions** no seu repositório GitHub.
-2. No menu esquerdo, clique no workflow **Farol Bot 24/7**.
+2. No menu esquerdo, clique no workflow **Atlas Bot 24/7**.
 3. Se houver um banner amarelo avisando da suspensão, clique em **Enable workflow** ou dispare manualmente via **Run workflow**.
 4. Qualquer push para o repositório reinicia o contador de 60 dias do GitHub.
 
@@ -392,7 +392,7 @@ O único segredo obrigatório é o `DISCORD_TOKEN`.
 
 ## 🧪 7. Testes e Validação Local
 
-A suíte de testes do Farol foi desenvolvida sem dependência de tokens de rede ou instâncias reais do Discord:
+A suíte de testes do Atlas foi desenvolvida sem dependência de tokens de rede ou instâncias reais do Discord:
 - Toda a lógica de `brain/` é duck-typed.
 - Cobertura completa de intents, policy, hierarquia de cargos, confirmação destrutiva, loop do agente com mock LLM, isolamento do bulk, resolução de queries e guarda de frescor.
 - Verificação estrita contra `ResourceWarning` ou skips.
@@ -407,7 +407,7 @@ python -W error::ResourceWarning -m unittest discover -s tests -v
 
 Os testes acima são offline (duplos de teste fiéis ao `discord.py`). Para provar que o bot
 **faz de verdade** no servidor, existe a suíte E2E ao vivo, que roda no GitHub Actions
-(workflow **E2E ao vivo do Farol**) porque o runner tem acesso a `discord.com`:
+(workflow **E2E ao vivo do Atlas**) porque o runner tem acesso a `discord.com`:
 
 | Fase | O que verifica |
 | --- | --- |
@@ -418,7 +418,7 @@ Os testes acima são offline (duplos de teste fiéis ao `discord.py`). Para prov
 | `tools` | ferramentas de leitura no servidor real |
 | `agent` | prompt → ferramenta → resposta com o modelo real |
 | `mutate` | cria/edita/apaga objetos 🧪 **no servidor** e confere pela API (limpeza garantida) |
-| `botloop` | `core.bot.FarolBot` recebendo mensagem real (menção, DM, reações, ferramenta) |
+| `botloop` | `core.bot.AtlasBot` recebendo mensagem real (menção, DM, reações, ferramenta) |
 | `sweep` | varredura de sobras 🧪 no fim |
 
 O relatório consolidado é publicado no branch em `reports/e2e-latest.{json,md}` e comentado no PR.

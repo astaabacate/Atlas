@@ -2,12 +2,12 @@ LIGAR / REINICIAR O BOT 24/7
 ============================
 
 Tocar neste arquivo (qualquer alteração, mesmo um espaço) dispara o workflow
-"Farol Bot 24/7" no ramo em que o arquivo foi alterado. A partir daí o bot:
+"Atlas Bot 24/7" no ramo em que o arquivo foi alterado. A partir daí o bot:
 
   1. fica online por ~5h35m em um runner do GitHub Actions;
   2. ao terminar a fatia, agenda a próxima execução sozinho (encadeamento);
   3. tem um cron de 5 em 5 horas como rede de segurança;
-  4. tem o workflow "Farol Vigia 24/7" conferindo a cada 30 minutos se algo caiu —
+  4. tem o workflow "Atlas Vigia 24/7" conferindo a cada 30 minutos se algo caiu —
      se a corrente se romper, o vigia sobe o bot de novo.
 
 ONDE ELE ATENDE
@@ -20,7 +20,7 @@ ficar meses no ar sem crescer.
 PARAR DE VEZ
 ------------
 Crie o arquivo .github/bot-disabled (o bot e o vigia param) ou desative o workflow na
-aba Actions ("Farol Bot 24/7" -> Disable workflow).
+aba Actions ("Atlas Bot 24/7" -> Disable workflow).
 
 PARAR SÓ AGORA
 --------------
@@ -150,14 +150,14 @@ RESTART PEDIDO EM 2026-09-18T11:35Z
 -------------------------------
 Motivo: "pedi pra apagar todos os cargos e ele diz que não consegue". Entram: (1) exclusão de cargo
 EM LOTE (ferramenta delete_roles) — apaga o que pode, diz o que ficou e o motivo, com o caminho
-exato para resolver (arrastar o cargo do farol para cima); (2) mensagem de hierarquia com posições
+exato para resolver (arrastar o cargo do atlas para cima); (2) mensagem de hierarquia com posições
 medidas + passo a passo, também no delete_role individual; (3) empate de posição passa a TENTAR a
 exclusão de verdade (o cache do discord.py pode estar velho); (4) fim da mentira: quando tudo
 falha e o modelo devolve texto vazio, o bot responde o motivo real em vez de "Feito!".
 
 RESTART PEDIDO EM 2026-09-18T11:22Z
 -------------------------------
-Motivo: a instrução de hierarquia passa a dizer o NOME REAL do cargo do farol no servidor
+Motivo: a instrução de hierarquia passa a dizer o NOME REAL do cargo do atlas no servidor
 (em vez de um nome genérico), para o passo a passo do Discord ficar acionável sem adivinhação.
 Esta fatia leva tudo da anterior (delete_roles em lote, motivo por cargo bloqueado, empate de
 posição tenta a exclusão de verdade, fim do "Feito!" quando nada foi feito). Substitui a
@@ -180,7 +180,7 @@ RESTART PEDIDO EM 2026-09-18T12:55Z
 Motivo: (1) BUG — "apague todos os canais menos esse" apagava o canal da conversa; agora ele fica
 fora da lista, com aviso, e pedir só ele é recusado explicando o clear_messages. (2) CARA NOVA —
 as respostas passam a sair em Components V2 (container organizado) com a cor de destaque MEDIDA do
-avatar do farol (ACCENT_COLOR vazio = medir; ou fixe um hex). Substitui a pendência anterior.
+avatar do atlas (ACCENT_COLOR vazio = medir; ou fixe um hex). Substitui a pendência anterior.
 
 
 RESTART PEDIDO EM 2026-09-18T20:05Z

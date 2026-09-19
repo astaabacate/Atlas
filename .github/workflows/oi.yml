@@ -1,4 +1,4 @@
-name: "Farol — mandar oi"
+name: "Atlas — mandar oi"
 
 # Envia uma mensagem curta ao vivo no servidor, pelo próprio bot, e publica o
 # resultado em reports/oi-latest.md. Serve de teste real de ponta a ponta:
@@ -35,7 +35,7 @@ permissions:
   contents: write # publicar o relatório no branch
 
 concurrency:
-  group: farol-oi
+  group: atlas-oi
   cancel-in-progress: false
 
 jobs:
@@ -48,7 +48,7 @@ jobs:
       OI_CHANNEL_ID: ${{ inputs.channel_id || '' }}
       # No disparo por push (primeira execução após o commit), usa/cria o canal dedicado;
       # no botão manual, o dono decide no campo criar_canal.
-      OI_CRIAR_CANAL: ${{ inputs.criar_canal || (github.event_name == 'push' && 'farol-oi-da-ia') || '' }}
+      OI_CRIAR_CANAL: ${{ inputs.criar_canal || (github.event_name == 'push' && 'atlas-oi-da-ia') || '' }}
       OI_MENSAGEM: ${{ inputs.mensagem || '' }}
     steps:
       - name: Checkout do repositório

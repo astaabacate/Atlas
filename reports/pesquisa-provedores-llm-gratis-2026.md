@@ -1,4 +1,4 @@
-# 🔎 Pesquisa: pool de capacidade gratuita de LLM para o Farol
+# 🔎 Pesquisa: pool de capacidade gratuita de LLM para o Atlas
 
 **PESQUISA REALIZADA EM: 17/09/2026** (America/Sao_Paulo)
 
@@ -105,7 +105,7 @@ Legenda: **GL** = grátis permanente · ⚠️ = incerto/relato de terceiros · 
 
 ## 4. `/v1/models` — quem suporta descoberta automática
 
-| Provedor | Endpoint | Auth? | Serve para o mecanismo do Farol? |
+| Provedor | Endpoint | Auth? | Serve para o mecanismo do Atlas? |
 |---|---|---|---|
 | Kilo | `GET api.kilo.ai/api/gateway/models` | **não** | ✅ Melhor caso: a lista traz `isFree` e `pricing` — dá para filtrar só o que é grátis |
 | LLM7 | `GET api.llm7.io/v1/models` | opcional | ✅ já usamos |
@@ -128,7 +128,7 @@ Legenda: **GL** = grátis permanente · ⚠️ = incerto/relato de terceiros · 
 > Nome correto do conceito: **pool de capacidade gratuita** / **capacidade gratuita agregada**.
 > Nunca "tokens infinitos" — cada provedor tem teto; o que cresce é a soma.
 
-### 5.1 O que o Farol já tem (e está certo)
+### 5.1 O que o Atlas já tem (e está certo)
 
 Corrida paralela · retry em 429 com `Retry-After` · castigo de ~30 s · redescoberta de catálogo em
 `/v1/models` (cache 30 min) · duas ondas · fallback de tools para protocolo de texto · mensagem
@@ -177,7 +177,7 @@ ONDA 3 — reserva de emergência (cota mensal/diária pequena, qualidade alta)
 
 ---
 
-## 6. TOP 10 para colocar no Farol primeiro
+## 6. TOP 10 para colocar no Atlas primeiro
 
 **1) KILO GATEWAY** — BASE `https://api.kilo.ai/api/gateway` · MODELO `qwen/qwen3-coder:free` (+`kilo-auto/free`) ·
 CONTEXTO 262K–1M · FREE permanente · LIMITE **200 req/h por IP** · POR: IP (anônimo) · CARTÃO não ·
@@ -336,14 +336,14 @@ curl -sS <BASE>/chat/completions \
    Ollama Cloud (MiniMax M3 / DeepSeek V4 = 1M), ModelScope (modelos longos), Kilo (teto do gateway).
 5. **Quantos aceitam GitHub Actions/datacenter?** Praticamente todos usam API pública; nenhum documento
    exige IP residencial. **Risco maior:** os **anônimos por IP** (Kilo/LLM7/Pollinations/OVH sem token),
-   porque vários usuários do Farol compartilham o mesmo IP do runner.
+   porque vários usuários do Atlas compartilham o mesmo IP do runner.
 6. **Quantos têm limite por conta/API key?** **12** ⭐: Gemini, Groq (por org), NIM, Cloudflare,
    Mistral, Z.ai, ModelScope, Ollama Cloud, OpenRouter, Cohere, Vercel, Chutes/SiliconFlow/Nebius/Nscale.
 7. **Quantos têm function calling?** **~14** com tools nativos (Gemini, Groq, NIM, Cloudflare, Mistral,
    Z.ai, ModelScope, OpenRouter, Ollama Cloud, Kilo, Chutes, Cohere, SiliconFlow, Nebius).
 8. **Quantos possuem `/v1/models`?** **12** (lista completa na seção 4); os melhores: Kilo (sem auth,
    com `isFree`) e OpenRouter (com `pricing`).
-9. **Os 5 primeiros do Farol:** **Kilo**, **OVH com token**, **Gemini Flash**, **Groq**, **Z.ai GLM Flash**.
+9. **Os 5 primeiros do Atlas:** **Kilo**, **OVH com token**, **Gemini Flash**, **Groq**, **Z.ai GLM Flash**.
    (Kilo e OVH são mudanças de configuração que você faz **hoje**, sem cadastro novo.)
 10. **Pool final recomendado:** **8 corredores** — onda 1: kilo, llm7, pollinations, ovh-anônimo;
     onda 2: ovh-token, gemini, groq, zai; onda 3: mistral, cloudflare, ollama.

@@ -1,5 +1,5 @@
 """
-Cliente principal do bot Discord (FarolBot).
+Cliente principal do bot Discord (AtlasBot).
 Gerencia ciclo de vida, intents, eventos on_message e feedback visual (👀 / ✅ / ❌).
 """
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from config import Config
     from brain.agent import Agent
 
-logger = logging.getLogger("farol.bot")
+logger = logging.getLogger("atlas.bot")
 
 
 def build_intents(config: Config) -> discord.Intents:
@@ -39,7 +39,7 @@ def build_intents(config: Config) -> discord.Intents:
     return intents
 
 
-class FarolBot(discord.Client):
+class AtlasBot(discord.Client):
     def __init__(self, config: Config, agent: Agent, **kwargs) -> None:
         intents = build_intents(config)
         super().__init__(intents=intents, **kwargs)
@@ -69,7 +69,7 @@ class FarolBot(discord.Client):
 
     async def _responder(self, message: discord.Message, texto: str) -> None:
         """
-        Responde com a mensagem V2 (container na cor do farol) e, se não der, em texto.
+        Responde com a mensagem V2 (container na cor do atlas) e, se não der, em texto.
 
         O enfeite é opcional por definição: qualquer falha aqui (API, versão, limite) cai no
         envio simples — a resposta do bot nunca fica presa por causa da aparência.
@@ -90,7 +90,7 @@ class FarolBot(discord.Client):
         except Exception as exc:  # noqa: BLE001 - sem cor bonita o bot ainda responde
             logger.debug("Não consegui preparar a aparência: %s", exc)
         logger.info(
-            "FarolBot conectado com sucesso como %s (ID: %s) em %d servidores.",
+            "AtlasBot conectado com sucesso como %s (ID: %s) em %d servidores.",
             self.user,
             self.user.id if self.user else "desconhecido",
             len(self.guilds),
@@ -104,9 +104,9 @@ class FarolBot(discord.Client):
         # DMs: responder explicando escopo
         if isinstance(message.channel, discord.DMChannel):
             await message.reply(
-                "Olá! Eu sou o **farol**, especialista em estruturar e organizar servidores Discord.\n"
+                "Olá! Eu sou o **atlas**, especialista em estruturar e organizar servidores Discord.\n"
                 "Eu só executo comandos dentro de servidores! Me adicione a um servidor e me mencione "
-                "(`@farol <seu pedido>`) para começar."
+                "(`@atlas <seu pedido>`) para começar."
             )
             return
 
@@ -183,7 +183,7 @@ class FarolBot(discord.Client):
 
                     chunks = split_message(reply_text, limit=2000)
                     if chunks:
-                        # Primeiro bloco como resposta (reply), já com a cara do farol
+                        # Primeiro bloco como resposta (reply), já com a cara do atlas
                         await self._responder(message, chunks[0])
                         # Demais blocos enviados sequencialmente no mesmo canal
                         for extra in chunks[1:]:

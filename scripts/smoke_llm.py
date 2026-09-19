@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sonda AO VIVO dos provedores LLM usados pelo Farol.
+"""Sonda AO VIVO dos provedores LLM usados pelo Atlas.
 
 O script é intencionalmente livre de tokens no log: as chaves entram somente por
 variáveis de ambiente/secrets do GitHub Actions e qualquer trecho que coincida com
@@ -352,7 +352,7 @@ async def probe(entry: ProviderEntry, timeout: float, secrets: list[str]) -> Pro
     """Protocolo obrigatório da sonda, na ordem:
 
     1. GET do catálogo (`/models`) — prova que a URL e a credencial valem algo;
-    2. POST `/chat/completions` em português, com ferramenta — prova o caminho real do Farol;
+    2. POST `/chat/completions` em português, com ferramenta — prova o caminho real do Atlas;
     3. três chamadas consecutivas — registra 429/Retry-After sem abusar de cota;
     4. chamada sem ferramentas — prova o fallback textual (quando o provedor recusa schema).
     """
@@ -487,7 +487,7 @@ CANDIDATOS_SEM_CREDENCIAL: list[dict[str, Any]] = [
 async def sondar_candidato(cand: dict[str, Any], timeout: float, secrets: list[str]) -> dict[str, str]:
     """GET /models + POST /chat/completions sem credencial. Devolve uma linha de evidência."""
     base = cand["base_url"]
-    headers = {"User-Agent": "FarolDiscordBot/1.0"}
+    headers = {"User-Agent": "AtlasDiscordBot/1.0"}
     if cand["header"]:
         headers["Authorization"] = "Bearer anonymous"
 
@@ -902,7 +902,7 @@ async def run(timeout: float, concurrency: int, out: str = "") -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sonda live dos provedores LLM do Farol")
+    parser = argparse.ArgumentParser(description="Sonda live dos provedores LLM do Atlas")
     parser.add_argument("--timeout", type=float, default=float(os.environ.get("SMOKE_TIMEOUT", "30")))
     parser.add_argument("--concurrency", type=int, default=int(os.environ.get("SMOKE_CONCURRENCY", "4")))
     parser.add_argument("--out", default=os.environ.get("SMOKE_OUT", ""),

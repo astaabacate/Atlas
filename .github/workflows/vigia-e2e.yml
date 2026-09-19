@@ -1,11 +1,11 @@
-name: Farol Vigia do E2E
+name: Atlas Vigia do E2E
 
 # Uma execução do E2E travada NÃO pode bloquear a fila: enquanto ela não termina, nenhuma
 # execução nova começa (concorrência do grupo e2e-live) e o branch fica sem evidência ao vivo.
 #
 # Aconteceu em 18/09 (execução 35387325952): a fase de mutações passou de 20 minutos presa numa
 # espera de rate limit do Discord. O agente de CI não tem permissão para cancelar execuções
-# (HTTP 403), mas o token DESTE repositório tem `actions: write` — então o próprio farol se
+# (HTTP 403), mas o token DESTE repositório tem `actions: write` — então o próprio atlas se
 # limpa: derruba a execução presa e a fila anda.
 #
 # Critério de "presa" (dois gatilhos, nenhum deles alcança execução saudável):

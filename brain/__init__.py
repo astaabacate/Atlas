@@ -1,5 +1,5 @@
 """
-Módulo cerebral do FarolBot (agente, ferramentas, executores, políticas e memória).
+Módulo cerebral do AtlasBot (agente, ferramentas, executores, políticas e memória).
 Nenhum arquivo neste pacote importa discord.
 """
 

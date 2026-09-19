@@ -27,7 +27,7 @@ from llm.free_providers import (
 )
 from llm.key_providers import AnthropicProvider
 
-logger = logging.getLogger("farol.llm.auto")
+logger = logging.getLogger("atlas.llm.auto")
 
 MAX_ERRORS_IN_MESSAGE = 6
 

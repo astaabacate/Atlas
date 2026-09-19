@@ -1,4 +1,4 @@
-# Auditoria de capacidades do Farol
+# Auditoria de capacidades do Atlas
 
 Protocolo usado para auditar → testar → encontrar → corrigir → testar de novo → atualizar o bot.
 A regra que evita a interpretação preguiçosa de "testar tudo":
@@ -107,8 +107,8 @@ escondido:
 
 | ⚠️ | Causa | Dono |
 | --- | --- | --- |
-| `cargos que o bot não consegue gerenciar` | 13 cargos (Cupido, iTinder, Atlas, asta…) **no nível ou acima** do cargo do farol, que está na posição 1 | dono do servidor: arrastar o cargo do farol para cima |
-| `cargo do farol no chão do servidor` | o mesmo: o Discord recusa gerenciar cargo no nível do topo do bot | dono do servidor |
+| `cargos que o bot não consegue gerenciar` | 13 cargos (Cupido, iTinder, Atlas, asta…) **no nível ou acima** do cargo do atlas, que está na posição 1 | dono do servidor: arrastar o cargo do atlas para cima |
+| `cargo do atlas no chão do servidor` | o mesmo: o Discord recusa gerenciar cargo no nível do topo do bot | dono do servidor |
 | 3 × `cargos: gerenciar o cargo criado` | consequência direta: a matriz confere a RECUSA (clara, sem alterar nada) e registra que **não pôde** provar edição/inválidos/dar-tirar ao vivo — essas validações seguem cobertas offline | dono do servidor |
 | `canais: tipo stage` | o servidor não tem o recurso **Comunidade**; a mensagem traduzida foi conferida | opcional: ativar Comunidade |
 | `prompt → ferramenta → resposta coerente` | o modelo grátis não chamou ferramenta nesta rodada (a rede oscila; tratado como aviso, nunca como ✅ falso) | aceito pelo dono |
@@ -118,7 +118,7 @@ Nesta rodada o `clear_messages` (que havia falhado com 503 do Discord) passou co
 tentativa, e `export_structure`/`import_structure` fecharam o round-trip completo.
 
 **Sobre os avisos de cargo**: a recusa é conferida de verdade (mensagem clara + nada alterado), por
-isso eles não são ❌. Para virarem ✅ de execução, basta o dono subir o cargo do farol acima dos
+isso eles não são ❌. Para virarem ✅ de execução, basta o dono subir o cargo do atlas acima dos
 cargos de teste — não há correção de código pendente ali.
 
 
@@ -288,7 +288,7 @@ E, para o dono, duas ferramentas novas no Discord:
 
 Relato do dono. A regra do Discord é real e estrita — "um bot só gerencia cargos **estritamente
 ABAIXO** do cargo mais alto dele" (empate não vale; o cargo de bot nasce no **chão** da hierarquia) —
-e no servidor do dono o cargo **farol** está na **posição 1**, com tudo acima dele.
+e no servidor do dono o cargo **atlas** está na **posição 1**, com tudo acima dele.
 
 **Mas o relatório ao vivo não provava nada disso** e a Rodada 9 corrigiu isso: o harness chamava a
 ferramenta do produto, o NOSSO gate de hierarquia recusava por posição e o relatório anotava
@@ -299,8 +299,8 @@ O que estava **mal no produto** (e foi corrigido agora):
 
 | Problema | Antes | Agora |
 | --- | --- | --- |
-| Não existia exclusão de cargo EM LOTE | "apague todos os cargos" virava uma tentativa por cargo: erro atrás de erro, sem resumo e sem dizer o que fazer | ferramenta nova **`delete_roles`**: apaga o que pode, informa quantos saíram, quantos ficaram e **por quê**, com o caminho exato (Configurações do Servidor → Cargos → arrastar o **farol** para cima) |
-| A recusa era seca | "Suba o cargo do farol nas configurações de cargos do servidor." (sem dizer onde nem o que acontece) | mensagem completa: posição do cargo × posição do bot + o passo a passo no Discord + "me peça de novo que eu apago de uma vez" |
+| Não existia exclusão de cargo EM LOTE | "apague todos os cargos" virava uma tentativa por cargo: erro atrás de erro, sem resumo e sem dizer o que fazer | ferramenta nova **`delete_roles`**: apaga o que pode, informa quantos saíram, quantos ficaram e **por quê**, com o caminho exato (Configurações do Servidor → Cargos → arrastar o **atlas** para cima) |
+| A recusa era seca | "Suba o cargo do atlas nas configurações de cargos do servidor." (sem dizer onde nem o que acontece) | mensagem completa: posição do cargo × posição do bot + o passo a passo no Discord + "me peça de novo que eu apago de uma vez" |
 | Posição empatada era recusada de chute | o cache do discord.py pode estar velho (já mentiu antes) e o cargo podia ser apagável | quando a posição empata, o bot **tenta de verdade** e relata o que o Discord respondeu |
 | Pior de tudo: **mentira** | quando TODAS as execuções falhavam e o modelo devolvia texto vazio, o bot respondia **"Feito! ✅ Confira no servidor"** | agora responde o motivo real ("❌ Não deu para concluir: …") — nunca mais finge que fez |
 
@@ -309,7 +309,7 @@ inexistente no meio do lote, lista vazia, modo cauteloso, empate que funciona, e
 instrução, cargo individual) e `test_falha_em_tudo_nao_vira_feito` no agente.
 
 **Ação do dono (30 segundos, e vale para tudo):** Configurações do Servidor → **Cargos** → arraste o
-cargo do **farol** para cima dos cargos que ele deve gerenciar. Depois disso, "apague todos os
+cargo do **atlas** para cima dos cargos que ele deve gerenciar. Depois disso, "apague todos os
 cargos" funciona de uma vez — e o cargo do bot passa a conseguir editar/apagar cargos em geral.
 
 ## O que ainda precisa do dono para ser verificado de verdade
@@ -415,7 +415,7 @@ atual; nada no produto impedia isso.
 V2... não sei qual cor vou usar, queria uma que combinasse com a foto dele."
 
 * a resposta agora sai em **Components V2**: um container com cor de destaque, texto organizado e o
-  avatar do farol como miniatura (`core/look.py`, `montar_view`);
+  avatar do atlas como miniatura (`core/look.py`, `montar_view`);
 * **a cor é MEDIDA do avatar**, não chutada: o PNG do avatar é baixado e decodificado sem biblioteca
   externa (zlib + filtros do formato, stdlib pura) e a cor escolhida é a média das cores vivas
   (branco/preto/cinza de fundo ficam de fora);

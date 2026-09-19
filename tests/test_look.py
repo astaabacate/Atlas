@@ -145,7 +145,7 @@ class TestCorDeDestaque(unittest.TestCase):
 # --------------------------------------------------------------- mensagem V2
 
 class TestMensagemV2(unittest.TestCase):
-    def test_monta_container_com_a_cor_do_farol(self) -> None:
+    def test_monta_container_com_a_cor_do_atlas(self) -> None:
         import discord
 
         view = look.montar_view("🗑️ Apaguei 3 canais.", 0x5865F2)
@@ -154,30 +154,35 @@ class TestMensagemV2(unittest.TestCase):
         container = view.children[0]
         self.assertIsInstance(container, discord.ui.Container)
         self.assertEqual(container.accent_color, 0x5865F2)
-        # Hierarquia: capa, cabeçalho ("Farol"), divisória, mensagem, divisória, rodapé.
-        self.assertIsInstance(container.children[0], discord.ui.MediaGallery)
-        self.assertIsInstance(container.children[1], discord.ui.TextDisplay)
-        self.assertEqual(container.children[1].content, look.TITULO_V2)
-        self.assertIsInstance(container.children[2], discord.ui.Separator)
-        self.assertIsInstance(container.children[3], discord.ui.TextDisplay)
-        self.assertEqual(container.children[3].content, "🗑️ Apaguei 3 canais.")
-        self.assertIsInstance(container.children[4], discord.ui.Separator)
-        self.assertIsInstance(container.children[5], discord.ui.TextDisplay)
-        self.assertEqual(container.children[5].content, look.RODAPE_V2)
+        # Card enxuto (pedido do dono em 18/09): a mensagem e nada mais — sem capa, sem nome,
+        # sem rodapé, sem imagem nenhuma apontando para o repositório.
+        self.assertEqual(len(container.children), 1)
+        self.assertIsInstance(container.children[0], discord.ui.TextDisplay)
+        self.assertEqual(container.children[0].content, "🗑️ Apaguei 3 canais.")
+        for proibido in ("MediaGallery", "Section", "Thumbnail", "Separator"):
+            self.assertFalse(any(type(filho).__name__ == proibido for filho in container.children),
+                             f"o card ainda tem {proibido}")
 
-    def test_com_avatar_usa_secao_com_miniatura(self) -> None:
+    def test_nada_aponta_para_o_repositorio(self) -> None:
+        """O dono não quer nada exposto: nenhuma resposta pode carregar link/imagem nossa."""
+        import pathlib
+
+        fonte = pathlib.Path(look.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("raw.githubusercontent.com", fonte)
+        self.assertNotIn("github.com", fonte)
+        self.assertEqual(look.TITULO_V2, "", "sem título de marca no card")
+        self.assertEqual(look.RODAPE_V2, "", "sem rodapé de marca no card")
+
+    def test_avatar_nao_vira_enfeite(self) -> None:
+        """Com ou sem avatar, o card é a mensagem: a foto não entra como miniatura."""
         import discord
 
-        view = look.montar_view("Pronto!", 0x112233, "https://cdn.discordapp.com/avatar.png")
-        assert view is not None
-        cabecalho = view.children[0].children[1]
-        self.assertIsInstance(cabecalho, discord.ui.Section)
-        self.assertIsInstance(cabecalho.accessory, discord.ui.Thumbnail)
-        self.assertEqual(cabecalho.children[0].content, look.TITULO_V2)
-        # A mensagem continua após a primeira divisória.
-        mensagem = view.children[0].children[3]
-        self.assertIsInstance(mensagem, discord.ui.TextDisplay)
-        self.assertEqual(mensagem.content, "Pronto!")
+        sem = look.montar_view("Pronto!", 0x112233)
+        com = look.montar_view("Pronto!", 0x112233, "https://cdn.discordapp.com/avatar.png")
+        for view in (sem, com):
+            assert view is not None
+            filhos = view.children[0].children
+            self.assertTrue(all(isinstance(f, discord.ui.TextDisplay) for f in filhos))
 
     def test_texto_longo_demais_nao_vira_container(self) -> None:
         self.assertIsNone(look.montar_view("x" * (look.LIMITE_V2 + 1), 0x112233))
@@ -261,7 +266,7 @@ class TestAparencia(unittest.TestCase):
         self.assertEqual(len(asset.formatos), 1, "a cor fica em cache; não baixa a cada resposta")
 
     def test_foto_trocada_com_o_bot_no_ar_e_medida_de_novo(self) -> None:
-        """O dono vai colocar a foto dele: a cor nova tem que valer sem reiniciar o farol."""
+        """O dono vai colocar a foto dele: a cor nova tem que valer sem reiniciar o atlas."""
         antiga = self._Asset(self._png_vermelho())
         aparencia = look.Aparencia()
         asyncio.run(aparencia.preparar(self._Usuario(antiga)))

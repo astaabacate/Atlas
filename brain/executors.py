@@ -46,7 +46,7 @@ from brain.ops import (
 from brain.policy import require
 from brain.tools import ToolContext, ToolError, tool_names
 
-logger = logging.getLogger("farol.brain.executors")
+logger = logging.getLogger("atlas.brain.executors")
 
 _OPS: dict[str, Callable[..., Awaitable[str]]] = {
     # Canais (5)

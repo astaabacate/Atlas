@@ -1,5 +1,5 @@
 """
-Testes do loop do Agente Farol com provedor LLM fake.
+Testes do loop do Agente Atlas com provedor LLM fake.
 Testa: resposta em texto puro, round-trip de ferramentas nativas,
 fallback de ferramentas em markdown (```tool), tratamento de erros e limite de rodadas.
 """

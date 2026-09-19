@@ -93,8 +93,8 @@ class Sondagem:
     async def __aenter__(self) -> "Sondagem":
         self._sessao = aiohttp.ClientSession(
             headers={"Authorization": f"Bot {self._token}",
-                     "User-Agent": "FarolSondaHierarquia/1.0",
-                     "X-Audit-Log-Reason": "sonda de hierarquia do farol"},
+                     "User-Agent": "AtlasSondaHierarquia/1.0",
+                     "X-Audit-Log-Reason": "sonda de hierarquia do atlas"},
             timeout=aiohttp.ClientTimeout(total=30),
         )
         return self
@@ -215,7 +215,7 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
         linhas.append(f"# Sonda de hierarquia de cargos — {eu.get('username')} (`{bot_id}`)")
         linhas.append("")
 
-        # A cor que o farol vai usar nas mensagens em Components V2: medida do avatar DELE.
+        # A cor que o atlas vai usar nas mensagens em Components V2: medida do avatar DELE.
         # Sai aqui porque esta sonda é o único lugar que fala com o DNS do Discord sem passar
         # pelo produto — assim o dono sabe a cor exata, sem precisar subir o bot.
         cor_medida = await _cor_do_avatar(api, eu, outdir)
@@ -318,9 +318,9 @@ async def _cor_do_avatar(api: "Sondagem", eu: dict[str, Any], outdir: Path) -> i
         """Deixa o resultado no branch MESMO quando não deu para medir (o log some rápido)."""
         outdir.mkdir(parents=True, exist_ok=True)
         (outdir / "cor-do-avatar.txt").write_text(
-            "# Cor do avatar do farol: NÃO MEDIDA\n\n"
+            "# Cor do avatar do atlas: NÃO MEDIDA\n\n"
             f"Motivo: {motivo}\n\n"
-            "O farol segue respondendo com a cor de reserva "
+            "O atlas segue respondendo com a cor de reserva "
             "(e você pode fixar a sua com a variável ACCENT_COLOR=#RRGGBB).\n", encoding="utf-8")
         print(f"::warning title=sonda::cor do avatar não medida ({motivo})")
 
@@ -347,7 +347,7 @@ async def _cor_do_avatar(api: "Sondagem", eu: dict[str, Any], outdir: Path) -> i
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "cor-do-avatar.txt").write_text(
         f"{hex_da_cor(cor)}\n\nCor de destaque medida da foto do bot "
-        f"({eu.get('username')}). É a cor que o farol usa nas respostas em Components V2.\n"
+        f"({eu.get('username')}). É a cor que o atlas usa nas respostas em Components V2.\n"
         f"Para fixar outra: variável ACCENT_COLOR={hex_da_cor(cor)}\n", encoding="utf-8")
     print(f"::notice title=sonda::cor do avatar medida: {hex_da_cor(cor)}")
     return cor

@@ -1,4 +1,4 @@
-# 🏮 Farol — entrega: pool de LLM só com APIs gratuitas confirmadas
+# 🏮 Atlas — entrega: pool de LLM só com APIs gratuitas confirmadas
 
 **Data:** 18/09/2026 · **ramo:** `arena/01a0b13c-atlas` · **suíte:** 156 testes OK
 **Responsável:** agente (Arena) · **evidência ao vivo:** [`reports/smoke-llm.md`](smoke-llm.md)
@@ -286,7 +286,7 @@ Sim — e é no Actions que o pool é validado, porque é onde o bot roda 24/7:
 
 - workflow **Smoke LLM Providers** (`.github/workflows/smoke.yml`): roda em `workflow_dispatch`,
   em push de `llm/**`/`scripts/smoke_llm.py` e publica `reports/smoke-llm.md` no ramo;
-- workflow **Farol Bot 24/7**: recebe as 12 credenciais + `KILOCODE_API_KEY` opcional;
+- workflow **Atlas Bot 24/7**: recebe as 12 credenciais + `KILOCODE_API_KEY` opcional;
 - workflow **E2E ao vivo**: recebe as mesmas credenciais e usa `AutoProvider.create_default`;
 - nenhuma chave é necessária para o corredor anônimo: o bot sobe com o repositório recém-clonado.
 
@@ -411,8 +411,8 @@ cancelar/disparar workflows (403 — só o dono tem), o caminho é:
 
 1. **Cancele** na aba Actions a execução em andamento (`35285581047`, código antigo) e a pendente
    pinada em `main` (`35291961344`, código antigo);
-2. **Dispare** o bot no ramo da entrega: `gh workflow run "Farol Bot 24/7" --ref arena/01a0b13c-atlas`
-   (ou Actions → *Farol Bot 24/7* → *Run workflow* → escolher `arena/01a0b13c-atlas`).
+2. **Dispare** o bot no ramo da entrega: `gh workflow run "Atlas Bot 24/7" --ref arena/01a0b13c-atlas`
+   (ou Actions → *Atlas Bot 24/7* → *Run workflow* → escolher `arena/01a0b13c-atlas`).
    A partir daí a corrente se reagenda sozinha **no mesmo ramo** (`--ref ${GITHUB_REF_NAME}`);
 3. para o vigia parar de reerguer o bot no `main` antigo, o merge do PR #4 precisa acontecer — a
    partir dele `main` já carrega o pool novo e qualquer restart (inclusive por cron/vigia) sobe certo.

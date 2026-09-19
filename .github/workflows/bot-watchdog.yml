@@ -1,6 +1,6 @@
-name: Farol Vigia 24/7
+name: Atlas Vigia 24/7
 
-# Vigia do bot: a cada 30 minutos confere se existe uma execução do "Farol Bot 24/7" ativa
+# Vigia do bot: a cada 30 minutos confere se existe uma execução do "Atlas Bot 24/7" ativa
 # ou na fila e, se não existir, sobe uma. É o que garante o "infinito" mesmo quando:
 #   - a corrente se rompe (erro, cancelamento, kill do runner, GitHub fora);
 #   - alguém cancela a execução sem querer;
@@ -38,7 +38,7 @@ jobs:
         run: |
           if [ -f .github/bot-disabled ]; then
             echo "ativo=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=farol vigia::.github/bot-disabled existe — não vou reerguer o bot."
+            echo "::notice title=atlas vigia::.github/bot-disabled existe — não vou reerguer o bot."
           else
             echo "ativo=true" >> "$GITHUB_OUTPUT"
           fi
@@ -53,13 +53,13 @@ jobs:
           DIAS=$(( (AGORA - ULTIMO) / 86400 ))
           echo "Último commit no ramo ${GITHUB_REF_NAME} foi há ${DIAS} dia(s)."
           if [ "$DIAS" -lt 45 ]; then
-            echo "::notice title=farol vigia::repositório ativo (${DIAS} dia(s)) — sem batimento."
+            echo "::notice title=atlas vigia::repositório ativo (${DIAS} dia(s)) — sem batimento."
             exit 0
           fi
           echo "Repositório parado há ${DIAS} dias; o GitHub suspende crons após 60. Registrando batimento..."
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/bot-heartbeat
-          git config user.name "farol-vigia"
-          git config user.email "farol-vigia@users.noreply.github.com"
+          git config user.name "atlas-vigia"
+          git config user.email "atlas-vigia@users.noreply.github.com"
           git add .github/bot-heartbeat
           git commit -m "chore(vigia): batimento para manter o agendador do bot ativo [skip ci]"
           git push || echo "::warning::Não consegui empurrar o batimento (sem permissão de escrita?)."
@@ -72,9 +72,9 @@ jobs:
           ATIVAS=$(gh run list --workflow bot.yml --status in_progress --status queued --limit 50 --json databaseId -q '.[]' | wc -l)
           echo "Execuções do bot ativas/na fila: ${ATIVAS}"
           if [ "${ATIVAS}" -gt 0 ]; then
-            echo "::notice title=farol vigia::o bot já está rodando ou na fila (${ATIVAS}) — nada a fazer."
+            echo "::notice title=atlas vigia::o bot já está rodando ou na fila (${ATIVAS}) — nada a fazer."
             exit 0
           fi
-          echo "::warning title=farol vigia::nenhuma execução ativa — subindo o bot em ${GITHUB_REF_NAME}."
+          echo "::warning title=atlas vigia::nenhuma execução ativa — subindo o bot em ${GITHUB_REF_NAME}."
           gh workflow run bot.yml --ref "${GITHUB_REF_NAME}" \
-            || echo "::error title=farol vigia::não consegui disparar o bot (checar permissão actions: write)."
+            || echo "::error title=atlas vigia::não consegui disparar o bot (checar permissão actions: write)."

@@ -119,7 +119,7 @@ def ok_payload(content: str = "ok", tool_calls: list[dict[str, Any]] | None = No
 
 
 HISTORY_WITH_TOOL_ROUND = [
-    {"role": "system", "content": "Você é o farol."},
+    {"role": "system", "content": "Você é o atlas."},
     {"role": "user", "content": "cria um canal"},
     {
         "role": "assistant",
@@ -449,8 +449,8 @@ class TestAutoProvider(unittest.TestCase):
         self.assertIn("corredor-beta", str(erro))
         self.assertIn("LLM_API_KEY", str(erro))
 
-        from core.bot import FarolBot
-        mensagem = FarolBot._mensagem_de_erro(erro)
+        from core.bot import AtlasBot
+        mensagem = AtlasBot._mensagem_de_erro(erro)
         self.assertIn("fila cheia", mensagem)
         self.assertNotIn("HTTP", mensagem, "o cliente não deve ver o dump técnico dos provedores")
         self.assertNotIn("verifique as permissões", mensagem)
@@ -1219,8 +1219,8 @@ class TestErroDeContexto(unittest.TestCase):
 
         erro = ctx.exception
         self.assertEqual(erro.motivo, "contexto")
-        from core.bot import FarolBot
-        mensagem = FarolBot._mensagem_de_erro(erro)
+        from core.bot import AtlasBot
+        mensagem = AtlasBot._mensagem_de_erro(erro)
         self.assertIn("comprida demais", mensagem)
         self.assertIn("limpar conversa", mensagem)
         self.assertNotIn("HTTP", mensagem)
@@ -1278,8 +1278,8 @@ class TestPoolDeUmCorredorSo(unittest.TestCase):
         with self.assertRaises(LLMUnavailableError) as ctx:
             asyncio.run(auto.chat(messages=[{"role": "user", "content": "oi"}]))
         self.assertTrue(ctx.exception.transient)
-        from core.bot import FarolBot
-        self.assertIn("tente de novo", FarolBot._mensagem_de_erro(ctx.exception).lower())
+        from core.bot import AtlasBot
+        self.assertIn("tente de novo", AtlasBot._mensagem_de_erro(ctx.exception).lower())
 
 
 class TestPodaDeMensagens(unittest.TestCase):
