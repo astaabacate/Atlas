@@ -166,7 +166,7 @@ class TestDadosReaisCitados(unittest.TestCase):
         import asyncio
 
         class ServidorFalso:
-            name = "Pinguim"
+            name = "Servidor-Teste"
             owner_id = 42
 
             async def fetch_channels(self) -> list[Any]:
@@ -175,18 +175,18 @@ class TestDadosReaisCitados(unittest.TestCase):
             async def fetch_roles(self) -> list[Any]:
                 return [1, 2, 3]
 
-        resposta = ("📊 **Informações de Pinguim:**\n• **ID:** `1`\n• **Dono:** <@42>\n"
+        resposta = ("📊 **Informações de Servidor-Teste:**\n• **ID:** `1`\n• **Dono:** <@42>\n"
                     "• **Membros:** 4\n• **Canais:** 1\n• **Cargos:** 3")
         confere = asyncio.run(self.harness.Harness._dados_reais_citados(ServidorFalso(), resposta))
         self.assertIn("canais=1", " ".join(confere))
         self.assertIn("cargos=3", " ".join(confere))
-        self.assertTrue(any("Pinguim" in c for c in confere), confere)
+        self.assertTrue(any("Servidor-Teste" in c for c in confere), confere)
 
     def test_nao_aceita_contagem_errada_nem_invencao(self) -> None:
         import asyncio
 
         class ServidorFalso:
-            name = "Pinguim"
+            name = "Servidor-Teste"
             owner_id = 42
 
             async def fetch_channels(self) -> list[Any]:

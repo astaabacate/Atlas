@@ -538,9 +538,9 @@ class TestDiagnostico(unittest.TestCase):
                 self.content = conteudo
                 self.attachments: list[Any] = []
 
-        mensagens = [Msg("asta", "crie o canal avisos"),
+        mensagens = [Msg("usuario-teste", "crie o canal avisos"),
                      Msg("atlas", "Pronto! Criei 1 canal(is) 🎉", bot=True),
-                     Msg("asta", "ele demorou demais")]
+                     Msg("usuario-teste", "ele demorou demais")]
 
         async def history(limit: int = 80):  # noqa: ANN202 - gerador assíncrono como no discord.py
             for m in reversed(mensagens[-limit:]):
@@ -1203,7 +1203,7 @@ class TestMembroForaDoCache(unittest.TestCase):
         ctx, servidor = contexto()
         cargo = Entidade("🧪-cargo", 77, 1)
         servidor.roles.append(cargo)
-        membro = Entidade("dono", 1521612392105250836, 0)
+        membro = Entidade("dono", 987654321098765432, 0)
         async def add_roles(*a: Any, **k: Any) -> None:
             return None
 
@@ -1311,10 +1311,10 @@ class TestFerramentasDeConsulta(unittest.TestCase):
         """`guild.owner` é None quando o membro não está no cache: aparecia 'Dono: None'."""
         ctx, servidor = contexto()
         servidor.member_count = 42
-        servidor.owner_id = 1521612392105250836
+        servidor.owner_id = 987654321098765432
 
         saida = executar("server_info", {}, ctx)
-        self.assertIn("1521612392105250836", saida)
+        self.assertIn("987654321098765432", saida)
         self.assertNotIn("None", saida)
         self.assertIn("42", saida)
         self.assertIn("Servidor Teste", saida)

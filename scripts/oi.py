@@ -46,7 +46,7 @@ class OiResultado:
 
     def nota(self, texto: str) -> None:
         self.notas.append(texto)
-        print(f"• {texto}")
+        print(f"• {_disfarce().mascarar(texto)}")  # IDs e menções saem mesmo sem os nomes
 
 
 async def _conectar(discord: Any, config: Any, timeout: int, res: OiResultado) -> tuple[Any, Any]:
@@ -160,7 +160,7 @@ async def rodar() -> int:
         res.resumo = f"mensagem {enviada.id} entregue em #{canal.name}"
         link = getattr(enviada, "jump_url", "")
         _escrever_relatorio(args.outdir, res, guild, canal, link, enviada=enviada)
-        print(f"✅ {res.resumo}")
+        print(f"✅ {_disfarce(guild, canal).mascarar(res.resumo)}")
         return 0
     except Exception as exc:  # noqa: BLE001 — o relatório precisa do motivo real
         res.nota(f"falha real: {type(exc).__name__}: {exc}")
@@ -175,6 +175,16 @@ async def rodar() -> int:
             tarefa.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await tarefa
+
+
+def _disfarce(guild: Any = None, canal: Any = None) -> Any:
+    """Anonimizador com os nomes deste envio (o repo e o log do Actions são PÚBLICOS)."""
+    from core.anonimo import Anonimizador
+
+    anon = Anonimizador()
+    anon.registrar(getattr(guild, "name", None), "servidor")
+    anon.registrar(getattr(canal, "name", None), "canal")
+    return anon
 
 
 def _escrever_relatorio(outdir: str, res: OiResultado, guild: Any, canal: Any, link: str,
@@ -198,6 +208,10 @@ def _escrever_relatorio(outdir: str, res: OiResultado, guild: Any, canal: Any, l
         linhas.append(f"- Link: {link}")
     if res.notas:
         linhas += ["", "Notas:", *[f"- {n}" for n in res.notas]]
+    # O relatório vai para um repositório PÚBLICO: nome do servidor, nome do canal, IDs e link
+    # da mensagem saem antes de escrever (o dono confere o resto no próprio Discord).
+    anon = _disfarce(guild, canal)
+    linhas = [anon.mascarar(linha) for linha in linhas]
     destino = pasta / "oi-latest.md"
     destino.write_text("\n".join(linhas) + "\n", encoding="utf-8")
     print(f"relatório: {destino}")

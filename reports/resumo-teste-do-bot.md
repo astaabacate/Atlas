@@ -1,7 +1,7 @@
 # 🏮 Atlas — resumo do teste ao vivo do bot
 
 Pedido: *"se conecte ao bot e teste as coisas dele"*.
-Resultado: o bot foi testado **de verdade** no servidor `asta`, 5 bugs foram encontrados (3 deles
+Resultado: o bot foi testado **de verdade** no servidor `Cargo-12`, 5 bugs foram encontrados (3 deles
 só apareceram quando as mutações reais foram autorizadas) e todos foram corrigidos com prova
 registrada. O PR #4 segue **aberto** — o merge é manual.
 
@@ -53,7 +53,7 @@ tocados.
 
 ## Pendências honestas
 
-- ⚠️ **Ação do dono do servidor:** os cargos `Atlas`, `iTinder` e `Cupido` estão no nível ou acima do
+- ⚠️ **Ação do dono do servidor:** os cargos `Atlas`, `Cargo-2` e `Cargo-1` estão no nível ou acima do
   cargo do `atlas`. Enquanto isso, o bot não edita nem os cargos que ele mesmo cria — arraste o cargo
   do `atlas` para cima (README, Passo 3).
 - ⚠️ **LLM gratuito é intermitente — e agora o bot se defende:** quando os três corredores gratuitos
@@ -96,7 +96,7 @@ ele não responde mais as mensagens reais dos clientes (só as mensagens falsas 
 
 ## Duas coisas que dependem de você
 
-1. **Suba o cargo do `atlas`** acima de `Atlas`, `iTinder` e `Cupido` (README Passo 3). Enquanto ele
+1. **Suba o cargo do `atlas`** acima de `Atlas`, `Cargo-2` e `Cargo-1` (README Passo 3). Enquanto ele
    estiver no chão, o bot não edita nem os cargos que ele mesmo cria.
 2. **Faça o merge do PR #4** para o código corrigido virar `main`. Enquanto o bot rodar a partir do
    ramo da sessão ele usa o código corrigido; o cron de 5 em 5 horas pode pegá-lo a partir da `main`
@@ -111,4 +111,4 @@ ele não responde mais as mensagens reais dos clientes (só as mensagens falsas 
   e mensagem amigável ao cliente).
 - Bot 24/7: workflow *Atlas Bot 24/7* (execução em andamento no ramo da sessão).
 - Harness: `scripts/e2e_live.py` · testes dele: `tests/test_e2e_live.py` · workflow: `.github/workflows/e2e.yml`.
-- PR: https://github.com/astaabacate/Atlas/pull/4 (aberto de propósito; **sem merge**).
+- PR: https://github.com/Cargo-12abacate/Atlas/pull/4 (aberto de propósito; **sem merge**).

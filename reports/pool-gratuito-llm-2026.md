@@ -34,17 +34,17 @@ segunda/terceira onda, default de config nem entrada de `KNOWN_GATEWAYS`. Com
 | # | Corredor | Como entra | Por que é gratuito de verdade |
 | --- | --- | --- | --- |
 | 1 | `kilo` | **anônimo** (sem conta) | gateway oficial com acesso anônimo, 200 req/h por IP |
-| 2 | `gemini` | `GEMINI_API_KEY` | camada gratuita do AI Studio, sem cartão |
-| 3 | `groq` | `GROQ_API_KEY` | free tier por organização, sem cartão |
-| 4 | `mistral` | `MISTRAL_API_KEY` | plano "Experiment" gratuito |
-| 5 | `nvidia` | `NVIDIA_API_KEY` | créditos gratuitos em `build.nvidia.com` |
-| 6 | `zai` | `ZAI_API_KEY` | GLM Flash com preço US$ 0/token |
-| 7 | `cloudflare` | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` | 10.000 neurônios/dia grátis, sem cartão |
-| 8 | `ollama` | `OLLAMA_API_KEY` | camada gratuita do Ollama Cloud |
-| 9 | `openrouter` | `OPENROUTER_API_KEY` | variantes `:free` (20 RPM / 50 req/dia) |
-| 10 | `modelscope` | `MODELSCOPE_API_KEY` | inferência gratuita na conta |
-| 11 | `siliconflow` | `SILICONFLOW_API_KEY` | modelos a US$ 0 |
-| 12 | `cohere` | `COHERE_API_KEY` | trial key, 1.000 chamadas/mês, **uso não comercial** |
+| 2 | Cargo-1 | `GEMINI_API_KEY` | camada gratuita do AI Studio, sem cartão |
+| 3 | Cargo-2 | `GROQ_API_KEY` | free tier por organização, sem cartão |
+| 4 | Cargo-3 | `MISTRAL_API_KEY` | plano "Experiment" gratuito |
+| 5 | Cargo-4 | `NVIDIA_API_KEY` | créditos gratuitos em `build.nvidia.com` |
+| 6 | Cargo-5 | `ZAI_API_KEY` | GLM Flash com preço US$ 0/token |
+| 7 | Cargo-6 | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` | 10.000 neurônios/dia grátis, sem cartão |
+| 8 | Cargo-7 | `OLLAMA_API_KEY` | camada gratuita do Ollama Cloud |
+| 9 | Cargo-8 | `OPENROUTER_API_KEY` | variantes `:free` (20 RPM / 50 req/dia) |
+| 10 | Cargo-9 | `MODELSCOPE_API_KEY` | inferência gratuita na conta |
+| 11 | Cargo-10 | `SILICONFLOW_API_KEY` | modelos a US$ 0 |
+| 12 | Cargo-11 | `COHERE_API_KEY` | trial key, 1.000 chamadas/mês, **uso não comercial** |
 
 Cada ficha carrega `nome, base_url, key_env (""=anônimo), modelos, contexto, cota, supports_tools,
 supports_models, conta_id_env, headers, cooldown, validado, observacao` e expõe
@@ -64,11 +64,11 @@ executado por corredor: **GET do catálogo → POST `/chat/completions` em portu
 | llm7, ovh, pollinations | — | — | — | — | — | — | 🔴 REMOVIDOS/DESCARTADOS |
 
 Prova bruta: [`reports/smoke-llm.md`](smoke-llm.md) (publicado pelo próprio workflow no ramo) +
-execuções [`35291065652`](https://github.com/astaabacate/Atlas/actions/runs/35291065652),
+execuções [`35291065652`](https://github.com/Cargo-12abacate/Atlas/actions/runs/35291065652),
 `35290857715`, `35290635762`, `35290442068`.
 
 > Por que 11 ficam em 🟡 e não 🟢: a regra combinada foi "só ATIVA com evidência das 8 condições".
-> Sem a chave no repositório, o corredor **não entra na corrida** (não gastamos requisição com 401) e
+> Sem a chave no repositório, o corredor **não entra na corrida** (não gCargo-12mos requisição com 401) e
 > não há como responder 200. Cadastrou o secret → a sonda seguinte promove para 🟢 automaticamente,
 > sem mudar uma linha de código.
 
@@ -113,11 +113,11 @@ execuções [`35291065652`](https://github.com/astaabacate/Atlas/actions/runs/35
 4. **Roteador por último:** o `kilo-auto/free` é quem mais devolve vazio; com os modelos explícitos
    na frente, a resposta não cai nele no caminho normal.
 
-**Medido ao vivo (E2E de 18/09, [`35296914216`](https://github.com/astaabacate/Atlas/actions/runs/35296914216)):**
+**Medido ao vivo (E2E de 18/09, [`35296914216`](https://github.com/Cargo-12abacate/Atlas/actions/runs/35296914216)):**
 
 | Cenário | Antes | Agora |
 |---|---|---|
-| "apague os canais X e Y e deixe só o resto" | pedia confirmação e gastava 2 idas ao LLM | **apagou os 2 em 4,1 s, 1 ida ao LLM**, resposta com o link do que apagou |
+| "apague os canais X e Y e deixe só o resto" | pedia confirmação e gCargo-12va 2 idas ao LLM | **apagou os 2 em 4,1 s, 1 ida ao LLM**, resposta com o link do que apagou |
 | "apague o canal Y agora" | 2 idas ao LLM | **4,4 s, 1 ida ao LLM** |
 
 **"Ele pergunta demais"** — `CONFIRM_DESTRUCTIVE`, padrão **desligado** (modo direto): o pedido do
@@ -180,7 +180,7 @@ junto com a rede.
 Correção (dado, não sorte):
 
 - o smoke passou a medir **3 amostras por modelo por rodada** (antes: 1) com `max_tokens=64`
-  — com 24 tokens, modelo de raciocínio gasta o orçamento pensando e aparecia como "vazio";
+  — com 24 tokens, modelo de raciocínio gCargo-12 o orçamento pensando e aparecia como "vazio";
 - cada rodada vai para `reports/kilo-latencia-historico.json` (últimas 30), e o relatório
   `reports/kilo-latencia-modelos.md` ganhou o **agregado**: taxa de resposta com conteúdo
   (n/total) e **mediana** por modelo (empate de contagem fica com a amostra mais lenta, para
@@ -294,7 +294,7 @@ Sim — e é no Actions que o pool é validado, porque é onde o bot roda 24/7:
 
 ## 9.1) E2E ao vivo no servidor real (mesma corrida)
 
-Execução [`35291259527`](https://github.com/astaabacate/Atlas/actions/runs/35291259527) no commit
+Execução [`35291259527`](https://github.com/Cargo-12abacate/Atlas/actions/runs/35291259527) no commit
 `47e9592`: **✅ 78 · ❌ 0 · ⚠️ 3 · ⏭️ 1**, com o agente conversando de verdade com o `kilo`:
 
 | Verificação | Resultado |

@@ -48,7 +48,7 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 2. Na caixa **SCOPES**, marque:
    - `bot`
 3. Na caixa **BOT PERMISSIONS**, escolha uma das duas abordagens:
-   - **Opção A (Recomendada / Mais simples):** Marque **Administrator** (Permissão inteira `8`). Isso concede acesso geral para executar qualquer operação administrativa no servidor.
+   - **Opção A (Recomendada / Mais simples):** Marque **Cargo-3istrator** (Permissão inteira `8`). Isso concede acesso Canal-2 para executar qualquer operação administrativa no servidor.
    - **Opção B (Granular / Estrita):** Se preferir permissões pontuais, marque obrigatoriamente:
      * `Manage Channels` (Gerenciar Canais)
      * `Manage Roles` (Gerenciar Cargos)
@@ -66,7 +66,7 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 
 ### Passo 3: ⚠️ A REGRA DE OURO — A Hierarquia de Cargos no Servidor Discord
 
-> **A armadilha mais comum:** Mesmo que o bot tenha a permissão de "Administrador" ou "Gerenciar Cargos", a API do Discord **impede** qualquer usuário ou bot de modificar, atribuir ou excluir um cargo que **não esteja estritamente abaixo** do cargo mais alto do bot. Cargo na MESMA posição também não vale — e o cargo de um bot nasce sempre no fundo da lista quando ele entra no servidor.
+> **A armadilha mais comum:** Mesmo que o bot tenha a permissão de "Cargo-3istrador" ou "Gerenciar Cargos", a API do Discord **impede** qualquer usuário ou bot de modificar, atribuir ou excluir um cargo que **não esteja estritamente abaixo** do cargo mais alto do bot. Cargo na MESMA posição também não vale — e o cargo de um bot nasce sempre no fundo da lista quando ele entra no servidor.
 
 **Como arrumar (2 minutos):**
 1. No seu servidor Discord, abra **Configurações do Servidor** → **Cargos**.
@@ -75,7 +75,7 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 
 ⚠️ **A direção da lista depende do aparelho** (isso confunde muita gente — e já confundiu o dono deste projeto):
 
-| Onde você está | Como a lista aparece | Para onde arrastar o atlas |
+| Onde você está | Como a lista aparece | Para onde arrCargo-12r o atlas |
 | --- | --- | --- |
 | **PC** (app ou navegador) | o cargo **mais forte** fica no **topo**, e o `@everyone` no **fim** | para **CIMA** |
 | **Celular** (Android/iOS) | a lista é **invertida**: o `@everyone` aparece **primeiro** e o mais forte no **fim** | para **BAIXO** (para o fim da lista) |
@@ -114,7 +114,7 @@ e mostra o avatar dele ao lado — em vez de um textão solto.
   impede a resposta de sair.
 | Consultas públicas (listar cargos, ver permissões, info, cores, emojis, tradução) | *Nenhuma (Livre para todos os membros)* |
 
-*Nota:* Administradores do servidor possuem bypass natural em suas próprias checagens, mas o Atlas **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
+*Nota:* Cargo-3istradores do servidor possuem bypass natural em suas próprias checagens, mas o Atlas **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
 
 ---
 
@@ -200,7 +200,7 @@ guarda tudo em `reports/kilo-latencia-historico.json` e a fila sai da **mediana 
 **taxa de resposta com conteúdo** (`reports/kilo-latencia-modelos.md`). Uma rodada isolada oscila
 (um modelo que respondeu em 0,66 s volta vazio na seguinte), então a decisão nunca é de uma amostra
 só. A CI cobra essa ordem: se as rodadas novas mudarem o ranking, o teste falha **trazendo a ordem
-sugerida** pela medição — basta reordenar a ficha e as rodadas seguem. Critério (confiabilidade
+sugerida** pela medição — bCargo-12 reordenar a ficha e as rodadas seguem. Critério (confiabilidade
 antes de velocidade): maior **taxa de rodadas com conteúdo** primeiro,
 mediana de latência como desempate, reservas que nunca responderam no fim e o roteador `kilo-auto`
 (o que mais devolve vazio) sempre por último. Ranquear só por mediana era enganoso — um modelo que

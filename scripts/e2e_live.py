@@ -140,9 +140,33 @@ class Reporter:
         self.meta = dict(meta or {})
         self.started = datetime.now(timezone.utc)
         self.notes: list[str] = []
+        # O relatório e o log do Actions são PÚBLICOS (repositório aberto): nome de servidor,
+        # de canal, de cargo, IDs e links de mensagem passam por aqui antes de sair.
+        from core.anonimo import Anonimizador
+
+        self.anon = Anonimizador()
+
+    def registrar_servidor(self, guild: Any, actor: Any = None) -> None:
+        """Aprende os nomes do servidor para poder disfarçá-los em tudo que for publicado."""
+        try:
+            self.anon.registrar(getattr(guild, "name", None), "servidor")
+            self.anon.registrar(getattr(actor, "display_name", None) or getattr(actor, "name", None),
+                                "pessoa")
+            meus = {getattr(r, "name", "") for r in getattr(getattr(guild, "me", None), "roles", [])}
+            self.anon.registrar_varios(
+                [getattr(c, "name", None) for c in getattr(guild, "channels", []) or []], "canal")
+            self.anon.registrar_varios(
+                [getattr(r, "name", None) for r in getattr(guild, "roles", []) or []
+                 if getattr(r, "name", "") not in meus and not getattr(r, "is_default", False)],
+                "cargo")
+        except Exception as exc:  # noqa: BLE001 - sem a lista o disfarce ainda pega IDs e menções
+            log.debug("não consegui registrar os nomes do servidor para o disfarce: %s", exc)
 
     def record(self, phase: str, name: str, status: str, detail: str = "", ms: int = 0, **data: Any) -> Check:
         self.phases.setdefault(phase, [])
+        detail = self.anon.mascarar(detail)
+        name = self.anon.mascarar(name)
+        data = self.anon.mascarar_estrutura(data)
         check = Check(phase=phase, name=name, status=status, detail=detail, ms=int(ms), data=data)
         self.phases[phase].append(check)
         icon = {PASS: "✅", FAIL: "❌", WARN: "⚠️", SKIP: "⏭️"}.get(status, "•")
@@ -156,6 +180,7 @@ class Reporter:
         return any(c.name == name and c.status == status for c in self.phases.get(phase, []))
 
     def note(self, text: str) -> None:
+        text = self.anon.mascarar(text)
         self.notes.append(text)
         print(f"  ℹ️  {text}", flush=True)
 
@@ -176,6 +201,9 @@ class Reporter:
         return 1 if self.counts()[FAIL] else 0
 
     def to_dict(self) -> dict[str, Any]:
+        return self.anon.mascarar_estrutura(self._to_dict_cru())
+
+    def _to_dict_cru(self) -> dict[str, Any]:
         return {
             "schema": 1,
             "started_at": self.started.isoformat(),
@@ -190,6 +218,9 @@ class Reporter:
         }
 
     def to_markdown(self) -> str:
+        return self.anon.mascarar(self._to_markdown_cru())
+
+    def _to_markdown_cru(self) -> str:
         counts = self.counts()
         lines = [
             "# 🏮 Atlas — relatório de teste E2E",
@@ -743,6 +774,9 @@ class Harness:
                 return None
             self.env.client, self.env.connect_task = client, task
             self.env.guilds = list(client.guilds)
+            # Antes de qualquer registro no relatório: os nomes dos servidores entram no disfarce.
+            for g in self.env.guilds:
+                self.rep.anon.registrar(getattr(g, "name", None), "servidor")
             if motivo_intents:
                 self.rep.record(phase, "intents privilegiadas", FAIL, motivo_intents, self._ms(start))
             self.rep.note(f"conectado como {client.user} em {len(client.guilds)} servidor(es)")
@@ -755,6 +789,7 @@ class Harness:
         if self.env.primary is None:
             self.env.primary = self._pick_guild()
             self.env.actor = await self._resolve_actor(self.env.primary)
+            self.rep.registrar_servidor(self.env.primary, self.env.actor)
         return self.env
 
     def _pick_guild(self) -> Any:
@@ -1488,18 +1523,18 @@ class Harness:
 
         memoria = ChannelMemory()
         agente = Agent(llm_provider=LLMRoteiro([
-            LLMResponse(content="Anotado no servidor A: Pinguim.", tool_calls=[]),
+            LLMResponse(content="Anotado no servidor A: Servidor-Teste.", tool_calls=[]),
             LLMResponse(content="Aqui no B eu não sei de nada.", tool_calls=[]),
         ]), memory=memoria)
         ator = guild_a.members[0]
 
-        await agente.process_turn(guild=guild_a, channel=canal_a, actor=ator, prompt="Guarde: Pinguim")
+        await agente.process_turn(guild=guild_a, channel=canal_a, actor=ator, prompt="Guarde: Servidor-Teste")
         hist_b = memoria.get_history(memory_key(guild_b.id, canal_b.id))
         self.assert_true(not hist_b, f"o histórico do servidor B recebeu conversa do A: {hist_b}")
         await agente.process_turn(guild=guild_b, channel=canal_b, actor=ator, prompt="Qual o apelido?")
         hist_b = memoria.get_history(memory_key(guild_b.id, canal_b.id))
         texto_b = " ".join(m.get("content", "") for m in hist_b)
-        self.assert_true("Pinguim" not in texto_b, f"o apelido do servidor A vazou para o B: {texto_b!r}")
+        self.assert_true("Servidor-Teste" not in texto_b, f"o apelido do servidor A vazou para o B: {texto_b!r}")
 
         # pendência de confirmação também é por conversa
         canal_a.overwrites = {}
@@ -2143,7 +2178,7 @@ class Harness:
         async def memoria() -> str:
             mesmo_canal = canal_novo()
             try:
-                await perguntar("Guarde este apelido: o servidor se chama Pinguim.", mesmo_canal)
+                await perguntar("Guarde este apelido: o servidor se chama Servidor-Teste.", mesmo_canal)
                 resposta = await perguntar("Qual apelido eu pedi para você guardar?", mesmo_canal)
             except Exception as exc:
                 if self._culpa_do_llm(str(exc)):

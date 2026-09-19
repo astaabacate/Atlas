@@ -3,7 +3,7 @@
 Documento para **outra IA (ou outra pessoa) assumir este projeto**. Aqui está o que é, como está
 AGORA (medido, não suposto), o que pode e o que não pode, como rodar e onde estão as armadilhas.
 
-> **Repositório:** `github.com/astaabacate/Atlas` (público) · **Ramo de trabalho:** `arena/01a0b13c-atlas`
+> **Repositório:** `github.com/Cargo-12abacate/Atlas` (público) · **Ramo de trabalho:** `arena/01a0b13c-atlas`
 > **Bot:** "Atlas"/atlas, roda 24/7 no GitHub Actions atendendo vários servidores.
 
 ---
@@ -28,9 +28,9 @@ política de permissão (`brain/policy.py`).
 | E2E offline | `static,spy,policy` = **✅ 43 · ❌ 0** |
 | E2E ao vivo (execução `35391125443`, commit `3ae66cc`) | **✅ 67 · ❌ 0 · ⚠️ 7 · ⏭️ 6** |
 | Bot 24/7 | no ar; fatia mais recente subiu; há pedido de reinício pendente em `.github/bot-24x7-enabled` para assumir o código novo |
-| Cargo do bot no servidor | **posição 27 de 27** (`Administrator`) — medido pela sonda na API crua |
+| Cargo do bot no servidor | **posição 27 de 27** (`Cargo-3istrator`) — medido pela sonda na API crua |
 | Cor do atlas | **ainda a reserva `#F1C40F`**: o bot **não tem foto de perfil própria** (`reports/cor-do-avatar.txt`) |
-| PR aberta | https://github.com/astaabacate/Atlas/pull/4 |
+| PR aberta | https://github.com/Cargo-12abacate/Atlas/pull/4 |
 
 **Últimos feitos (todos medidos):** respostas em Components V2 com a cor medida do avatar; o canal
 da conversa nunca é apagado ("apague todos os canais menos esse"); cor remedida quando a foto do
@@ -154,7 +154,7 @@ cancelar uma fatia do bot, criar/editar segredos e variáveis é ação do dono 
    pendente não existe, o bot volta ao código VELHO. Pedido de reinício vai em
    `.github/bot-24x7-enabled`.
 6. **Hierarquia de cargos é regra do Discord, não nossa:** o bot só gerencia cargo estritamente
-   abaixo do mais alto dele; **empatado não basta** e "Administrator" não ignora hierarquia.
+   abaixo do mais alto dele; **empatado não bCargo-12** e "Cargo-3istrator" não ignora hierarquia.
    Medido na API crua: pedir a mesma posição do topo faz o Discord colocar logo ABAIXO.
 7. **Fase travada não pode levar a execução inteira:** há limite por fase (`asyncio.wait_for`) e o
    relatório diz onde estava pendurada (`client.py:...:connect`).

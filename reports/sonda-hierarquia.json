@@ -2,15 +2,15 @@
   "gerado_em": "2026-09-19T00:46:08Z",
   "guilds": [
     {
-      "id": "1546763083005825084",
-      "nome": "Pinguim",
+      "id": "<id>",
+      "nome": "Servidor-1",
       "cargos": 4,
       "pos_bot": 27,
       "cargo_do_bot": "Atlas",
       "pos_dono": null,
       "experimento": {
         "criado": {
-          "id": "1550669293434175519",
+          "id": "<id>",
           "posicao": 1
         },
         "editar": {

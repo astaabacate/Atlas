@@ -29,11 +29,11 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `create_channels cria na raiz de verdade` | chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#1010> <#1011> <#1012> 🎉 (✅ 3/3 ' |
-| PASS | `create_channels cria DENTRO de categoria` | chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#1013> <#1014> 🎉 (✅ 2/2 concluíd' |
-| PASS | `edit_channel edita de verdade` | chamou edit() e respondeu 'Canal <#1008> atualizado com sucesso (name, nsfw, slowmode_d' |
-| PASS | `move_channel move de verdade` | chamou edit() e respondeu 'Canal <#1008> movido com sucesso (categoria: sem categoria, ' |
-| PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado: <#1015> 🎉 (copiei tópico, NSFW, modo lento, c' |
+| PASS | `create_channels cria na raiz de verdade` | chamou create_() e respondeu 'Pronto! Criei 3 canal(is): <#canal> <#canal> <#canal> 🎉 (✅ 3/3 ' |
+| PASS | `create_channels cria DENTRO de categoria` | chamou create_() e respondeu 'Pronto! Criei 2 canal(is): <#canal> <#canal> 🎉 (✅ 2/2 concluíd' |
+| PASS | `edit_channel edita de verdade` | chamou edit() e respondeu 'Canal <#canal> atualizado com sucesso (name, nsfw, slowmode_d' |
+| PASS | `move_channel move de verdade` | chamou edit() e respondeu 'Canal <#canal> movido com sucesso (categoria: sem categoria, ' |
+| PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado: <#canal> 🎉 (copiei tópico, NSFW, modo lento, c' |
 | PASS | `delete_channels apaga de verdade (1 canal)` | chamou delete() e respondeu '🗑️ Exclusão concluída: #descartavel-spy (✅ 1/1 concluídos co' |
 | PASS | `delete_channels NUNCA apaga o canal da conversa` | canal da conversa preservado no lote, com aviso na resposta; pedido só dele é recusado explicando o caminho (clear_messages) |
 | PASS | `delete_channels em lote: modo direto apaga na hora` | 2 canais apagados direto, com o resultado na resposta |
@@ -81,9 +81,9 @@
 | PASS | `corredores de LLM na corrida` | kilo/tools |
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
-| PASS | `servidores do bot` | 1: Pinguim (1546763083005825084) |
+| PASS | `servidores do bot` | 1: Servidor-1 (<id>) |
 | PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 69ms |
-| PASS | `servidor e autor do teste` | servidor de teste: Pinguim (1546763083005825084) · autor: ek8a (administrador) |
+| PASS | `servidor e autor do teste` | servidor de teste: Servidor-1 (<id>) · autor: Pessoa-1 (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
 `audit` — ✅ 5 · ❌ 0 · ⚠️ 1 · ⏭️ 0
@@ -102,11 +102,11 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `server_info` | 📊 **Informações de Pinguim:** · • **ID:** `1546763083005825084` · • **Dono:** <@1521612392105250836> · • **Membros:** 4 · • **Canais:** 1 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.45700 |
+| PASS | `server_info` | 📊 **Informações de Servidor-1:** · • **ID:** `<id>` · • **Dono:** <@pessoa> · • **Cargo-7s:** 4 · • **Canais:** 1 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.45700 |
 | PASS | `performance_report (tempo das respostas)` | Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). Me peça de novo depois de algumas tarefas. |
 | PASS | `list_roles` | listou os 4 cargos reais com menção e posição |
 | PASS | `export_structure (JSON válido e completo)` | 0 categorias, 1 canais e 3 cargos exportados em JSON válido |
-| PASS | `show_permissions` | O canal <#1550640448442212453> não possui permissões personalizadas configuradas. |
+| PASS | `show_permissions` | O canal <#canal> não possui permissões personalizadas configuradas. |
 | PASS | `resolve por ID e por menção` | 1 canais e 4 cargos resolvidos por ID e por menção |
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
@@ -115,11 +115,11 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'iTinder', 'Cupido'] |
+| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'Cargo-2', 'Cargo-1'] |
 | PASS | `tempo de cada ida ao modelo` | 1 chamada(s) ao modelo: mediana **2.7s** (2.7s) · corredores que responderam: kilo |
 | PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor (canais, cargos, permissõe' |
 | WARN | `agente: resposta com dados reais (sem listar nomes)` | o modelo respondeu com o resumo do servidor (dados reais conferidos na API) em vez de listar categorias/canais por nome |
-| PASS | `agente conhece a estrutura real` | respondeu com dados reais do servidor (nome do servidor (Pinguim), menção do dono, canais=1, cargos=4) |
+| PASS | `agente conhece a estrutura real` | respondeu com dados reais do servidor (nome do servidor (Servidor-1), menção do dono, canais=1, cargos=4) |
 | PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
@@ -158,7 +158,7 @@
 | PASS | `medição: performance_report responde o tempo real` | resposta de 124 caracteres · 'Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). Me peça ' |
 | PASS | `cargos: editar cada propriedade e ver o efeito real` | cada propriedade verificada no servidor: nome; cor; hoist+mentionable; permissões (substituição); troca de conjunto sem acumular; posição (pedida 1, ficou 1, teto do bot 27) |
 | FAIL | `cargos: valores inválidos, @everyone e hierarquia` | mensagem de hierarquia confusa: O cargo 'Atlas' é gerenciado por uma integração ou aplicativo e não pode ser modificado. |
-| PASS | `cargos: dar e tirar de um membro (estado real)` | cargo dado e removido de asta, conferido na API em cada passo |
+| PASS | `cargos: dar e tirar de um membro (estado real)` | cargo dado e removido de Cargo-12, conferido na API em cada passo |
 | WARN | `canais: tipo stage` | stage: Falha ao criar canais: canal de palco (stage) só existe em servidor com o recurso **Comunidade** ativado — sem isso o Discord recusa a criação. |
 | PASS | `canais: todos os tipos suportados (tipo real na API)` | tipos reais conferidos na API: text→text, voice→voice, category→category, forum→forum |
 | PASS | `canais: tópico, NSFW, slowmode, bitrate e limite na criação` | texto: tópico, nsfw, slowmode 30s, categoria · voz: bitrate 96000, limite 4 — tudo conferido na API |
@@ -179,7 +179,7 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (1550653671984078931) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (<id>) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **atlas**, especialista em estruturar e organi' |

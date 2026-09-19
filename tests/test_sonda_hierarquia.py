@@ -30,8 +30,8 @@ CARGO_BOT = {"id": "1", "name": "Atlas", "position": 1, "managed": True,
 CARGOS = [
     {"id": "9", "name": "@everyone", "position": 0, "is_default": True, "permissions": "0"},
     CARGO_BOT,
-    {"id": "2", "name": "Cupido", "position": 25, "permissions": "0"},
-    {"id": "3", "name": "asta", "position": 24, "permissions": "0"},
+    {"id": "2", "name": "Cargo Teste", "position": 25, "permissions": "0"},
+    {"id": "3", "name": "Cargo Antigo", "position": 24, "permissions": "0"},
 ]
 
 
@@ -89,7 +89,7 @@ class RoteiroDeRespostas:
         if metodo == "GET" and caminho == "/users/@me":
             return 200, {"id": "555", "username": "Atlas"}
         if metodo == "GET" and caminho == "/users/@me/guilds":
-            return 200, [{"id": "777", "name": "Pinguim"}]
+            return 200, [{"id": "777", "name": "Servidor-Teste"}]
         if metodo == "GET" and caminho == "/guilds/777/roles":
             return 200, CARGOS
         if metodo == "GET" and caminho == "/guilds/777/roles/42":
@@ -99,7 +99,7 @@ class RoteiroDeRespostas:
         if metodo == "GET" and caminho == "/guilds/777/members/999":
             return 200, {"roles": ["2"]}
         if metodo == "GET" and caminho == "/guilds/777":
-            return 200, {"owner_id": "999", "name": "Pinguim"}
+            return 200, {"owner_id": "999", "name": "Servidor-Teste"}
         if metodo == "POST" and caminho == "/guilds/777/roles":
             return 201, {"id": "42", "name": kwargs["json"]["name"], "position": 1}
         if metodo == "PATCH" and caminho == "/guilds/777/roles/42":
@@ -137,7 +137,7 @@ class TestVisaoDosCargos(unittest.TestCase):
         membro = {"roles": ["1", "2"]}
         topo = sonda._topo_do_membro(membro, CARGOS)
         assert topo is not None
-        self.assertEqual(topo["name"], "Cupido")
+        self.assertEqual(topo["name"], "Cargo Teste")
         self.assertEqual(topo["position"], 25)
 
     def test_topo_do_membro_sem_cargos(self) -> None:
@@ -275,7 +275,7 @@ class TestSondaAoVivoComDuplo(unittest.TestCase):
     def test_excecao_inesperada_publica_o_rastro(self) -> None:
         original = sonda.sondar
 
-        async def explode(guild_id: str | None, outdir: pathlib.Path) -> int:
+        async def explode(guild_id: str | None, outdir: pathlib.Path, _anon: Any = None) -> int:
             raise RuntimeError("quebrou de propósito")
 
         sonda.sondar = explode  # type: ignore[assignment]
@@ -366,7 +366,7 @@ class TestCorDoAvatarDaSonda(unittest.TestCase):
         for nome in ("core", "discord"):
             sys.modules[nome] = None  # type: ignore[assignment] - faz `import <nome>` explodir
         try:
-            look = sonda._medidor_de_cor()
+            look = sonda._modulo_do_core("look")
         finally:
             for nome, antes in guardados.items():
                 if antes is None:
@@ -376,6 +376,9 @@ class TestCorDoAvatarDaSonda(unittest.TestCase):
         self.assertTrue(hasattr(look, "cor_de_destaque"))
         self.assertEqual(look.__file__, str(pathlib.Path(sonda.__file__).resolve().parents[1]
                                             / "core" / "look.py"))
+        anon = sonda._modulo_do_core("anonimo")
+        self.assertTrue(hasattr(anon, "Anonimizador"),
+                        "o disfarce dos relatórios também tem que carregar sem o discord.py")
 
     def test_sem_avatar_registra_o_motivo_e_nao_quebra(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -416,6 +419,67 @@ class TestCorDoAvatarDaSonda(unittest.TestCase):
             texto = (outdir / "cor-do-avatar.txt").read_text(encoding="utf-8")
         self.assertIsNone(cor)
         self.assertIn("HTTP 503", texto)
+
+
+class TestRelatorioNaoExpoeOCliente(unittest.TestCase):
+    """O relatório da sonda vai para um repositório PÚBLICO (e o log do Actions também)."""
+
+    def _rodar(self) -> tuple[str, str]:
+        original = sonda.Sondagem
+        sonda.Sondagem = lambda token: FakeAPI(token, RoteiroDeRespostas())  # type: ignore[assignment]
+        os.environ["DISCORD_TOKEN"] = "token-falso-de-teste"
+        try:
+            with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+                rc = asyncio.run(sonda.sondar(None, pathlib.Path(tmp)))
+                self.assertEqual(rc, 0)
+                md = (pathlib.Path(tmp) / "sonda-hierarquia.md").read_text(encoding="utf-8")
+                js = (pathlib.Path(tmp) / "sonda-hierarquia.json").read_text(encoding="utf-8")
+        finally:
+            sonda.Sondagem = original  # type: ignore[assignment]
+        return md, js
+
+    def test_nomes_de_cargo_do_cliente_saem(self) -> None:
+        md, js = self._rodar()
+        self.assertNotIn("Cargo Teste", md + js, "cargo de cliente não pode ir para o repositório")
+        self.assertNotIn("Cargo Antigo", md + js)
+        self.assertIn("Cargo-", md, "o lugar vira apelido estável, para o relatório continuar útil")
+
+    def test_id_do_servidor_sai(self) -> None:
+        md, js = self._rodar()
+        import re
+
+        for texto, nome in ((md, "markdown"), (js, "json")):
+            self.assertIsNone(re.search(r"(?<!\d)\d{17,20}(?!\d)", texto),
+                              f"sobrou ID no {nome} da sonda")
+
+    def test_o_cargo_do_proprio_bot_fica_visivel(self) -> None:
+        # É ele que o dono precisa achar na lista do Discord para arrastar para cima.
+        md, _ = self._rodar()
+        self.assertIn("Atlas", md)
+
+    def test_sem_disfarce_nao_publica_o_relatorio(self) -> None:
+        """Falha FECHADO: sem o disfarce, sai aviso em vez do relatório com os dados."""
+        class SemDisfarce:
+            def registrar(self, *_a: Any, **_k: Any) -> str:
+                return ""
+
+            def registrar_varios(self, *_a: Any, **_k: Any) -> None:
+                return None
+
+            def mascarar(self, *_a: Any, **_k: Any) -> str:
+                raise RuntimeError("disfarce fora do ar")
+
+            def mascarar_estrutura(self, *_a: Any, **_k: Any) -> Any:
+                raise RuntimeError("disfarce fora do ar")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            sonda._gravar(pathlib.Path(tmp), ["## Servidor Servidor-Teste (`1546763083005825084`)"],
+                          {"guilds": [{"nome": "Servidor-Teste"}]}, SemDisfarce())
+            md = (pathlib.Path(tmp) / "sonda-hierarquia.md").read_text(encoding="utf-8")
+            js = (pathlib.Path(tmp) / "sonda-hierarquia.json").read_text(encoding="utf-8")
+        self.assertIn("retido", md)
+        self.assertNotIn("Servidor-Teste", md + js)
+        self.assertNotIn("1546763083005825084", md + js)
 
 
 if __name__ == "__main__":

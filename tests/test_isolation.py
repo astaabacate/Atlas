@@ -108,14 +108,14 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
 
         memoria = ChannelMemory()
         llm = FakeLLM([
-            LLMResponse(content="No servidor A eu guardei: Pinguim.", tool_calls=[]),
+            LLMResponse(content="No servidor A eu guardei: Servidor-Teste.", tool_calls=[]),
             LLMResponse(content="No servidor B não sei de nada.", tool_calls=[]),
         ])
         agent = Agent(llm_provider=llm, memory=memoria, confirm_destructive=True)
         ator = SimpleNamespace(id=1, guild_permissions=SimpleNamespace(administrator=True))
 
         asyncio.run(agent.process_turn(guild=servidor_a, channel=canal_a, actor=ator,
-                                       prompt="Guarde: Pinguim"))
+                                       prompt="Guarde: Servidor-Teste"))
         asyncio.run(agent.process_turn(guild=servidor_b, channel=canal_b, actor=ator,
                                        prompt="Qual o apelido?"))
 
@@ -123,9 +123,9 @@ class TestAgenteIsoladoPorServidor(unittest.TestCase):
         chave_b = memory_key(servidor_b.id, canal_b.id)
         self.assertEqual(len(memoria.get_history(chave_a)), 2)   # user + assistente
         self.assertEqual(len(memoria.get_history(chave_b)), 2)
-        self.assertNotIn("Pinguim", " ".join(m["content"] for m in memoria.get_history(chave_b)))
+        self.assertNotIn("Servidor-Teste", " ".join(m["content"] for m in memoria.get_history(chave_b)))
         # o segundo turno do servidor B não recebeu o histórico do A como contexto
-        self.assertNotIn("Pinguim", " ".join(llm.prompts[1:]))
+        self.assertNotIn("Servidor-Teste", " ".join(llm.prompts[1:]))
 
     def test_confirmacao_pendente_e_por_conversa(self) -> None:
         """O 'sim' no servidor B não pode autorizar um lote pedido no servidor A."""

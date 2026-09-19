@@ -25,37 +25,37 @@ melhores corredores gratuitos sem chave.**
 
 ---
 
-## 2. Tabela geral
+## 2. Tabela Canal-2
 
 Legenda: **GL** = grátis permanente · ⚠️ = incerto/relato de terceiros · 🚫 = exige cartão/trial.
 
 | # | Provedor | Base URL | Modelo (exemplo) | Contexto | Free tier | Limite | Por IP/conta/key | Cartão? | OpenAI API? | /models | Tools | Datacenter | PT-BR | Status | Fonte oficial / data |
 |---:|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | **Google AI Studio (Gemini)** | `generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` / `3-flash` | **1M** | GL | 10–15 RPM; **250–1.500 RPD** ⚠️ fontes divergem | **conta/projeto** ⭐ | Não | ✅ (openai-compat) | ✅ | ✅ nativo | ✅ | Excelente | [ai.google.dev/pricing](https://ai.google.dev/gemini-api/docs/rate-limits) · set/2026 |
-| 2 | **Cloudflare Workers AI** | `api.cloudflare.com/client/v4/accounts/{id}/ai/v1` | `@cf/zai-org/glm-5.3-flash`, `@cf/google/gemma-4-26b-a4b-it` | **256K–1.3M** | GL | **10.000 neurônios/dia** (≈ 49k–287k tokens/dia conforme o modelo) | **conta** ⭐ | Não | ✅ (REST OpenAI-compat) | ⚠️ catálogo via API | ✅ | ✅ | Bom | [developers.cloudflare.com/workers-ai/platform/pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) · 28/08/2026 |
-| 3 | **Groq** | `api.groq.com/openai/v1` | `openai/gpt-oss-120b` | 128K | GL | 30 RPM · 1.000 RPD · **200K tokens/dia** (8B: 14.400 RPD/500K TPD) | **organização** (mais chaves não multiplicam) | Não | ✅ | ✅ | ✅ nativo | ✅ | Excelente | [console.groq.com/docs/rate-limits](https://console.groq.com/docs/rate-limits) · 06/09/2026 |
-| 4 | **Mistral (Experiment)** | `api.mistral.ai/v1` | `mistral-large-latest` | **256K** | GL | **~1 B tokens/mês** · ~1–2 RPM · 500K TPM | **workspace/conta** ⭐ | Não (telefone) | ✅ | ✅ | ✅ nativo | ✅ | Muito bom | [console.mistral.ai](https://docs.mistral.ai/deployment/laplateforme/tier/) · 28/07/2026 |
-| 5 | **Kilo Gateway** | `api.kilo.ai/api/gateway` | `qwen/qwen3-coder:free`, `z-ai/glm-5:free` | 128K–1M | GL | **200 req/h por IP** (anônimo) | **IP** (anônimo) / conta se logar | Não | ✅ | ✅ (`/api/gateway/models` sem auth) | ✅ | ✅ | Bom | [kilo.ai/docs](https://kilo.ai) + [itsfree.ai/provider/kilo-code](https://itsfree.ai/provider/kilo-code/) · 14/05/2026 |
-| 6 | **NVIDIA NIM (build.nvidia.com)** | `integrate.api.nvidia.com/v1` | `moonshotai/kimi-k2.6`, `qwen/qwen3.5-*` | 128K–262K | GL | 1.000–5.000 créditos (⚠️ relatos: limite removido) · 40 RPM | **conta** ⭐ | Não | ✅ | ✅ | ✅ nativo | ✅ | Bom | [build.nvidia.com](https://build.nvidia.com) · 19/08/2026 |
-| 7 | **Z.ai (GLM Flash)** | `api.z.ai/api/paas/v4` | `glm-4.7-flash`, `glm-4.5-flash` | 131K+ | GL ($0/token) | ~1 req/s · **~1.000 req/dia** ⚠️ (3ºs) | **conta** ⭐ | Não | ✅ | ⚠️ | ✅ nativo | ✅ | Bom | [docs.z.ai](https://docs.z.ai) · 07/09/2026 |
+| 1 | Cargo-1 | `generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` / `3-flash` | **1M** | GL | 10–15 RPM; **250–1.500 RPD** ⚠️ fontes divergem | **conta/projeto** ⭐ | Não | ✅ (openai-compat) | ✅ | ✅ nativo | ✅ | Excelente | [ai.google.dev/pricing](https://ai.google.dev/gemini-api/docs/rate-limits) · set/2026 |
+| 2 | Cargo-2 | `api.cloudflare.com/client/v4/accounts/{id}/ai/v1` | `@cf/zai-org/glm-5.3-flash`, `@cf/google/gemma-4-26b-a4b-it` | **256K–1.3M** | GL | **10.000 neurônios/dia** (≈ 49k–287k tokens/dia conforme o modelo) | **conta** ⭐ | Não | ✅ (REST OpenAI-compat) | ⚠️ catálogo via API | ✅ | ✅ | Bom | [developers.cloudflare.com/workers-ai/platform/pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) · 28/08/2026 |
+| 3 | Cargo-3 | `api.groq.com/openai/v1` | `openai/gpt-oss-120b` | 128K | GL | 30 RPM · 1.000 RPD · **200K tokens/dia** (8B: 14.400 RPD/500K TPD) | **organização** (mais chaves não multiplicam) | Não | ✅ | ✅ | ✅ nativo | ✅ | Excelente | [console.groq.com/docs/rate-limits](https://console.groq.com/docs/rate-limits) · 06/09/2026 |
+| 4 | Cargo-4 | `api.mistral.ai/v1` | `mistral-large-latest` | **256K** | GL | **~1 B tokens/mês** · ~1–2 RPM · 500K TPM | **workspace/conta** ⭐ | Não (telefone) | ✅ | ✅ | ✅ nativo | ✅ | Muito bom | [console.mistral.ai](https://docs.mistral.ai/deployment/laplateforme/tier/) · 28/07/2026 |
+| 5 | Cargo-5 | `api.kilo.ai/api/gateway` | `qwen/qwen3-coder:free`, `z-ai/glm-5:free` | 128K–1M | GL | **200 req/h por IP** (anônimo) | **IP** (anônimo) / conta se logar | Não | ✅ | ✅ (`/api/gateway/models` sem auth) | ✅ | ✅ | Bom | [kilo.ai/docs](https://kilo.ai) + [itsfree.ai/provider/kilo-code](https://itsfree.ai/provider/kilo-code/) · 14/05/2026 |
+| 6 | Cargo-6 | `integrate.api.nvidia.com/v1` | `moonshotai/kimi-k2.6`, `qwen/qwen3.5-*` | 128K–262K | GL | 1.000–5.000 créditos (⚠️ relatos: limite removido) · 40 RPM | **conta** ⭐ | Não | ✅ | ✅ | ✅ nativo | ✅ | Bom | [build.nvidia.com](https://build.nvidia.com) · 19/08/2026 |
+| 7 | Cargo-7 | `api.z.ai/api/paas/v4` | `glm-4.7-flash`, `glm-4.5-flash` | 131K+ | GL ($0/token) | ~1 req/s · **~1.000 req/dia** ⚠️ (3ºs) | **conta** ⭐ | Não | ✅ | ⚠️ | ✅ nativo | ✅ | Bom | [docs.z.ai](https://docs.z.ai) · 07/09/2026 |
 | 8 | **Ollama Cloud** | `api.ollama.com/v1` (wrapper OpenAI) | `gpt-oss:120b`, `minimax-m3` | 131K–**1M** | GL (créditos mensais iniciais) | créditos/mês · **1 requisição concorrente** | **conta** ⭐ | Não | ✅ (wrapper) | ✅ | ✅ (tools em vários) | ⚠️ | Potencial | [docs.ollama.com/cloud](https://docs.ollama.com/cloud) · 28/08/2026 |
-| 9 | **OVHcloud AI Endpoints** | `oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `Qwen3-Coder-30B-A3B-Instruct` | até 262K | GL | **anônimo: 2 req/min** · **com token: 400 RPM** ⚠️ (tracker, não doc oficial) | IP (anônimo) / **conta** (token) ⭐ | Não | ✅ | ✅ | ⚠️ | ✅ | **Corredor atual — candidato a ganho alto com token grátis** | [endpoints.ai.cloud.ovh.net](https://endpoints.ai.cloud.ovh.net) · 21/08/2026 |
-| 10 | **LLM7.io** | `api.llm7.io/v1` | `gpt-4o-mini`, `gpt-oss-120b` | 128K | GL | **~60 req/h** anônimo (mais com token) | IP / conta | Não | ✅ | ✅ | ✅ nativo | ✅ | **Corredor atual** | [llm7.io](https://llm7.io) · 08/2026 |
-| 11 | **Pollinations** | `gen.pollinations.ai/v1` (novo) / `text.pollinations.ai/openai` | `openai`, `openai-fast` | ~128K | GL | **~1 req/15s** anônimo ("queue full" no pico) | IP / conta | Não | ✅ | ✅ | ⚠️ texto | ✅ | **Corredor atual** | [pollinations.ai](https://pollinations.ai) · 05/07/2026 |
-| 12 | **ModelScope (Alibaba)** | `api-inference.modelscope.cn/v1` | `Qwen/Qwen3.5-35B-A3B` | 131K–**1M** | GL | **2.000 req/dia** (≤200–500 por modelo) ⚠️ | **conta** ⭐ | Não (telefone, na prática chinês) ⚠️ | ✅ | ✅ | ✅ | ⚠️ | Bom, mas cadastro difícil | [modelscope.cn/docs](https://modelscope.cn/docs/model-service/API-Inference/limits) · 30/06/2026 |
-| 13 | **OpenRouter (`:free`)** | `openrouter.ai/api/v1` | `z-ai/glm-5.2:free`, Nemotron, Gemma 4 | até **1M** | GL | 20 RPM · **50 req/dia** (1.000/dia só pagando US$10 uma vez → fora do nosso caso) | **conta** | Não | ✅ | ✅ | ✅ nativo (varia) | ✅ | Reserva útil | [openrouter.ai/docs/api-reference/limits](https://openrouter.ai/docs/api-reference/limits) · 08/09/2026 |
-| 14 | **Cohere (trial)** | `api.cohere.ai/compatibility/v1` | `command-a` / `command-r` | 128K | GL (trial key) | **1.000 chamadas/mês** · 20 RPM · **não comercial** ⚠️ | chave | Não | ✅ (compat.) | ✅ | ✅ | ✅ | Ok como reserva | [docs.cohere.com](https://docs.cohere.com/docs/rate-limits) · 16/08/2026 |
-| 15 | **Vercel AI Gateway** | `ai-gateway.vercel.sh/v1` | roteia p/ vários | varia | 🟡 crédito **US$5/mês** (acaba se um dia comprar) | crédito mensal, não renova após 1ª compra | time/conta | Não p/ começar ⚠️ | ✅ | ✅ | ✅ | ✅ | 🟡 | [vercel.com/docs/ai-gateway/pricing](https://vercel.com/docs/ai-gateway/pricing) · 19/08/2026 |
+| 9 | Cargo-8 | `oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `Qwen3-Coder-30B-A3B-Instruct` | até 262K | GL | **anônimo: 2 req/min** · **com token: 400 RPM** ⚠️ (tracker, não doc oficial) | IP (anônimo) / **conta** (token) ⭐ | Não | ✅ | ✅ | ⚠️ | ✅ | **Corredor atual — candidato a ganho alto com token grátis** | [endpoints.ai.cloud.ovh.net](https://endpoints.ai.cloud.ovh.net) · 21/08/2026 |
+| 10 | Cargo-9 | `api.llm7.io/v1` | `gpt-4o-mini`, `gpt-oss-120b` | 128K | GL | **~60 req/h** anônimo (mais com token) | IP / conta | Não | ✅ | ✅ | ✅ nativo | ✅ | **Corredor atual** | [llm7.io](https://llm7.io) · 08/2026 |
+| 11 | Cargo-10 | `gen.pollinations.ai/v1` (novo) / `text.pollinations.ai/openai` | `openai`, `openai-fast` | ~128K | GL | **~1 req/15s** anônimo ("queue full" no pico) | IP / conta | Não | ✅ | ✅ | ⚠️ texto | ✅ | **Corredor atual** | [pollinations.ai](https://pollinations.ai) · 05/07/2026 |
+| 12 | Cargo-11 | `api-inference.modelscope.cn/v1` | `Qwen/Qwen3.5-35B-A3B` | 131K–**1M** | GL | **2.000 req/dia** (≤200–500 por modelo) ⚠️ | **conta** ⭐ | Não (telefone, na prática chinês) ⚠️ | ✅ | ✅ | ✅ | ⚠️ | Bom, mas cadastro difícil | [modelscope.cn/docs](https://modelscope.cn/docs/model-service/API-Inference/limits) · 30/06/2026 |
+| 13 | Cargo-12 | `openrouter.ai/api/v1` | `z-ai/glm-5.2:free`, Nemotron, Gemma 4 | até **1M** | GL | 20 RPM · **50 req/dia** (1.000/dia só pagando US$10 uma vez → fora do nosso caso) | **conta** | Não | ✅ | ✅ | ✅ nativo (varia) | ✅ | Reserva útil | [openrouter.ai/docs/api-reference/limits](https://openrouter.ai/docs/api-reference/limits) · 08/09/2026 |
+| 14 | Cargo-13 | `api.cohere.ai/compatibility/v1` | `command-a` / `command-r` | 128K | GL (trial key) | **1.000 chamadas/mês** · 20 RPM · **não comercial** ⚠️ | chave | Não | ✅ (compat.) | ✅ | ✅ | ✅ | Ok como reserva | [docs.cohere.com](https://docs.cohere.com/docs/rate-limits) · 16/08/2026 |
+| 15 | Cargo-14 | `ai-gateway.vercel.sh/v1` | roteia p/ vários | varia | 🟡 crédito **US$5/mês** (acaba se um dia comprar) | crédito mensal, não renova após 1ª compra | time/conta | Não p/ começar ⚠️ | ✅ | ✅ | ✅ | ✅ | 🟡 | [vercel.com/docs/ai-gateway/pricing](https://vercel.com/docs/ai-gateway/pricing) · 19/08/2026 |
 | 16 | **LongCat (Meituan)** | `api.longcat.chat/openai/v1` ⚠️ | `LongCat-Flash` | ⚠️ | 🟡 **100K tokens/dia** | diário, renovável ⚠️ | conta | Não | ✅ (+ Anthropic) | ⚠️ | ✅ | ⚠️ | 🟡 investigar | [longcat.chat](https://longcat.chat) · 07/2026 |
-| 17 | **ZenMux** | `zenmux.ai/api/v1` | `z-ai/glm-5.2-free` | 200K+ ⚠️ | 🟡 modelo `-free` | rate-limited (não publicado) | conta (e-mail) | Não | ✅ | ✅ | ⚠️ | ✅ | 🟡 | [zenmux.ai](https://zenmux.ai) · 13/07/2026 |
-| 18 | **SiliconFlow** | `api.siliconflow.cn/v1` | `Qwen3-8B`, `R1-Distill-Qwen-7B` | 131K | 🟡 modelos $0 + US$1 inicial | ~1.000 RPM nos $0 | conta | Não | ✅ | ✅ | ✅ | ⚠️ **excluído na UE/UK/CH** | 🟡 | [siliconflow.com](https://siliconflow.com) · 06/2026 |
+| 17 | Cargo-15 | `zenmux.ai/api/v1` | `z-ai/glm-5.2-free` | 200K+ ⚠️ | 🟡 modelo `-free` | rate-limited (não publicado) | conta (e-mail) | Não | ✅ | ✅ | ⚠️ | ✅ | 🟡 | [zenmux.ai](https://zenmux.ai) · 13/07/2026 |
+| 18 | Cargo-16 | `api.siliconflow.cn/v1` | `Qwen3-8B`, `R1-Distill-Qwen-7B` | 131K | 🟡 modelos $0 + US$1 inicial | ~1.000 RPM nos $0 | conta | Não | ✅ | ✅ | ✅ | ⚠️ **excluído na UE/UK/CH** | 🟡 | [siliconflow.com](https://siliconflow.com) · 06/2026 |
 | 19 | **Nebius AI Studio** | `api.studio.nebius.ai/v1` ⚠️ | `Qwen3-235B-A22B` | 128K | 🟡 free tier reportado | tier-based ⚠️ | conta | ⚠️ relatos divergem | ✅ | ✅ | ✅ | ⚠️ | 🟡 | [studio.nebius.ai](https://studio.nebius.ai) · 17/09/2026 |
 | 20 | **Nscale** | `inference.api.nscale.com/v1` ⚠️ | `Llama-3.3-70B`, `Qwen3-Coder` | 128K | 🟡 fair-use | não publicado | conta | ⚠️ | ✅ | ⚠️ | ✅ | ⚠️ | 🟡 | [nscale.com](https://nscale.com) · 17/09/2026 |
-| 21 | **Chutes.ai** | `llm.chutes.ai/v1` | `DeepSeek-R1`, `Llama-3.1-70B` | 131K | 🟡 **contraditório** | comunidade, sem teto publicado | conta | Não | ✅ | ✅ | ✅ | ⚠️ | 🟡 confirmar antes de usar | [chutes.ai/pricing](https://chutes.ai/pricing) diz "no free tier"; trackers dizem grátis · 08/2026 |
-| 22 | **orcarouter** | `api.orcarouter.ai/v1` | `z-ai/glm-5.3-flash-free`, `deepseek-v4-flash-free` | ⚠️ | 🟡 | quota **esgotada** quando testado (08/09/2026) | conta/IP ⚠️ | ⚠️ | ✅ | ✅ | ⚠️ | ⚠️ | 🟡 relato | issue [FreePeak/onegw#38](https://github.com/FreePeak/onegw/issues/38) · 17/09/2026 |
+| 21 | Cargo-17 | `llm.chutes.ai/v1` | `DeepSeek-R1`, `Llama-3.1-70B` | 131K | 🟡 **contraditório** | comunidade, sem teto publicado | conta | Não | ✅ | ✅ | ✅ | ⚠️ | 🟡 confirmar antes de usar | [chutes.ai/pricing](https://chutes.ai/pricing) diz "no free tier"; trackers dizem grátis · 08/2026 |
+| 22 | Cargo-18 | `api.orcarouter.ai/v1` | `z-ai/glm-5.3-flash-free`, `deepseek-v4-flash-free` | ⚠️ | 🟡 | quota **esgotada** quando testado (08/09/2026) | conta/IP ⚠️ | ⚠️ | ✅ | ✅ | ⚠️ | ⚠️ | 🟡 relato | issue [FreePeak/onegw#38](https://github.com/FreePeak/onegw/issues/38) · 17/09/2026 |
 | 23 | **Aion Labs** | ⚠️ | 11 modelos | ⚠️ | 🟡 20K tokens/dia | diário | conta | Não | ⚠️ | ⚠️ | ⚠️ | ⚠️ | 🟡 baixo valor | tracker freellm · 17/09/2026 |
 | 24 | **Agnes AI / Glhf.chat** | ⚠️ | 5 / 2 modelos | ⚠️ | 🟡 "permanent free" | não publicado | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | 🟡 pouca evidência | tracker freellm · 17/09/2026 |
-| 25 | **Reka** | `api.reka.ai/v1` | Reka Flash/Core | 128K ⚠️ | 🟡 **US$10/mês recorrente** (raro: crédito mensal que renova) | mensal | conta | ⚠️ | ✅ | ⚠️ | ⚠️ | ⚠️ | 🟡 confirmar cartão | freellmapi · 24/08/2026 |
+| 25 | Cargo-19 | `api.reka.ai/v1` | Reka Flash/Core | 128K ⚠️ | 🟡 **US$10/mês recorrente** (raro: crédito mensal que renova) | mensal | conta | ⚠️ | ✅ | ⚠️ | ⚠️ | ⚠️ | 🟡 confirmar cartão | freellmapi · 24/08/2026 |
 
 ### 🟢 Gratuito permanente (no-card confirmado)
 `Google AI Studio` · `Cloudflare Workers AI` · `Groq` · `Mistral Experiment` · `Kilo Gateway (anônimo)` ·
@@ -142,7 +142,7 @@ arquitetura certa**. Recomendações concretas:
 
 1. **Orçamento é por tokens, não por requisições.** O gargalo real hoje: Groq 200K tokens/dia, Gemini
    ~250K TPM, Cloudflare em neurônios. Guardar `tokens_restantes_dia` e estimar o custo da mensagem
-   (prompt + tools ≈ 12k tokens) **antes** de escolher os corredores evita gastar cota em quem já
+   (prompt + tools ≈ 12k tokens) **antes** de escolher os corredores evita gCargo-12r cota em quem já
    estourou.
 2. **Concorrência por provedor** (`asyncio.Semaphore` por corredor): evita que 5 mensagens simultâneas
    disparem 20 chamadas no Kilo anônimo (200/h!) e queimem a cota em 30 segundos.
@@ -154,7 +154,7 @@ arquitetura certa**. Recomendações concretas:
    perde peso. Simples e eficaz: `score = base + bônus_sucesso − penalidade_falha`.
 6. **Terceira onda "barata":** só corredores de contexto grande e cota por conta (Gemini, Mistral,
    Cloudflare) — a primeira onda usa os anônimos (cota gratuita "infinita" mas instável) e as ondas
-   seguintes gastam os corredores com cota contada.
+   seguintes gCargo-12m os corredores com cota contada.
 7. **⚠️ Cuidado com quota de organização:** no Groq o limite é **por organização** — várias chaves da
    mesma conta **não** multiplicam nada. O mesmo vale no Gemini (por projeto, e projeto novo = cota
    nova **só se for uso legítimo**, nunca para burlar limite).

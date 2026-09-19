@@ -102,7 +102,7 @@ class TestEmpateDePosicaoPerguntaAoDiscord(unittest.TestCase):
 
     def test_apagar_cargo_acima_do_bot_nao_gasta_chamada(self) -> None:
         ctx, servidor = _servidor_com_bot_no_chao()
-        cargo = CargoTeimoso("Cupido", 59, 25)
+        cargo = CargoTeimoso("Cargo Teste", 59, 25)
         servidor.roles.append(cargo)
 
         msg = falha("delete_role", {"role": str(cargo.id)}, ctx)
@@ -114,7 +114,7 @@ class TestEmpateDePosicaoPerguntaAoDiscord(unittest.TestCase):
     def test_lote_de_cargos_no_empate_tenta_cada_um(self) -> None:
         ctx, servidor = _servidor_com_bot_no_chao()
         no_chao = CargoTeimoso("🧪 no-chao", 60, 1)
-        acima = CargoTeimoso("Cupido", 61, 25)
+        acima = CargoTeimoso("Cargo Teste", 61, 25)
         servidor.roles.extend([no_chao, acima])
 
         saida = executar("delete_roles", {"roles": [str(no_chao.id), str(acima.id)]}, ctx)

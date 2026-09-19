@@ -72,11 +72,11 @@ no servidor real; `edit_server`/`set_icon` seguem bloqueados por decisão do don
 13. 5xx do Discord (ex.: `503 Service error -27`) matava a criação de cargo/canal e derrubava tudo
     depois. Agora uma segunda tentativa única em erro de infraestrutura (400/403 seguem sem
     repetição) — e a matriz trata 5xx como ⚠️, nunca ✅ nem cascata de ❌.
-14. `server_info` respondia "Membros: None" e "Dono: None" quando o Discord não manda a contagem
+14. `server_info` respondia "Cargo-7s: None" e "Dono: None" quando o Discord não manda a contagem
     ou o dono não está no cache. Agora usa `owner_id` (menção) e o tamanho do cache (ou "?").
 15. `color_name` inventava nome para qualquer coisa ("zzzz" → "Cor #ZZZZ"); `translate_text`
     devolvia o texto original como se fosse tradução quando o tradutor não respondia;
-    `emoji_search` respondia "encontrados:" com a lista vazia; `topic_suggest` usava o tom geral
+    `emoji_search` respondia "encontrados:" com a lista vazia; `topic_suggest` usava o tom Canal-2
     calado para categoria inventada. Todos passaram a admitir o que não fizeram.
 16. Nos provedores sem function calling nativo, a lista de ferramentas do protocolo de texto
     truncava em 40: a ferramenta 41 seria **inalcançável por linguagem natural**. Agora a lista
@@ -107,7 +107,7 @@ escondido:
 
 | ⚠️ | Causa | Dono |
 | --- | --- | --- |
-| `cargos que o bot não consegue gerenciar` | 13 cargos (Cupido, iTinder, Atlas, asta…) **no nível ou acima** do cargo do atlas, que está na posição 1 | dono do servidor: arrastar o cargo do atlas para cima |
+| `cargos que o bot não consegue gerenciar` | 13 cargos (Cargo-1, Cargo-2, Atlas, Cargo-12…) **no nível ou acima** do cargo do atlas, que está na posição 1 | dono do servidor: arrCargo-12r o cargo do atlas para cima |
 | `cargo do atlas no chão do servidor` | o mesmo: o Discord recusa gerenciar cargo no nível do topo do bot | dono do servidor |
 | 3 × `cargos: gerenciar o cargo criado` | consequência direta: a matriz confere a RECUSA (clara, sem alterar nada) e registra que **não pôde** provar edição/inválidos/dar-tirar ao vivo — essas validações seguem cobertas offline | dono do servidor |
 | `canais: tipo stage` | o servidor não tem o recurso **Comunidade**; a mensagem traduzida foi conferida | opcional: ativar Comunidade |
@@ -118,7 +118,7 @@ Nesta rodada o `clear_messages` (que havia falhado com 503 do Discord) passou co
 tentativa, e `export_structure`/`import_structure` fecharam o round-trip completo.
 
 **Sobre os avisos de cargo**: a recusa é conferida de verdade (mensagem clara + nada alterado), por
-isso eles não são ❌. Para virarem ✅ de execução, basta o dono subir o cargo do atlas acima dos
+isso eles não são ❌. Para virarem ✅ de execução, bCargo-12 o dono subir o cargo do atlas acima dos
 cargos de teste — não há correção de código pendente ali.
 
 
@@ -146,7 +146,7 @@ Três causas, medidas:
 | Causa | Correção |
 | --- | --- |
 | **O CI tem UM corredor só.** O relatório do E2E registra `corredores de LLM na corrida: kilo/tools` — nenhuma das 11 chaves gratuitas está cadastrada como secret no repositório (os workflows já passam todas). Qualquer soluço do kilo derruba o turno | estrutural: cadastrar as chaves gratuitas (`GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `COHERE_API_KEY`, …) nos secrets do repositório → a corrida passa a ter 10+ corredores |
-| **O pedido não cabia no modelo** (HTTP 400/413 de contexto/tamanho) era tratado como erro definitivo | `ProviderError.is_context_problem` reconhece o caso e a corrida repete com o histórico CORTADO de forma progressiva (12 → 6 → 3 → 2 mensagens, mantendo o system) sem gastar onda; se ainda não couber, o cliente lê o motivo certo ("a conversa ficou comprida demais… use `limpar conversa`") |
+| **O pedido não cabia no modelo** (HTTP 400/413 de contexto/tamanho) era tratado como erro definitivo | `ProviderError.is_context_problem` reconhece o caso e a corrida repete com o histórico CORTADO de forma progressiva (12 → 6 → 3 → 2 mensagens, mantendo o system) sem gCargo-12r onda; se ainda não couber, o cliente lê o motivo certo ("a conversa ficou comprida demais… use `limpar conversa`") |
 | **O LLM caía DEPOIS de a ferramenta já ter rodado** — a ação estava feita e o cliente achava que não | o agente responde com o RESULTADO REAL da ferramenta em português (antes isso só valia para a última rodada) |
 
 Também: as ondas da corrida subiram de 2 para 3 (com o mesmo teto de tempo total).
@@ -234,7 +234,7 @@ provedores sem function calling: JSON solto no meio da frase (sem cerca de códi
 `{"tool_calls": …}` agora são reconhecidos — recortando o objeto por contagem de chaves, porque
 recorte por regex cortava no primeiro `}`, perdendo os argumentos aninhados. Regressões:
 `test_promessa_sem_acao_cobra_a_ferramenta`, `test_pergunta_de_esclarecimento_nao_vira_cobranca`,
-`test_recusa_de_escopo_nao_vira_cobranca`, `test_apos_executar_nao_gasta_cobranca` e os testes do
+`test_recusa_de_escopo_nao_vira_cobranca`, `test_apos_executar_nao_gCargo-12_cobranca` e os testes do
 parser.
 
 **2. "Devia ser instantâneo" — e por que não era.** Ações de uma ferramenta só já respondem sem
@@ -299,7 +299,7 @@ O que estava **mal no produto** (e foi corrigido agora):
 
 | Problema | Antes | Agora |
 | --- | --- | --- |
-| Não existia exclusão de cargo EM LOTE | "apague todos os cargos" virava uma tentativa por cargo: erro atrás de erro, sem resumo e sem dizer o que fazer | ferramenta nova **`delete_roles`**: apaga o que pode, informa quantos saíram, quantos ficaram e **por quê**, com o caminho exato (Configurações do Servidor → Cargos → arrastar o **atlas** para cima) |
+| Não existia exclusão de cargo EM LOTE | "apague todos os cargos" virava uma tentativa por cargo: erro atrás de erro, sem resumo e sem dizer o que fazer | ferramenta nova **`delete_roles`**: apaga o que pode, informa quantos saíram, quantos ficaram e **por quê**, com o caminho exato (Configurações do Servidor → Cargos → arrCargo-12r o **atlas** para cima) |
 | A recusa era seca | "Suba o cargo do atlas nas configurações de cargos do servidor." (sem dizer onde nem o que acontece) | mensagem completa: posição do cargo × posição do bot + o passo a passo no Discord + "me peça de novo que eu apago de uma vez" |
 | Posição empatada era recusada de chute | o cache do discord.py pode estar velho (já mentiu antes) e o cargo podia ser apagável | quando a posição empata, o bot **tenta de verdade** e relata o que o Discord respondeu |
 | Pior de tudo: **mentira** | quando TODAS as execuções falhavam e o modelo devolvia texto vazio, o bot respondia **"Feito! ✅ Confira no servidor"** | agora responde o motivo real ("❌ Não deu para concluir: …") — nunca mais finge que fez |
@@ -310,7 +310,7 @@ instrução, cargo individual) e `test_falha_em_tudo_nao_vira_feito` no agente.
 
 **Ação do dono (30 segundos, e vale para tudo):** Configurações do Servidor → **Cargos** → arraste o
 cargo do **atlas** para cima dos cargos que ele deve gerenciar. Depois disso, "apague todos os
-cargos" funciona de uma vez — e o cargo do bot passa a conseguir editar/apagar cargos em geral.
+cargos" funciona de uma vez — e o cargo do bot passa a conseguir editar/apagar cargos em Canal-2.
 
 ## O que ainda precisa do dono para ser verificado de verdade
 
@@ -335,7 +335,7 @@ saiu desta rodada:
 | Não existia prova CRUA da regra de hierarquia no servidor do dono | nova sonda `scripts/sonda_hierarquia.py` + workflow **`sonda-hierarquia.yml`**: fala direto com a API do Discord (sem `brain/`, sem cache, sem LLM), cria UM cargo 🧪, tenta renomear, apagar e mover, e publica a resposta crua em `reports/sonda-hierarquia.md` |
 
 Regressões novas: `tests/test_hierarquia_empate.py` (10 testes — empate tenta e funciona; empate
-recusado traduz a resposta real; acima do bot **não gasta chamada**; lote; dar/tirar cargo; posição
+recusado traduz a resposta real; acima do bot **não gCargo-12 chamada**; lote; dar/tirar cargo; posição
 medida na API com cache vazio) e `tests/test_sonda_hierarquia.py` (13 testes — visão de posições,
 permissão, e que a sonda sempre deixa rastro, inclusive quando o token falha).
 
@@ -353,7 +353,7 @@ lista. O que o print mostra e o que a API mede:
 | --- | --- |
 | Print do dono | `@everyone` aparece **primeiro** na lista (no PC ele é o **último**: é o cargo mais fraco de todos) |
 | E2E ao vivo (todas as execuções, via API) | `posicao_cargo_bot = 1` — o cargo do bot é o **mais baixo** da hierarquia, e as 24 demais funções estão ≥ ele |
-| Discord (documentado) | cargo novo nasce no **fundo** da hierarquia; e os três cargos com "1 Membro" (`Cupido`, `iTinder`, `Atlas`) são exatamente os **três bots** do servidor (4 membros = dono + 3 bots) |
+| Discord (documentado) | cargo novo nasce no **fundo** da hierarquia; e os três cargos com "1 Cargo-7" (`Cargo-1`, `Cargo-2`, `Atlas`) são exatamente os **três bots** do servidor (4 membros = dono + 3 bots) |
 
 Ou seja: no celular a tela vai do **mais fraco (topo)** ao **mais forte (fim)** — o `Atlas` ser o 3º de
 cima significa que ele é o 3º mais FRACO, não o 3º mais forte. E o `@everyone` encabeçando a lista é a
@@ -392,8 +392,8 @@ MESMA posição do topo do bot, o Discord **não mantém o empate** — ele colo
   Discord, e agora está medida: o Discord sequer deixa o cargo empatar.
 
 Erro da própria sonda corrigido nesta rodada: o cálculo de permissão ignorava o **bypass de
-Administrator** e imprimia "Gerenciar Cargos: NÃO" para um bot administrador (alarme falso). Agora
-a sonda imprime o número cru das permissões medidas e considera Administrator.
+Cargo-3istrator** e imprimia "Gerenciar Cargos: NÃO" para um bot administrador (alarme falso). Agora
+a sonda imprime o número cru das permissões medidas e considera Cargo-3istrator.
 
 Regressões acrescentadas: `test_empate_apagar_aceito_prova_que_a_regra_nao_bloqueia_posicao_igual`,
 `test_empate_recusado_cai_para_mover_e_apagar` e `test_permissao_conta_administrator`.

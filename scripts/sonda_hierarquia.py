@@ -42,25 +42,25 @@ import aiohttp
 API = "https://discord.com/api/v10"
 
 
-def _medidor_de_cor():
-    """Carrega core/look.py pelo caminho do arquivo.
+def _modulo_do_core(nome_arquivo: str):
+    """Carrega um módulo de `core/` pelo caminho do arquivo.
 
     A sonda roda com uma dependência só (aiohttp): `import core.look` puxaria o `__init__` do
-    pacote, que importa o discord.py e quebraria aqui. O módulo da cor é puro stdlib.
+    pacote, que importa o discord.py e quebraria aqui. Esses módulos são puro stdlib.
     """
     import importlib.util
 
-    caminho = Path(__file__).resolve().parents[1] / "core" / "look.py"
-    spec = importlib.util.spec_from_file_location("look_da_sonda", caminho)
+    caminho = Path(__file__).resolve().parents[1] / "core" / f"{nome_arquivo}.py"
+    spec = importlib.util.spec_from_file_location(f"{nome_arquivo}_da_sonda", caminho)
     if spec is None or spec.loader is None:  # pragma: no cover - só em instalação quebrada
-        raise ImportError(f"não achei o medidor de cor em {caminho}")
+        raise ImportError(f"não achei {caminho}")
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
     return modulo
 
 
 try:
-    _look = _medidor_de_cor()
+    _look = _modulo_do_core("look")
     cor_de_destaque, hex_da_cor, pixels_do_png = (
         _look.cor_de_destaque,
         _look.hex_da_cor,
@@ -78,6 +78,26 @@ except Exception as exc:  # noqa: BLE001 - a sonda segue sem a cor
 
     def hex_da_cor(_c: int) -> str:
         return "#??????"
+
+
+try:
+    _anonimo = _modulo_do_core("anonimo")
+    Anonimizador = _anonimo.Anonimizador
+except Exception:  # noqa: BLE001 - sem o disfarce, a sonda não publica nome de ninguém
+    class Anonimizador:  # type: ignore[no-redef]
+        """Sem o módulo do disfarce: nada é publicado no lugar de um dado real."""
+
+        def registrar(self, _nome: Any, _categoria: str) -> str:
+            return ""
+
+        def registrar_varios(self, _nomes: Any, _categoria: str) -> None:
+            return None
+
+        def mascarar(self, texto: Any) -> str:
+            raise RuntimeError("módulo core/anonimo.py não carregou")
+
+        def mascarar_estrutura(self, dado: Any) -> Any:
+            raise RuntimeError("módulo core/anonimo.py não carregou")
 MARCA = "🧪 sonda-hierarquia"
 
 
@@ -172,7 +192,25 @@ ADMINISTRATOR = 1 << 3
 
 # --------------------------------------------------------------------------- sonda
 
-def _gravar(outdir: Path, linhas: list[str], dados: dict[str, Any]) -> None:
+def _pub(anon: Any, linhas: list[str], dados: dict[str, Any]) -> tuple[str, str]:
+    """
+    Tira os dados do servidor de quem usa o bot antes de publicar (o repo e o log são PÚBLICOS).
+
+    Falha FECHADO: se o disfarce não funcionar, sai um aviso no lugar do relatório — melhor um
+    relatório vazio do que o nome e os IDs do servidor de alguém expostos.
+    """
+    try:
+        linhas_ok = [anon.mascarar(linha) for linha in linhas]
+        dados_ok = anon.mascarar_estrutura(dados)
+        return "\n".join(linhas_ok) + "\n", json.dumps(dados_ok, ensure_ascii=False, indent=2)
+    except Exception as exc:  # noqa: BLE001 - fail-closed
+        aviso = ("# Sonda de hierarquia — relatório retido\n\n"
+                 f"- ⚠️ O disfarce dos dados não funcionou ({exc}); nada foi publicado, para não "
+                 "expor nome/ID de servidor, canal ou cargo.\n")
+        return aviso, json.dumps({"retido": str(exc)}, ensure_ascii=False, indent=2)
+
+
+def _gravar(outdir: Path, linhas: list[str], dados: dict[str, Any], anon: Any) -> None:
     """
     Grava o relatório ANTES de qualquer saída — inclusive quando a sonda morre no meio.
 
@@ -180,15 +218,17 @@ def _gravar(outdir: Path, linhas: list[str], dados: dict[str, Any]) -> None:
     (o log do job demora a ficar baixável).
     """
     outdir.mkdir(parents=True, exist_ok=True)
-    (outdir / "sonda-hierarquia.md").write_text("\n".join(linhas) + "\n", encoding="utf-8")
-    (outdir / "sonda-hierarquia.json").write_text(
-        json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
+    markdown, json_ = _pub(anon, linhas, dados)
+    (outdir / "sonda-hierarquia.md").write_text(markdown, encoding="utf-8")
+    (outdir / "sonda-hierarquia.json").write_text(json_, encoding="utf-8")
 
 
-async def sondar(guild_id: str | None, outdir: Path) -> int:
+async def sondar(guild_id: str | None, outdir: Path, anon: Any = None) -> int:
     linhas: list[str] = []
     dados: dict[str, Any] = {"gerado_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                              "guilds": []}
+    # O relatório vai para um repositório PÚBLICO: nome de servidor, de cargo e IDs saem dele.
+    anon = anon or Anonimizador()
 
     token = os.environ.get("DISCORD_TOKEN", "").strip()
     if not token:
@@ -196,7 +236,7 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
         linhas.append("")
         linhas.append("- ❌ `DISCORD_TOKEN` está VAZIO no ambiente do job: o segredo "
                       "`DISCORD_TOKEN` não chegou até aqui. Nada foi testado no Discord.")
-        _gravar(outdir, linhas, dados)
+        _gravar(outdir, linhas, dados, anon)
         print("::error title=sonda::DISCORD_TOKEN vazio — nada a testar")
         return 2
 
@@ -208,7 +248,7 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
             linhas.append(f"- ❌ O Discord recusou o token do segredo "
                           f"`DISCORD_TOKEN` (HTTP {st}: {_erro(eu)}). "
                           "Nada foi testado — se o token foi trocado, atualize o segredo.")
-            _gravar(outdir, linhas, dados)
+            _gravar(outdir, linhas, dados, anon)
             print(f"::error title=sonda::token recusado (HTTP {st}: {_erro(eu)})")
             return 2
         bot_id = str(eu["id"])
@@ -228,7 +268,7 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
         st, guilds = await api.pedir("GET", "/users/@me/guilds")
         if st != 200 or not isinstance(guilds, list):
             linhas.append(f"- ❌ não listei servidores (HTTP {st}: {_erro(guilds)}).")
-            _gravar(outdir, linhas, dados)
+            _gravar(outdir, linhas, dados, anon)
             print(f"::error title=sonda::não listei servidores (HTTP {st}: {_erro(guilds)})")
             return 2
 
@@ -236,7 +276,7 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
         if not alvos:
             linhas.append(f"- ❌ o servidor `{guild_id}` não está na minha lista "
                           f"({len(guilds)} servidor(es) visíveis).")
-            _gravar(outdir, linhas, dados)
+            _gravar(outdir, linhas, dados, anon)
             print(f"::error title=sonda::servidor {guild_id} não está na lista do bot")
             return 2
 
@@ -258,6 +298,7 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
             if dono_id:
                 st_d, membro_dono = await api.pedir("GET", f"/guilds/{gid}/members/{dono_id}")
 
+            anon.registrar(g.get("name"), "servidor")
             cargos_ordenados = sorted(cargos, key=lambda c: -int(c.get("position", 0)))
             ids_do_bot = set(membro.get("roles") or [])
             meus_cargos = [c for c in cargos if str(c["id"]) in ids_do_bot]
@@ -281,6 +322,15 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
             linhas.append("")
             linhas.append("| Posição | Cargo | ID | Gerenciado | Situação para o bot |")
             linhas.append("| --- | --- | --- | --- | --- |")
+            # Nome de cargo de cliente vira "Cargo-N". O cargo do PRÓPRIO bot fica visível: é
+            # ele que o dono precisa achar na lista para arrastar para cima.
+            nome_do_meu = (topo or {}).get("name")
+            for c in cargos_ordenados:
+                nome_do_cargo = str(c.get("name") or "")
+                # @everyone (e cargos de sistema) é igual em todo servidor: não é dado de ninguém.
+                if c.get("name") == nome_do_meu or c.get("is_default") or nome_do_cargo.startswith("@"):
+                    continue
+                anon.registrar(nome_do_cargo, "cargo")
             for c in cargos_ordenados:
                 pos = int(c.get("position", 0))
                 if c.get("is_default"):
@@ -303,8 +353,9 @@ async def sondar(guild_id: str | None, outdir: Path) -> int:
                 "pos_dono": pos_dono, "experimento": experimento["dados"],
             })
 
-    _gravar(outdir, linhas, dados)
-    print("\n".join(linhas))
+    _gravar(outdir, linhas, dados, anon)
+    markdown, _ = _pub(anon, linhas, dados)
+    print(markdown)
     return 0
 
 
@@ -480,14 +531,17 @@ def main() -> int:
                         or os.environ.get("E2E_GUILD_ID") or None)
     args = parser.parse_args()
     outdir = Path(args.outdir)
+    anon = Anonimizador()
     try:
-        return asyncio.run(sondar(args.guild_id, outdir))
+        return asyncio.run(sondar(args.guild_id, outdir, anon))
     except Exception:  # noqa: BLE001 - a sonda precisa deixar rastro no branch, não só no log
         import traceback
         rastro = traceback.format_exc()
         print(rastro)
+        # O rastro pode conter nome/ID do servidor: passa pelo mesmo disfarce da publicação.
         _gravar(outdir, ["# Sonda de hierarquia de cargos — FALHOU", "",
-                         "```", rastro.strip()[-4000:], "```"], {"erro": rastro.strip()})
+                         "```", rastro.strip()[-4000:], "```"], {"erro": rastro.strip()},
+                anon)
         print("::error title=sonda::a sonda levantou exceção — rastro publicado no branch")
         return 1
 
