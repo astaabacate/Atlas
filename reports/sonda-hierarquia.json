@@ -1,11 +1,11 @@
 {
-  "gerado_em": "2026-09-19T00:46:08Z",
+  "gerado_em": "2026-09-19T00:54:02Z",
   "guilds": [
     {
       "id": "<id>",
       "nome": "Servidor-1",
       "cargos": 4,
-      "pos_bot": 27,
+      "pos_bot": 4,
       "cargo_do_bot": "Atlas",
       "pos_dono": null,
       "experimento": {
