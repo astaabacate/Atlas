@@ -90,8 +90,25 @@ jobs:
           CANAIS_PERMITIDOS: ${{ vars.CANAIS_PERMITIDOS || '' }}
           LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '20' }}
         run: |
-          # Exit 124 = o timeout da fatia mandou parar: é o fim normal, não é erro.
-          timeout 20100s python -m atlas2.run || [ $? -eq 124 ]
+          set -uo pipefail
+          # O log de um job deste repositório às vezes não baixa (erro do GitHub). Então o motivo
+          # de qualquer falha vira ANOTAÇÃO, que sempre chega — inclusive com pedaços da última
+          # resposta do bot.
+          inicio=$(date +%s)
+          timeout 20100s python -m atlas2.run > /tmp/atlas2.log 2>&1
+          codigo=$?
+          echo "TEMPO_RODANDO=$(( $(date +%s) - inicio ))" >> "$GITHUB_ENV"
+          tail -40 /tmp/atlas2.log || true
+          if [ "$codigo" -eq 124 ]; then
+            echo "::notice title=atlas2::fatia concluída em ~5h35m — o bot foi desligado pelo relógio."
+            exit 0
+          fi
+          # mostra o motivo em anotações (últimas linhas, escapadas para não quebrar a anotação)
+          tail -12 /tmp/atlas2.log | while IFS= read -r linha; do
+            linha=$(printf '%s' "$linha" | sed 's/%/%25/g; s/\r//g' | tr -d '\000')
+            [ -n "$linha" ] && echo "::error title=atlas2 falhou (código ${codigo})::$(printf '%s' "$linha" | head -c 400)"
+          done
+          exit "$codigo"
 
       - name: Encadear a próxima fatia
         if: always() && steps.ligado.outputs.sim == 'true'
@@ -101,6 +118,12 @@ jobs:
           set -uo pipefail
           # Só encadeia se ainda estiver ligado e se ninguém já estiver rodando.
           [ -f .github/atlas2-on ] || { echo "desligado — não vou encadear"; exit 0; }
+          # Se a fatia morreu em segundos, encadear só multiplicaria o erro (uma execução nova por
+          # minuto). Nesse caso quem retoma é o cron de 5 em 5 horas, depois do conserto.
+          if [ "${TEMPO_RODANDO:-0}" -lt 300 ]; then
+            echo "::warning title=atlas2::a fatia durou ${TEMPO_RODANDO:-0}s e caiu — NÃO vou encadear (seria erro em série). Veja as anotações acima e o cron cobre depois."
+            exit 0
+          fi
           rodando=$(gh run list --workflow=atlas2.yml --status in_progress --status queued \
                       --json databaseId --jq 'length' 2>/dev/null || echo 1)
           if [ "${rodando:-1}" -gt 1 ]; then
