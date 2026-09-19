@@ -1,0 +1,89 @@
+name: Atlas 2 (novo)
+
+# O bot novo (pasta atlas2/). Roda em fatias de ~5h35m e se reagenda sozinho.
+#
+# LIGAR/DESLIGAR: o arquivo .github/atlas2-on é o interruptor. Com ele no ramo, o bot roda;
+# sem ele, este workflow passa reto (verde, sem fazer nada).
+#
+# IMPORTANTE: só um bot pode estar ligado por vez com o mesmo token — dois processos respondem
+# a mesma mensagem duas vezes. Para ligar o novo, desligue o antigo no mesmo commit
+# (arquivo .github/bot-disabled).
+
+on:
+  workflow_dispatch:
+  schedule:
+    # rede de segurança: se a corrente se romper, o relógio levanta o bot de novo
+    - cron: '40 */5 * * *'
+  push:
+    paths:
+      - ".github/atlas2-on"
+      - ".github/workflows/atlas2.yml"
+
+permissions:
+  contents: read
+  actions: write   # para encadear a próxima fatia
+
+concurrency:
+  group: atlas2
+  cancel-in-progress: false
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Baixar o repositório
+        uses: actions/checkout@v4
+
+      - name: Ligado?
+        id: ligado
+        run: |
+          if [ -f .github/atlas2-on ]; then
+            echo "sim=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sim=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=atlas2::desligado (.github/atlas2-on não existe) — nada a fazer"
+          fi
+
+      - name: Preparar o Python
+        if: steps.ligado.outputs.sim == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar as dependências
+        if: steps.ligado.outputs.sim == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Rodar o bot (fatia de ~5h35m)
+        if: steps.ligado.outputs.sim == 'true'
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          OMNIROUTE_URL: ${{ vars.OMNIROUTE_URL || secrets.OMNIROUTE_URL }}
+          OMNIROUTE_KEY: ${{ secrets.OMNIROUTE_KEY }}
+          OMNIROUTE_MODEL: ${{ vars.OMNIROUTE_MODEL || 'auto' }}
+          OMNIROUTE_MODEL_RAPIDO: ${{ vars.OMNIROUTE_MODEL_RAPIDO || '' }}
+          CANAIS_PERMITIDOS: ${{ vars.CANAIS_PERMITIDOS || '' }}
+          LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '20' }}
+        run: |
+          # Exit 124 = o timeout da fatia mandou parar: é o fim normal, não é erro.
+          timeout 20100s python -m atlas2.run || [ $? -eq 124 ]
+
+      - name: Encadear a próxima fatia
+        if: always() && steps.ligado.outputs.sim == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Só encadeia se ainda estiver ligado e se ninguém já estiver rodando.
+          [ -f .github/atlas2-on ] || { echo "desligado — não vou encadear"; exit 0; }
+          rodando=$(gh run list --workflow=atlas2.yml --status in_progress --status queued \
+                      --json databaseId --jq 'length' 2>/dev/null || echo 1)
+          if [ "${rodando:-1}" -gt 1 ]; then
+            echo "já existe uma fatia na fila — não vou encadear outra"
+            exit 0
+          fi
+          gh workflow run atlas2.yml --ref "${GITHUB_REF_NAME}" \
+            && echo "::notice title=atlas2::próxima fatia agendada" \
+            || echo "::warning title=atlas2::não consegui encadear a próxima fatia (o cron de 5h cobre)"
