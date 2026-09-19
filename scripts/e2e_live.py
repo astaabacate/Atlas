@@ -2177,20 +2177,24 @@ class Harness:
 
         await self.check(phase, "agente conhece a estrutura real", conhece_estrutura)
 
+        apelido_de_teste = "Servidor-Teste"
+
         async def memoria() -> str:
             mesmo_canal = canal_novo()
             try:
-                await perguntar("Guarde este apelido: o servidor se chama Servidor-Teste.", mesmo_canal)
+                await perguntar(f"Guarde este apelido: o servidor se chama {apelido_de_teste}.",
+                                mesmo_canal)
                 resposta = await perguntar("Qual apelido eu pedi para você guardar?", mesmo_canal)
             except Exception as exc:
                 if self._culpa_do_llm(str(exc)):
                     return self.degradar_llm(phase, "memória do canal entre turnos",
                                              "não deu para conversar: o LLM não respondeu", str(exc))
                 raise
-            if "pinguim" not in resposta.lower() and self._culpa_do_llm(resposta):
+            lembrou = apelido_de_teste.lower() in resposta.lower()
+            if not lembrou and self._culpa_do_llm(resposta):
                 return self.degradar_llm(phase, "memória do canal entre turnos",
                                          "a resposta não citou o apelido guardado", resposta)
-            self.assert_true("pinguim" in resposta.lower(), f"memória do canal falhou: {resposta[:160]!r}")
+            self.assert_true(lembrou, f"memória do canal falhou: {resposta[:160]!r}")
             return "histórico do canal lembrado entre turnos"
 
         await self.check(phase, "memória do canal entre turnos", memoria)
@@ -3718,6 +3722,7 @@ class Harness:
             chamadas: list[str] = []
             vistas_da_resposta: list[Any] = []
             erros_de_envio: list[str] = []
+            erros_do_loop: list[str] = []
             done = asyncio.Event()
             original = bot._process_message_safe
 
@@ -3725,6 +3730,9 @@ class Harness:
                 chamadas.append(getattr(message, "content", ""))
                 try:
                     await original(message)
+                except Exception as exc:  # noqa: BLE001 - mostrar o motivo em vez de silêncio
+                    erros_do_loop.append(f"{type(exc).__name__}: {exc}"[:200])
+                    raise
                 finally:
                     done.set()
 
@@ -3809,7 +3817,12 @@ class Harness:
                 await asyncio.wait_for(done.wait(), timeout=self.args.llm_timeout * 3)
                 gasto = _time.monotonic() - inicio
                 tempos_do_loop.append(gasto)
-                self.assert_true(bool(msg.replies), "o bot não respondeu à menção")
+                # Se não veio resposta, o motivo real vai no relatório (reação/erro do loop),
+                # em vez de um "não respondeu" que não ajuda ninguém a consertar.
+                self.assert_true(
+                    bool(msg.replies),
+                    "o bot não respondeu à menção — reações: " + ", ".join(msg.reactions or ["(nenhuma)"]) +
+                    (" · erro no loop: " + "; ".join(erros_do_loop) if erros_do_loop else ""))
                 texto = "\n".join(msg.replies)
                 self.assert_true(guild.name.lower() in texto.lower() or len(texto) > 20,
                                  f"resposta suspeita: {texto[:120]!r}")
