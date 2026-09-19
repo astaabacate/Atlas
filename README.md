@@ -1,4 +1,4 @@
-# 🏮 Atlas — Chatbot Discord de Estruturação e Organização
+# Atlas — Chatbot Discord de Estruturação e Organização
 
 > **O bot de Discord que conversa e EXECUTA.**
 > 100% gratuito, sem chave de IA obrigatória, sem comandos slash para decorar e online 24/7 hospedado no GitHub Actions.

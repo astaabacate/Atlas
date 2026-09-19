@@ -193,7 +193,7 @@ def _escrever_relatorio(outdir: str, res: OiResultado, guild: Any, canal: Any, l
     pasta.mkdir(parents=True, exist_ok=True)
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     linhas = [
-        "# 🏮 Oi ao vivo — Atlas",
+        "# Oi ao vivo — Atlas",
         "",
         f"- Quando: {agora}",
         f"- Resultado: {'✅ ' + res.resumo if res.sucesso else '❌ ' + res.resumo}",

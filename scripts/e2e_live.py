@@ -136,6 +136,21 @@ class Check:
     data: dict[str, Any] = field(default_factory=dict)
 
 
+def _texto_do_card(view: Any) -> str:
+    """Junta os textos de um LayoutView (Components V2) para o relatório mostrar a resposta."""
+    partes: list[str] = []
+
+    def visita(item: Any) -> None:
+        conteudo = getattr(item, "content", None)
+        if isinstance(conteudo, str) and conteudo.strip():
+            partes.append(conteudo.strip())
+        for filho in getattr(item, "children", []) or []:
+            visita(filho)
+
+    visita(view)
+    return " · ".join(partes)[:200] or "(sem texto)"
+
+
 class Reporter:
     def __init__(self, phases: Iterable[str], meta: dict[str, Any] | None = None) -> None:
         self.phases: dict[str, list[Check]] = {p: [] for p in phases}
@@ -225,7 +240,7 @@ class Reporter:
     def _to_markdown_cru(self) -> str:
         counts = self.counts()
         lines = [
-            "# 🏮 Atlas — relatório de teste E2E",
+            "# Atlas — relatório de teste E2E",
             "",
             f"- **Resumo:** ✅ {counts[PASS]} · ❌ {counts[FAIL]} · ⚠️ {counts[WARN]} · ⏭️ {counts[SKIP]}",
         ]
@@ -3817,19 +3832,26 @@ class Harness:
                 await asyncio.wait_for(done.wait(), timeout=self.args.llm_timeout * 3)
                 gasto = _time.monotonic() - inicio
                 tempos_do_loop.append(gasto)
-                # Se não veio resposta, o motivo real vai no relatório (reação/erro do loop),
-                # em vez de um "não respondeu" que não ajuda ninguém a consertar.
+                # A resposta pode chegar como TEXTO ou como card (Components V2, sem texto). A
+                # checagem antiga só olhava o texto e reprovava o bot que respondeu bonito — o
+                # relatório de 19/09 mostrou "não respondeu à menção" com reação ✅ (era o card).
+                if msg.erros_de_view:
+                    self.assert_true(False, f"a API do Discord recusou a resposta em card: "
+                                            f"{msg.erros_de_view[0][:200]}")
                 self.assert_true(
-                    bool(msg.replies),
+                    bool(msg.replies or msg.views),
                     "o bot não respondeu à menção — reações: " + ", ".join(msg.reactions or ["(nenhuma)"]) +
-                    (" · erro no loop: " + "; ".join(erros_do_loop) if erros_do_loop else ""))
-                texto = "\n".join(msg.replies)
+                    (" · erro no loop: " + "; ".join(erros_do_loop) if erros_do_loop else "") +
+                    (f" · erros de envio: {'; '.join(msg.erros_de_view)}" if msg.erros_de_view else ""))
+                texto = "\n".join(msg.replies).strip()
+                if not texto and msg.views:
+                    texto = "(card em Components V2: " + _texto_do_card(msg.views[-1]) + ")"
                 self.assert_true(guild.name.lower() in texto.lower() or len(texto) > 20,
                                  f"resposta suspeita: {texto[:120]!r}")
                 vistas_da_resposta.extend(getattr(msg, "views", []))
                 erros_de_envio.extend(getattr(msg, "erros_de_view", []))
                 return (f"on_message → agente → resposta real no canal em **{gasto:.1f}s**: "
-                        f"{texto.strip()[:100]!r}")
+                        f"{texto[:100]!r}")
 
             permitidos = set(getattr(live.config, "allowed_channel_ids", set()) or set())
             config_permite_canal = not permitidos or canal.id in permitidos

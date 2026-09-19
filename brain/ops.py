@@ -2183,7 +2183,7 @@ async def op_diagnostic_report(ctx: ToolContext, limit: int = 80) -> str:
 
     linhas.reverse()  # da mensagem mais antiga para a mais nova
     corpo = (
-        "🏮 Atlas — diagnóstico da conversa\n"
+        "Atlas — diagnóstico da conversa\n"
         f"servidor: {getattr(ctx.guild, 'name', '?')} · canal: #{getattr(canal, 'name', '?')}\n"
         f"{resumo_de_tempos(getattr(ctx, 'tempos', None))}\n"
         "\n--- conversa (mais antiga primeiro) ---\n"
@@ -2195,7 +2195,7 @@ async def op_diagnostic_report(ctx: ToolContext, limit: int = 80) -> str:
     autor = ctx.actor
     if autor is not None and hasattr(autor, "send"):
         try:
-            await autor.send(content="🏮 Aqui está o diagnóstico da nossa conversa (arquivo). "
+            await autor.send(content="Aqui está o diagnóstico da nossa conversa (arquivo). "
                                      "Se puder, repasse para quem dá suporte ao Atlas.",
                              file=_arquivo_de_texto("atlas-diagnostico.txt", corpo))
             enviei = "Mandei o arquivo na sua **mensagem direta**"
