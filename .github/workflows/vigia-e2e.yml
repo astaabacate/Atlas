@@ -1,0 +1,81 @@
+name: Atlas Vigia do E2E
+
+# Uma execução do E2E travada NÃO pode bloquear a fila: enquanto ela não termina, nenhuma
+# execução nova começa (concorrência do grupo e2e-live) e o branch fica sem evidência ao vivo.
+#
+# Aconteceu em 18/09 (execução 35387325952): a fase de mutações passou de 20 minutos presa numa
+# espera de rate limit do Discord. O agente de CI não tem permissão para cancelar execuções
+# (HTTP 403), mas o token DESTE repositório tem `actions: write` — então o próprio atlas se
+# limpa: derruba a execução presa e a fila anda.
+#
+# Critério de "presa" (dois gatilhos, nenhum deles alcança execução saudável):
+#   1. o PASSO atual está no ar há mais que o dobro do maior teto de passo do e2e.yml (17 min); ou
+#   2. a execução inteira passou de 60 minutos (os limites por fase do harness somam 75, mas
+#      uma execução saudável leva ~20).
+#
+# NUNCA toca no bot 24/7 (aquilo é a produção; derrubar a fatia é decisão do dono). Só E2E.
+
+on:
+  push:
+    paths:
+      - ".github/workflows/vigia-e2e.yml"
+      - ".github/workflows/e2e.yml"
+      - "scripts/e2e_live.py"
+  workflow_dispatch:
+  schedule:
+    - cron: "*/20 * * * *"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: vigia-e2e
+  cancel-in-progress: false
+
+jobs:
+  vigia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      LIMITE_DO_PASSO_MIN: "35"
+      LIMITE_DA_EXECUCAO_MIN: "60"
+    steps:
+      - name: Derrubar execução do E2E presa
+        run: |
+          set -uo pipefail
+          agora=$(date -u +%s)
+          derrubadas=0
+          ids=$(gh run list --workflow=e2e.yml --status=in_progress --limit=20 \
+                  --json=databaseId --jq '.[].databaseId') || ids=""
+          if [ -z "$ids" ]; then
+            echo "::notice title=vigia e2e::nenhuma execução do E2E no ar — nada a fazer."
+            exit 0
+          fi
+          for id in $ids; do
+            # Um GET na API do Actions dá o início do job e o início do passo que está rodando.
+            linha=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs" \
+              --jq '.jobs[0] | {job: .started_at, nome: ([.steps[] | select(.status=="in_progress")][0].name // ""), passo: ([.steps[] | select(.status=="in_progress")][0].started_at // "")} | "\(.job)|\(.nome)|\(.passo)"' \
+              2>/dev/null || echo "")
+            if [ -z "$linha" ]; then
+              echo "::warning title=vigia e2e::não consegui ler os passos da execução ${id} agora"
+              continue
+            fi
+            inicio_job=${linha%%|*}
+            resto=${linha#*|}
+            nome_passo=${resto%%|*}
+            inicio_passo=${resto##*|}
+            minutos_job=$(( (agora - $(date -u -d "${inicio_job:-@$agora}" +%s 2>/dev/null || echo "$agora")) / 60 ))
+            minutos_passo=$(( (agora - $(date -u -d "${inicio_passo:-@$agora}" +%s 2>/dev/null || echo "$agora")) / 60 ))
+            echo "execução ${id}: ${minutos_job} min no total; passo atual '${nome_passo:-nenhum}' há ${minutos_passo} min (limites: ${LIMITE_DA_EXECUCAO_MIN} / ${LIMITE_DO_PASSO_MIN})"
+            if [ "$minutos_job" -ge "$LIMITE_DA_EXECUCAO_MIN" ] || [ "$minutos_passo" -ge "$LIMITE_DO_PASSO_MIN" ]; then
+              echo "::warning title=vigia e2e::execução ${id} PRESA (${minutos_job} min no total, passo '${nome_passo:-?}' há ${minutos_passo} min) — derrubando para a fila andar; os objetos 🧪 que sobrarem saem na varredura da próxima execução"
+              if gh run cancel "$id"; then
+                derrubadas=$((derrubadas+1))
+              else
+                echo "::error title=vigia e2e::não consegui derrubar a execução ${id}"
+              fi
+            fi
+          done
+          echo "execuções derrubadas: ${derrubadas}"

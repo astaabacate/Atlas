@@ -23,6 +23,13 @@ class ToolContext:
     attachments: list[Any] = field(default_factory=list)
     api_registry: Any = None
     memory: Any = None
+    # False (padrão): ação pedida de forma direta é executada e informada, sem perguntar.
+    confirm_destructive: bool = False
+    # Alvos (nome casefold/id) que a MESMA mensagem vai apagar. Serve para uma recriação
+    # ("apague e crie de novo o canal X") NÃO ser tratada como duplicata da que já existe.
+    alvos_apagados: set[str] = field(default_factory=set)
+    # Tempo das últimas respostas do agente (só números, nenhum conteúdo de conversa).
+    tempos: Any = None
 
 
 @dataclass
@@ -42,12 +49,13 @@ class ToolDef:
         }
 
 
-# As 27 ferramentas do farol
+# As ferramentas do atlas (o número sai de len(TOOLS), não de um comentário)
 TOOLS: list[ToolDef] = [
     # Canais (5)
     ToolDef(
         name="create_channels",
-        description="Cria 1 ou múltiplos canais (texto, voz, categoria) no servidor em lote.",
+        description=("Cria 1 ou múltiplos canais no servidor em lote: texto, voz, categoria, "
+                     "stage ou fórum, com tópico, NSFW, slowmode, bitrate e limite de usuários."),
         parameters={
             "type": "object",
             "properties": {
@@ -71,6 +79,20 @@ TOOLS: list[ToolDef] = [
                                 "type": "string",
                                 "description": "Tópico/descrição do canal (opcional).",
                             },
+                            "nsfw": {"type": "boolean", "description": "Marca o canal como NSFW."},
+                            "slowmode_delay": {
+                                "type": "integer",
+                                "description": "Modo lento em segundos (0 a 21600), canais de texto.",
+                            },
+                            "bitrate": {
+                                "type": "integer",
+                                "description": "Bitrate em bits/s (8000 a 384000), canais de voz.",
+                            },
+                            "user_limit": {
+                                "type": "integer",
+                                "description": "Limite de usuários (0 a 99; 0 = sem limite), voz.",
+                            },
+                            "position": {"type": "integer", "description": "Posição na lista."},
                         },
                         "required": ["name"],
                     },
@@ -81,7 +103,8 @@ TOOLS: list[ToolDef] = [
     ),
     ToolDef(
         name="edit_channel",
-        description="Edita propriedades de um canal existente (nome, tópico, categoria, slowmode).",
+        description=("Edita um canal: nome, tópico, categoria, slowmode, NSFW, bitrate, "
+                     "limite de usuários e posição."),
         parameters={
             "type": "object",
             "properties": {
@@ -91,20 +114,29 @@ TOOLS: list[ToolDef] = [
                 "category": {"type": "string", "description": "Nova categoria para mover o canal (opcional)."},
                 "slowmode_delay": {"type": "integer", "description": "Tempo de modo lento em segundos (0 a 21600)."},
                 "nsfw": {"type": "boolean", "description": "Se o canal é marcado como NSFW (opcional)."},
+                "bitrate": {"type": "integer", "description": "Bitrate em bits/s (8000 a 384000), voz."},
+                "user_limit": {"type": "integer", "description": "Limite de usuários (0 a 99), voz."},
+                "position": {"type": "integer", "description": "Posição do canal na lista."},
             },
             "required": ["channel"],
         },
     ),
     ToolDef(
         name="delete_channels",
-        description="Exclui um ou mais canais ou categorias. Deletar múltiplos canais requer confirmed=true.",
+        description=("Exclui um ou mais canais ou categorias. Deletar múltiplos canais requer "
+                     "confirmed=true. O canal onde a conversa acontece NUNCA é apagado: se o "
+                     "pedido disser \"menos esse\", não o inclua na lista."),
         parameters={
             "type": "object",
             "properties": {
                 "channels": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Lista de nomes, menções ou IDs dos canais/categorias a excluir.",
+                    "description": (
+                        "Lista de nomes, menções ou IDs dos canais/categorias a excluir. Para "
+                        "\"apague todos os canais\" use exatamente [\"todos\"]: o servidor é lido "
+                        "na hora da exclusão e a conferência é feita na API (não enumere nomes)."
+                    ),
                 },
                 "confirmed": {
                     "type": "boolean",
@@ -156,17 +188,31 @@ TOOLS: list[ToolDef] = [
                             "color": {"type": "string", "description": "Cor hexadecimal (ex: #5865F2) ou nome da cor."},
                             "hoist": {"type": "boolean", "description": "Exibir membros com este cargo separadamente na lista."},
                             "mentionable": {"type": "boolean", "description": "Permitir que qualquer membro mencione este cargo."},
+                            "permissions": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": ("Permissões do cargo, em português ou inglês "
+                                                "(ex: ['ver canal', 'enviar mensagens'])."),
+                            },
+                            "position": {"type": "integer", "description": "Posição do cargo na hierarquia."},
                         },
                         "required": ["name"],
                     },
-                }
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Permissões para todos os cargos do lote (opcional).",
+                },
+                "position": {"type": "integer", "description": "Posição para todos os cargos do lote (opcional)."},
             },
             "required": ["roles"],
         },
     ),
     ToolDef(
         name="edit_role",
-        description="Edita propriedades de um cargo existente (nome, cor, hoist, mentionable).",
+        description=("Edita um cargo: nome, cor, hoist, mentionable, permissões (substitui o "
+                     "conjunto atual) e posição na hierarquia."),
         parameters={
             "type": "object",
             "properties": {
@@ -175,6 +221,13 @@ TOOLS: list[ToolDef] = [
                 "color": {"type": "string", "description": "Nova cor hexadecimal ou nome de cor (opcional)."},
                 "hoist": {"type": "boolean", "description": "Exibir separadamente na lista de membros (opcional)."},
                 "mentionable": {"type": "boolean", "description": "Permitir menção a este cargo (opcional)."},
+                "permissions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": ("Conjunto de permissões do cargo, em português ou inglês "
+                                    "(substitui o que ele tem hoje)."),
+                },
+                "position": {"type": "integer", "description": "Nova posição na hierarquia."},
             },
             "required": ["role"],
         },
@@ -291,6 +344,42 @@ TOOLS: list[ToolDef] = [
         },
     ),
     ToolDef(
+        name="delete_roles",
+        description=("Apaga VÁRIOS cargos de uma vez (para quando pedirem 'apague todos os cargos' "
+                     "ou vários de uma vez). Diz quantos apagou e, se algum não puder ser apagado, "
+                     "explica o motivo e o que fazer."),
+        parameters={
+            "type": "object",
+            "properties": {
+                "roles": {"type": "array", "items": {"type": "string"},
+                          "description": "Nomes, menções ou IDs dos cargos a apagar."},
+                "confirmed": {"type": "boolean",
+                              "description": "true quando o usuário já confirmou (modo cauteloso)."},
+            },
+            "required": ["roles"],
+        },
+    ),
+    ToolDef(
+        name="diagnostic_report",
+        description=("Envia por mensagem direta (para quem pediu) um arquivo com a conversa recente "
+                     "deste canal + o tempo das últimas respostas. Use quando alguém relatar que o "
+                     "bot falhou, demorou ou pediu a mesma coisa várias vezes."),
+        parameters={
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer",
+                          "description": "Quantas mensagens incluir (padrão 80, máximo 200)."},
+            },
+        },
+    ),
+    ToolDef(
+        name="performance_report",
+        description=("Mostra quanto tempo as últimas respostas do bot levaram (mediana, pior e "
+                     "melhor) e o que pesou: modelo de linguagem ou execução das ações. Use "
+                     "quando pedirem para investigar lentidão/demora do bot."),
+        parameters={"type": "object", "properties": {}},
+    ),
+    ToolDef(
         name="server_info",
         description="Retorna informações e estatísticas completas sobre o servidor.",
         parameters={"type": "object", "properties": {}},
@@ -396,11 +485,30 @@ TOOLS: list[ToolDef] = [
             "required": ["text"],
         },
     ),
-    # Sessão (1)
+    # Sessão (2)
     ToolDef(
         name="conversation_clear",
-        description="Limpa o histórico de memória e conversas deste canal no bot.",
+        description=(
+            "Limpa SÓ A MEMÓRIA do bot nesta conversa (ele esquece o que foi dito antes). "
+            "NÃO apaga as mensagens do canal — para apagar mensagens use clear_messages."
+        ),
         parameters={"type": "object", "properties": {}},
+    ),
+    ToolDef(
+        name="clear_messages",
+        description=(
+            "Apaga mensagens de um canal de verdade (limpeza de conversa/chat). "
+            "Use quando o pedido for apagar o chat, limpar as mensagens, 'exclua essa conversa'. "
+            "Padrão: últimas 50 mensagens do canal atual."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "channel": {"type": "string", "description": "Canal (nome, menção ou ID). Padrão: o canal atual."},
+                "limit": {"type": "integer", "description": "Quantas mensagens apagar (1 a 500; padrão 50)."},
+                "confirmed": {"type": "boolean", "description": "Trabalha com o modo cauteloso; no modo direto é opcional."},
+            },
+        },
     ),
 ]
 

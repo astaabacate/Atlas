@@ -1,0 +1,139 @@
+name: Atlas 2 (novo)
+
+# O bot novo (pasta atlas2/). Roda em fatias de ~5h35m e se reagenda sozinho.
+#
+# LIGAR/DESLIGAR: o arquivo .github/atlas2-on é o interruptor. Com ele no ramo, o bot roda;
+# sem ele, este workflow passa reto (verde, sem fazer nada).
+#
+# IMPORTANTE: só um bot pode estar ligado por vez com o mesmo token — dois processos respondem
+# a mesma mensagem duas vezes. Para ligar o novo, desligue o antigo no mesmo commit
+# (arquivo .github/bot-disabled).
+
+on:
+  workflow_dispatch:
+  schedule:
+    # rede de segurança: se a corrente se romper, o relógio levanta o bot de novo
+    - cron: '40 */5 * * *'
+  push:
+    paths:
+      - ".github/atlas2-on"
+      - ".github/workflows/atlas2.yml"
+
+permissions:
+  contents: read
+  actions: write   # para encadear a próxima fatia
+
+concurrency:
+  group: atlas2
+  cancel-in-progress: false
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Baixar o repositório
+        uses: actions/checkout@v4
+
+      - name: Ligado?
+        id: ligado
+        run: |
+          if [ -f .github/atlas2-on ]; then
+            echo "sim=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sim=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=atlas2::desligado (.github/atlas2-on não existe) — nada a fazer"
+          fi
+
+      - name: Derrubar o bot antigo (se ainda estiver rodando)
+        if: steps.ligado.outputs.sim == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          # Um bot por token: enquanto o antigo estiver rodando, cada mensagem seria respondida
+          # duas vezes. Aqui a fatia antiga é derrubada na hora em que o novo sobe (o arquivo
+          # .github/bot-disabled impede que ela volte).
+          # Filtra no jq, não no --status: "pending"/"waiting" escapam dos filtros da CLI e uma
+          # fatia antiga continuava no ar (cada mensagem respondida duas vezes).
+          ids=$(gh run list --workflow=bot.yml --limit 50 --json=databaseId,status \
+                  --jq '.[] | select(.status != "completed") | .databaseId' 2>/dev/null || true)
+          if [ -z "${ids:-}" ]; then
+            echo "::notice title=atlas2::nenhuma execução do bot antigo no ar."
+            exit 0
+          fi
+          for id in $ids; do
+            if gh run cancel "$id"; then
+              echo "::notice title=atlas2::bot antigo derrubado (execução ${id})."
+            else
+              echo "::warning title=atlas2::não consegui derrubar a execução ${id} — cancele na aba Actions para não ter resposta duplicada."
+            fi
+          done
+
+      - name: Preparar o Python
+        if: steps.ligado.outputs.sim == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar as dependências
+        if: steps.ligado.outputs.sim == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Rodar o bot (fatia de ~5h35m)
+        if: steps.ligado.outputs.sim == 'true'
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          OMNIROUTE_URL: ${{ vars.OMNIROUTE_URL || secrets.OMNIROUTE_URL }}
+          OMNIROUTE_KEY: ${{ secrets.OMNIROUTE_KEY }}
+          OMNIROUTE_MODEL: ${{ vars.OMNIROUTE_MODEL || 'auto' }}
+          OMNIROUTE_MODEL_RAPIDO: ${{ vars.OMNIROUTE_MODEL_RAPIDO || '' }}
+          CANAIS_PERMITIDOS: ${{ vars.CANAIS_PERMITIDOS || '' }}
+          LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '20' }}
+        run: |
+          set +e
+          set -uo pipefail
+          # O log de um job deste repositório às vezes não baixa (erro do GitHub). Então o motivo
+          # de qualquer falha vira ANOTAÇÃO, que sempre chega — inclusive com pedaços da última
+          # resposta do bot.
+          inicio=$(date +%s)
+          timeout 20100s python -m atlas2.run > /tmp/atlas2.log 2>&1
+          codigo=$?
+          echo "TEMPO_RODANDO=$(( $(date +%s) - inicio ))" >> "$GITHUB_ENV"
+          tail -40 /tmp/atlas2.log || true
+          if [ "$codigo" -eq 124 ]; then
+            echo "::notice title=atlas2::fatia concluída em ~5h35m — o bot foi desligado pelo relógio."
+            exit 0
+          fi
+          # mostra o motivo em anotações (últimas linhas, escapadas para não quebrar a anotação)
+          tail -12 /tmp/atlas2.log | while IFS= read -r linha; do
+            linha=$(printf '%s' "$linha" | sed 's/%/%25/g; s/\r//g' | tr -d '\000')
+            [ -n "$linha" ] && echo "::error title=atlas2 falhou (código ${codigo})::$(printf '%s' "$linha" | head -c 400)"
+          done
+          exit "$codigo"
+
+      - name: Encadear a próxima fatia
+        if: always() && steps.ligado.outputs.sim == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Só encadeia se ainda estiver ligado e se ninguém já estiver rodando.
+          [ -f .github/atlas2-on ] || { echo "desligado — não vou encadear"; exit 0; }
+          # Se a fatia morreu em segundos, encadear só multiplicaria o erro (uma execução nova por
+          # minuto). Nesse caso quem retoma é o cron de 5 em 5 horas, depois do conserto.
+          if [ "${TEMPO_RODANDO:-0}" -lt 300 ]; then
+            echo "::warning title=atlas2::a fatia durou ${TEMPO_RODANDO:-0}s e caiu — NÃO vou encadear (seria erro em série). Veja as anotações acima e o cron cobre depois."
+            exit 0
+          fi
+          rodando=$(gh run list --workflow=atlas2.yml --status in_progress --status queued \
+                      --json databaseId --jq 'length' 2>/dev/null || echo 1)
+          if [ "${rodando:-1}" -gt 1 ]; then
+            echo "já existe uma fatia na fila — não vou encadear outra"
+            exit 0
+          fi
+          gh workflow run atlas2.yml --ref "${GITHUB_REF_NAME}" \
+            && echo "::notice title=atlas2::próxima fatia agendada" \
+            || echo "::warning title=atlas2::não consegui encadear a próxima fatia (o cron de 5h cobre)"

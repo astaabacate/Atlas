@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-logger = logging.getLogger("farol.llm")
+logger = logging.getLogger("atlas.llm")
 
 
 class ProviderError(RuntimeError):
@@ -24,17 +24,87 @@ class ProviderError(RuntimeError):
         status: int | None = None,
         model: str = "",
         html_body: bool = False,
+        retry_after: float | None = None,
+        empty_response: bool = False,
+        truncated: bool = False,
     ) -> None:
         self.provider = provider
         self.status = status
         self.model = model
         self.html_body = html_body
         self.raw_message = message
+        # Segundos pedidos pelo provedor no header Retry-After (quando veio).
+        self.retry_after = retry_after
+        # Resposta sem conteúdo e sem tool_calls; `truncated` diz que faltou teto de tokens
+        # (modelo de raciocínio gastou tudo "pensando"), então vale repetir com mais espaço.
+        self.empty_response = empty_response
+        self.truncated = truncated
         super().__init__(message)
+
+    @property
+    def is_empty_response(self) -> bool:
+        """True quando o modelo não devolveu nada (nem texto, nem ferramenta)."""
+        return self.empty_response
+
+    @property
+    def is_rate_limited(self) -> bool:
+        """True quando o provedor recusou por fila/limite (HTTP 429 e afins)."""
+        if self.status == 429:
+            return True
+        blob = self.raw_message.lower()
+        return any(
+            marker in blob
+            for marker in ("rate limit", "rate-limit", "too many requests", "queue full", "quota")
+        )
+
+    @property
+    def is_transient(self) -> bool:
+        """Falha passageira: vale repetir a corrida depois de uma pausa curta."""
+        if self.is_model_problem:
+            # Catálogo dos gratuitos muda sem avisar ("model ... is currently unavailable").
+            # Isso volta sozinho em minutos — o cliente deve ser convidado a tentar de novo,
+            # não receber a mensagem de beco sem saída.
+            return True
+        if self.is_rate_limited or self.empty_response:
+            # Resposta vazia de gateway/roteador grátis costuma ser o modelo do momento
+            # devolvendo nada: a próxima onda pode cair noutro modelo do mesmo corredor.
+            return True
+        if self.status is not None and self.status >= 500:
+            return True
+        blob = self.raw_message.lower()
+        return any(
+            marker in blob
+            for marker in ("timeout", "timed out", "falha de rede", "connection", "temporarily")
+        )
+
+    @property
+    def is_context_problem(self) -> bool:
+        """
+        True quando o pedido NÃO COUBE no modelo (contexto/tamanho) — não quando é bug.
+
+        Importa porque a corrida pode salvar o turno repetindo com menos histórico, em vez de
+        devolver "não consegui falar com nenhum modelo" para o cliente.
+        """
+        if self.status not in (400, 413, 422):
+            return False
+        blob = self.raw_message.lower()
+        return any(
+            marcador in blob
+            for marcador in (
+                "context length", "context_length", "maximum context", "context window",
+                "too many tokens", "token limit", "exceeds the maximum", "input is too long",
+                "prompt is too long", "payload too large", "request entity too large",
+                "request too large", "max_tokens", "tokens to keep",
+            )
+        )
 
     @property
     def is_model_problem(self) -> bool:
         """True quando o provedor rejeitou o MODELO (vale tentar o próximo da lista)."""
+        if self.is_context_problem:
+            # "maximum context length" também contém "model", mas trocar de modelo não resolve:
+            # quem resolve é MANDAR MENOS CONTEÚDO (a corrida poda o histórico e repete).
+            return False
         if self.status not in (400, 404, 422):
             return False
         # Página HTML de erro (Vercel/nginx/CDN) significa URL/caminho errado,
@@ -71,6 +141,171 @@ class ProviderError(RuntimeError):
             or "unknown" in blob
             or "unexpected" in blob
         )
+
+
+# Marcadores de "pensamento" que alguns modelos grátis jogam DENTRO do campo content
+# (em vez de um campo separado). Isso não é resposta: é rascunho interno, quase sempre
+# em inglês — e era o que fazia o bot mandar textão em inglês no Discord.
+_MARCADORES_RACIOCINIO = (
+    "thinking process",
+    "let me think",
+    "let me analyze",
+    "analyze the user",
+    "analyzing the request",
+    "here's my thinking",
+    "here is my thinking",
+    "i need to figure out",
+    "first, i'll",
+    "okay, so the user",
+    "chain of thought",
+    "raciocínio:",
+    "pensando:",
+)
+
+# Onde o modelo costuma separar o rascunho da resposta de verdade.
+_MARCADORES_RESPOSTA = (
+    "final answer:",
+    "resposta final:",
+    "**final answer**",
+    "**resposta:**",
+    "**resposta final**",
+    "### resposta",
+    "## resposta",
+    "answer:",
+    "resposta:",
+)
+
+
+def parece_raciocinio(texto: str) -> bool:
+    """True quando o texto tem cara de rascunho interno do modelo (não de resposta)."""
+    if not texto:
+        return False
+    amostra = texto[:1200].lower()
+    return any(marcador in amostra for marcador in _MARCADORES_RACIOCINIO)
+
+
+def separar_raciocinio(texto: str) -> tuple[str, str]:
+    """
+    Devolve `(raciocinio, resposta)` para o que o provedor mandou no `content`.
+
+    Casos tratados:
+    - resposta limpa → ("", texto);
+    - rascunho + resposta ("... final answer: ...") → (rascunho, resposta);
+    - só rascunho → (rascunho, "") — quem chama decide (aqui vira resposta vazia).
+    """
+    if not texto:
+        return "", ""
+    if not parece_raciocinio(texto):
+        return "", texto
+
+    baixo = texto.lower()
+    melhor = -1
+    tamanho = 0
+    for marcador in _MARCADORES_RESPOSTA:
+        idx = baixo.rfind(marcador)
+        if idx > melhor:
+            melhor = idx
+            tamanho = len(marcador)
+    if melhor != -1:
+        return texto[:melhor], texto[melhor + tamanho:].strip()
+    return texto, ""
+
+
+def objetos_json(texto: str) -> list[str]:
+    """Recorta objetos `{...}` completos do texto (respeitando strings e aninhamento)."""
+    objetos: list[str] = []
+    i = 0
+    while i < len(texto):
+        ini = texto.find("{", i)
+        if ini == -1:
+            break
+        nivel = 0
+        em_string = False
+        escape = False
+        for j in range(ini, len(texto)):
+            c = texto[j]
+            if em_string:
+                if escape:
+                    escape = False
+                elif c == "\\":
+                    escape = True
+                elif c == '"':
+                    em_string = False
+                continue
+            if c == '"':
+                em_string = True
+            elif c == "{":
+                nivel += 1
+            elif c == "}":
+                nivel -= 1
+                if nivel == 0:
+                    objetos.append(texto[ini:j + 1])
+                    i = j + 1
+                    break
+        else:
+            break
+    return objetos
+
+
+def extract_text_tool_calls(texto: str, nomes: set[str] | None = None) -> list[ToolCall]:
+    """
+    Extrai chamadas de ferramenta escritas em TEXTO (provedores grátis sem function calling).
+
+    Aceita ```tool/```json, JSON solto no meio da frase e a forma nativa
+    `{"tool_calls": [{"function": {"name": ..., "arguments": ...}}]}`. Se `nomes` for passado,
+    só aceita ferramenta conhecida — sem isso, um JSON qualquer viraria execução por engano.
+    """
+    import json as _json
+
+    calls: list[ToolCall] = []
+    conhecidas = nomes or set()
+
+    def _aceitar(data: Any) -> None:
+        if isinstance(data, dict) and isinstance(data.get("tool_calls"), list):
+            for bruto in data["tool_calls"]:
+                _aceitar(bruto)
+            return
+        if not isinstance(data, dict):
+            return
+        alvo = data.get("function") if isinstance(data.get("function"), dict) else data
+        name = alvo.get("name") or data.get("tool") or data.get("nome")
+        args = alvo.get("args")
+        if args is None:
+            args = alvo.get("arguments")
+        if isinstance(args, str):
+            try:
+                args = _json.loads(args)
+            except Exception:  # noqa: BLE001 - argumento em texto solto não serve
+                args = {}
+        if not name or not isinstance(args, dict):
+            return
+        if conhecidas and str(name) not in conhecidas:
+            return
+        calls.append(ToolCall(id=f"texto_{len(calls)}", name=str(name), args=args))
+
+    for bloco in _json_blocos(texto):
+        try:
+            _aceitar(_json.loads(bloco))
+        except Exception:  # noqa: BLE001 - bloco que não é JSON: ignora
+            continue
+    if calls:
+        return calls
+
+    if conhecidas:
+        for candidato in objetos_json(texto):
+            try:
+                _aceitar(_json.loads(candidato))
+            except Exception:  # noqa: BLE001
+                continue
+    return calls
+
+
+def _json_blocos(texto: str) -> list[str]:
+    """Conteúdo dos blocos ```...``` que parecem JSON."""
+    import re as _re
+
+    return [m.group(1) for m in
+            _re.finditer(r"```(?:tool|json)?\s*(\{.*?\})\s*```", texto, _re.DOTALL)]
 
 
 def compact_error_text(text: str, limit: int = 160) -> str:
@@ -149,10 +384,34 @@ def parse_openai_tool_calls(raw_calls: list[dict[str, Any]]) -> list[ToolCall]:
     return result
 
 
-def summarize_tools(tools: list[dict[str, Any]], limit: int = 40) -> str:
-    """Lista compacta de ferramentas (nome + descrição) para o protocolo de texto."""
+def podar_mensagens(messages: list[dict[str, Any]], manter: int = 12) -> list[dict[str, Any]]:
+    """
+    Corta o histórico antigo mantendo o começo (system) e as últimas `manter` mensagens.
+
+    Usado quando o provedor recusa o pedido por TAMANHO: vale mais tentar de novo com menos
+    conversa do que responder "não consegui falar com nenhum modelo". Um resultado de ferramenta
+    órfão (role=tool sem a chamada que o pediu) é descartado porque provedor nenhum aceita isso.
+    """
+    if len(messages) <= manter:
+        return list(messages)
+    sistema = [m for m in messages if m.get("role") == "system"]
+    resto = [m for m in messages if m.get("role") != "system"]
+    recorte = resto[-manter:]
+    while recorte and recorte[0].get("role") == "tool":
+        recorte.pop(0)
+    return [*sistema, *recorte]
+
+
+def summarize_tools(tools: list[dict[str, Any]], limit: int | None = 40) -> str:
+    """
+    Lista compacta de ferramentas (nome + descrição) para o protocolo de texto.
+
+    `limit=None` lista TODAS: nos provedores sem function calling nativo, ferramenta que não
+    aparece na lista é ferramenta que o modelo nunca consegue chamar (capacidade inalcançável
+    em linguagem natural).
+    """
     lines: list[str] = []
-    for tool in tools[:limit]:
+    for tool in tools if limit is None else tools[:limit]:
         fn = tool.get("function", {}) if isinstance(tool, dict) else {}
         name = fn.get("name", "")
         if not name:
@@ -187,7 +446,7 @@ Ferramentas disponíveis:
 
 def build_tool_protocol_notice(tools: list[dict[str, Any]]) -> str:
     """Mensagem de sistema que ensina o modelo a emitir ```tool {...}``` sem function calling."""
-    return TOOL_PROTOCOL_TEMPLATE.format(tools=summarize_tools(tools))
+    return TOOL_PROTOCOL_TEMPLATE.format(tools=summarize_tools(tools, limit=None))
 
 
 def sanitize_messages_for_plain_text(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

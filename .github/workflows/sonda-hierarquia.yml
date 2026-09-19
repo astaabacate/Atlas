@@ -1,0 +1,76 @@
+name: Atlas — sonda de hierarquia de cargos
+
+# Pergunta DIRETO à API do Discord (sem passar pelo produto, sem LLM) se o bot consegue
+# editar/apagar um cargo na MESMA posição do cargo mais alto dele. Foi o que ficou em
+# dúvida no relato do dono ("como assim ele não apaga o que ele mesmo criou?"): o harness
+# ao vivo chamava a ferramenta do produto, o NOSSO gate de política recusava por posição,
+# e o relatório anotava "o Discord recusa" — sem nunca ter perguntado ao Discord.
+#
+# O resultado é publicado em reports/sonda-hierarquia.{md,json} no próprio branch.
+# A sonda cria UM cargo de teste marcado com 🧪 e tenta apagá-lo; se o Discord recusar
+# (o caso em investigação), ele fica registrado com o ID para o dono remover na mão.
+
+on:
+  push:
+    branches: ["arena/01a0b13c-atlas"]
+    paths:
+      - "scripts/sonda_hierarquia.py"
+      - ".github/workflows/sonda-hierarquia.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: sonda-hierarquia
+  cancel-in-progress: false
+
+jobs:
+  sonda:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONUNBUFFERED: "1"
+      DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      E2E_GUILD_ID: ${{ vars.E2E_GUILD_ID || '' }}
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: pip install aiohttp
+
+      - name: Rodar a sonda (API crua do Discord)
+        run: python scripts/sonda_hierarquia.py --outdir reports
+
+      - name: Publicar o resultado no branch
+        if: always()
+        run: |
+          set -uo pipefail
+          publicar() {
+            local caminho="$1" mensagem="$2"
+            local conteudo sha erro
+            [ -f "$caminho" ] || { echo "::warning title=sonda::${caminho} não existe"; return 0; }
+            conteudo=$(base64 -w0 "$caminho")
+            sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+            if [ -n "$sha" ]; then
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=sonda publicar ${caminho}::$(printf '%s' "$erro" | head -c 400)"; return 1; }
+            else
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=sonda publicar ${caminho}::$(printf '%s' "$erro" | head -c 400)"; return 1; }
+            fi
+            echo "::notice title=sonda::${caminho} publicado"
+          }
+          publicar "reports/cor-do-avatar.txt" "chore(sonda): cor do avatar do bot [skip ci]" || true
+          publicar "reports/sonda-hierarquia.md" "chore(sonda): resultado ao vivo da hierarquia ${GITHUB_RUN_ID} [skip ci]" || true
+          publicar "reports/sonda-hierarquia.json" "chore(sonda): resultado JSON da hierarquia ${GITHUB_RUN_ID} [skip ci]" || true

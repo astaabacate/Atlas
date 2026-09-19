@@ -1,10 +1,26 @@
 name: Smoke LLM Providers
 
+# A cota dos modelos GRÁTIS é a mesma do bot em produção: uma execução antiga na fila
+# gastaria a cota que o bot precisa para responder no Discord. Só a mais nova fica na fila
+# (a que está rodando termina — nada de cancelar no meio de mutação real).
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
+  push:
+    # Qualquer mudança no pool de LLM roda a sonda ao vivo de novo (é assim que o
+    # projeto confirma quem está realmente respondendo antes de confiar no corredor).
+    branches: ["arena/01a0b13c-atlas"]
+    paths:
+      - "llm/**"
+      - "scripts/smoke_llm.py"
+      - ".github/workflows/smoke.yml"
 
 permissions:
-  contents: read
+  # contents: write para publicar reports/smoke-llm.md (a prova ao vivo de quem respondeu)
+  contents: write
 
 jobs:
   smoke:
@@ -29,8 +45,16 @@ jobs:
       CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY || '' }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY || '' }}
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY || '' }}
-      LLM7_API_KEY: ${{ secrets.LLM7_API_KEY || '' }}
-      POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN || '' }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY || '' }}
+      ZAI_API_KEY: ${{ secrets.ZAI_API_KEY || '' }}
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY || '' }}
+      ZENMUX_API_KEY: ${{ secrets.ZENMUX_API_KEY || '' }}
+      MODELSCOPE_API_KEY: ${{ secrets.MODELSCOPE_API_KEY || '' }}
+      SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY || '' }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY || '' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || '' }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '' }}
+      KILOCODE_API_KEY: ${{ secrets.KILOCODE_API_KEY || '' }}
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v4
@@ -45,4 +69,71 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Sondar provedores LLM ao vivo
-        run: python scripts/smoke_llm.py --timeout "$SMOKE_TIMEOUT" --concurrency "$SMOKE_CONCURRENCY"
+        id: sonda
+        run: |
+          # O shell padrão do GitHub roda com `-e`: sem o `|| status=$?` o passo morria aqui
+          # quando nenhum provedor respondia (exit 2) e o relatório 🔴 nunca era publicado —
+          # justamente a rodada em que a prova ao vivo é mais importante. Quem decide vermelho
+          # é o passo "Falhar se nenhum provedor respondeu", abaixo.
+          set -o pipefail
+          status=0
+          python scripts/smoke_llm.py --timeout "$SMOKE_TIMEOUT" --concurrency "$SMOKE_CONCURRENCY" \
+            --out reports/smoke-llm.md | tee /tmp/sonda.txt || status=$?
+          {
+            echo "## Sonda de provedores LLM — \`${{ github.sha }}\`"
+            echo
+            sed -n '1,80p' reports/smoke-llm.md
+          } > /tmp/resumo.md
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then cat /tmp/resumo.md >> "$GITHUB_STEP_SUMMARY"; fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publicar resultado no branch (prova ao vivo)
+        # Publica mesmo quando nenhum provedor respondeu: 🔴 também é resultado.
+        run: |
+          set -uo pipefail
+          publicar() {
+            local caminho="$1"
+            [ -f "$caminho" ] || { echo "::warning title=smoke::$caminho não foi gerado"; return 0; }
+            local conteudo sha
+            conteudo=$(base64 -w0 "$caminho")
+            sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+            if [ -n "$sha" ]; then
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
+                -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+                && echo "::notice title=smoke::$caminho atualizado"
+            else
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="chore(smoke): resultado ao vivo da sonda ${GITHUB_RUN_ID} [skip ci]" \
+                -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" >/dev/null \
+                && echo "::notice title=smoke::$caminho criado"
+            fi
+          }
+          publicar "reports/smoke-llm.md"
+          publicar "reports/kilo-modelos-free.md"
+          publicar "reports/kilo-latencia-modelos.md"
+          # O histórico acumula as 3 amostras por modelo de cada rodada: é dele que sai a
+          # mediana que ordena a fila do corredor. Precisa sobreviver a rodada ruim também.
+          publicar "reports/kilo-latencia-historico.json"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Falhar se nenhum provedor respondeu
+        run: |
+          if [ "${{ steps.sonda.outputs.status }}" != "0" ]; then
+            echo "::error title=smoke::nenhum provedor respondeu nesta rodada (veja reports/smoke-llm.md)"
+            exit 1
+          fi
+
+      - name: Guardar o relatório como artefato
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-llm
+          path: |
+            reports/smoke-llm.md
+            reports/kilo-modelos-free.md
+            reports/kilo-latencia-modelos.md
+            reports/kilo-latencia-historico.json
+          if-no-files-found: warn

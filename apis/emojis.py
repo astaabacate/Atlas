@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-logger = logging.getLogger("farol.apis.emojis")
+logger = logging.getLogger("atlas.apis.emojis")
 
 EMOJI_CATALOG: dict[str, list[str]] = {
     "voz": ["🔊", "🎙️", "🎧", "🗣️", "📢"],

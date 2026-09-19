@@ -16,11 +16,13 @@ from brain.ops import (
     op_clone_channel,
     op_color_name,
     op_color_palette,
+    op_clear_messages,
     op_conversation_clear,
     op_create_channels,
     op_create_roles,
     op_delete_channels,
     op_delete_role,
+    op_delete_roles,
     op_edit_channel,
     op_edit_role,
     op_edit_server,
@@ -30,6 +32,8 @@ from brain.ops import (
     op_import_structure,
     op_list_roles,
     op_move_channel,
+    op_diagnostic_report,
+    op_performance_report,
     op_server_info,
     op_set_icon,
     op_set_permissions,
@@ -42,7 +46,7 @@ from brain.ops import (
 from brain.policy import require
 from brain.tools import ToolContext, ToolError, tool_names
 
-logger = logging.getLogger("farol.brain.executors")
+logger = logging.getLogger("atlas.brain.executors")
 
 _OPS: dict[str, Callable[..., Awaitable[str]]] = {
     # Canais (5)
@@ -55,6 +59,7 @@ _OPS: dict[str, Callable[..., Awaitable[str]]] = {
     "create_roles": op_create_roles,
     "edit_role": op_edit_role,
     "delete_role": op_delete_role,
+    "delete_roles": op_delete_roles,
     "give_role": op_give_role,
     "take_role": op_take_role,
     "list_roles": op_list_roles,
@@ -65,6 +70,8 @@ _OPS: dict[str, Callable[..., Awaitable[str]]] = {
     "show_permissions": op_show_permissions,
     # Servidor (3)
     "edit_server": op_edit_server,
+    "diagnostic_report": op_diagnostic_report,
+    "performance_report": op_performance_report,
     "server_info": op_server_info,
     "set_icon": op_set_icon,
     # Modelos (1)
@@ -78,8 +85,9 @@ _OPS: dict[str, Callable[..., Awaitable[str]]] = {
     "emoji_search": op_emoji_search,
     "topic_suggest": op_topic_suggest,
     "translate_text": op_translate_text,
-    # Sessão (1)
+    # Sessão (2)
     "conversation_clear": op_conversation_clear,
+    "clear_messages": op_clear_messages,
 }
 
 # Trava de coerência exigida na especificação:

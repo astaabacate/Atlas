@@ -72,8 +72,11 @@ class TestFreshness(unittest.TestCase):
 
     def test_yaml_and_module_non_divergence(self) -> None:
         """
-        Lê o arquivo de workflow .github/workflows/bot.yml e verifica
-        se a trava de obsolescência com 'sys.exit(1)' está presente no primeiro passo.
+        Lê o arquivo de workflow .github/workflows/bot.yml e verifica se a trava de
+        obsolescência está presente NO PRIMEIRO PASSO.
+
+        Contrato atual (proposital): quando o checkout está obsoleto, a run NÃO roda código
+        velho e a corrente do bot NÃO morre — ela agenda uma run nova, que já pega a ponta.
         """
         yaml_path = os.path.join(
             os.path.dirname(__file__), "..", ".github", "workflows", "bot.yml"
@@ -84,8 +87,20 @@ class TestFreshness(unittest.TestCase):
             yaml_content = f.read()
 
         self.assertIn("ls-remote", yaml_content, "YAML deve conter verificação via ls-remote")
-        self.assertIn("sys.exit(1)", yaml_content, "YAML deve conter sys.exit(1) para abortar runs obsoletas")
         self.assertIn("Checkout obsoleto", yaml_content)
+
+        primeiro_passo = yaml_content[: yaml_content.index("Checkout do repositório")]
+        self.assertIn("reencaminhar", primeiro_passo, "o passo de frescor deve reagendar a run")
+        self.assertIn(
+            'gh", "workflow", "run", "bot.yml',
+            primeiro_passo,
+            "o passo de frescor deve usar `gh workflow run bot.yml` para não deixar o bot cair",
+        )
+        self.assertNotIn(
+            "sys.exit(1)\n              \'",
+            primeiro_passo,
+            "o passo de frescor não deve mais abortar a corrente do bot",
+        )
 
     def test_sabotage_check(self) -> None:
         """

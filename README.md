@@ -1,4 +1,4 @@
-# 🏮 Farol — Chatbot Discord de Estruturação e Organização
+# Atlas — Chatbot Discord de Estruturação e Organização
 
 > **O bot de Discord que conversa e EXECUTA.**
 > 100% gratuito, sem chave de IA obrigatória, sem comandos slash para decorar e online 24/7 hospedado no GitHub Actions.
@@ -7,26 +7,26 @@
 
 ## 📖 1. Visão Geral
 
-O **Farol** é um bot de Discord em Python (`discord.py` 2.x) projetado para **ouvir em linguagem natural e alterar o servidor na prática**. Em vez de obrigar o usuário a decorar dezenas de comandos de barra (`/`), você simplesmente marca `@farol` e pede o que precisa. O Farol interpreta via Inteligência Artificial, aciona ferramentas reais no servidor e responde com os links dos recursos criados (`<#canal>`, `<@&cargo>`).
+O **Atlas** é um bot de Discord em Python (`discord.py` 2.x) projetado para **ouvir em linguagem natural e alterar o servidor na prática**. Em vez de obrigar o usuário a decorar dezenas de comandos de barra (`/`), você simplesmente marca `@atlas` e pede o que precisa. O Atlas interpreta via Inteligência Artificial, aciona ferramentas reais no servidor e responde com os links dos recursos criados (`<#canal>`, `<@&cargo>`).
 
 ```
-você:  @farol cria 3 canais de voz: Lobby 1, 2 e 3
-farol: Pronto! Criei #🔊-lobby-1 #🔊-lobby-2 #🔊-lobby-3 🎉
+você:  @atlas cria 3 canais de voz: Lobby 1, 2 e 3
+atlas: Pronto! Criei #🔊-lobby-1 #🔊-lobby-2 #🔊-lobby-3 🎉
 
-você:  @farol monta um servidor gamer completo
-farol: ✅ Modelo gamer aplicado: 5 cargos, 3 categorias, 11 canais.
+você:  @atlas monta um servidor gamer completo
+atlas: ✅ Modelo gamer aplicado: 5 cargos, 3 categorias, 11 canais.
 
-você:  @farol apaga tudo da categoria antiga
-farol: Isso apaga 8 canais de **antiga** — posso confirmar? 👀
+você:  @atlas apaga tudo da categoria antiga
+atlas: Isso apaga 8 canais de **antiga** — posso confirmar? 👀
 ```
 
 ### 🎯 Três Princípios Inegociáveis
-1. **Sem comandos para decorar:** Apenas menção `@farol` e texto livre.
+1. **Sem comandos para decorar:** Apenas menção `@atlas` e texto livre.
 2. **Sem chave de IA obrigatória:** O cérebro padrão corre sobre provedores gratuitos e anônimos. Chaves (OpenAI, Anthropic, Gemini) são opcionais.
 3. **Online 24/7 sem servidor pago:** Hospedado continuamente no GitHub Actions com auto-encadeamento infinito.
 
 ### 🚫 Fora de Escopo por Design
-O Farol não faz moderação (kick/ban/mute), punições, sorteios, enquetes, matchmaking ou jogos. Quando solicitado, o bot esclarece gentilmente que sua especialidade exclusiva é **estruturar e organizar servidores**.
+O Atlas não faz moderação (kick/ban/mute), punições, sorteios, enquetes, matchmaking ou jogos. Quando solicitado, o bot esclarece gentilmente que sua especialidade exclusiva é **estruturar e organizar servidores**.
 
 ---
 
@@ -38,7 +38,7 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 1. Acesse o [Discord Developer Portal](https://discord.com/developers/applications).
 2. Selecione a sua aplicação e vá na aba **Bot** no menu lateral esquerdo.
 3. Role até a seção **Privileged Gateway Intents**:
-   - O Farol foi desenvolvido para funcionar com menção direta **sem necessidade de intents privilegiadas**.
+   - O Atlas foi desenvolvido para funcionar com menção direta **sem necessidade de intents privilegiadas**.
    - Contudo, se desejar que o bot leia mensagens sem ser explicitamente mencionado ou responda a mensagens em reply com contexto estendido, ative **MESSAGE CONTENT INTENT** e defina a variável `MESSAGE_CONTENT_INTENT=true`.
    - Se desejar que o bot liste membros offline com alta precisão, ative **SERVER MEMBERS INTENT** e defina `MEMBERS_INTENT=true`.
 4. Em **Token**, clique em **Reset Token**, copie o token e guarde-o (será o seu `DISCORD_TOKEN`).
@@ -48,7 +48,7 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 2. Na caixa **SCOPES**, marque:
    - `bot`
 3. Na caixa **BOT PERMISSIONS**, escolha uma das duas abordagens:
-   - **Opção A (Recomendada / Mais simples):** Marque **Administrator** (Permissão inteira `8`). Isso concede acesso geral para executar qualquer operação administrativa no servidor.
+   - **Opção A (Recomendada / Mais simples):** Marque **Cargo-3istrator** (Permissão inteira `8`). Isso concede acesso Canal-2 para executar qualquer operação administrativa no servidor.
    - **Opção B (Granular / Estrita):** Se preferir permissões pontuais, marque obrigatoriamente:
      * `Manage Channels` (Gerenciar Canais)
      * `Manage Roles` (Gerenciar Cargos)
@@ -66,19 +66,28 @@ Para que o bot consiga criar, renomear, mover e deletar canais, gerenciar cargos
 
 ### Passo 3: ⚠️ A REGRA DE OURO — A Hierarquia de Cargos no Servidor Discord
 
-> **A armadilha mais comum:** Mesmo que o bot tenha a permissão de "Administrador" ou "Gerenciar Cargos", a API do Discord **impede** qualquer usuário ou bot de modificar, atribuir ou excluir um cargo que esteja **acima ou na mesma posição** do cargo mais alto do bot.
+> **A armadilha mais comum:** Mesmo que o bot tenha a permissão de "Cargo-3istrador" ou "Gerenciar Cargos", a API do Discord **impede** qualquer usuário ou bot de modificar, atribuir ou excluir um cargo que **não esteja estritamente abaixo** do cargo mais alto do bot. Cargo na MESMA posição também não vale — e o cargo de um bot nasce sempre no fundo da lista quando ele entra no servidor.
 
-**Como arrumar:**
-1. No seu servidor Discord, clique com o botão direito no ícone do servidor → **Configurações do Servidor** → **Cargos**.
-2. Encontre o cargo do **farol** (geralmente criado com o mesmo nome do bot).
-3. **Clique e arraste o cargo do farol para o topo da lista de cargos**, deixando-o abaixo apenas do cargo pessoal do Dono do Servidor.
-4. Salve as alterações.
-5. Agora o Farol conseguirá criar, colorir, dar, tirar e organizar todos os cargos abaixo dele sem nenhuma restrição!
+**Como arrumar (2 minutos):**
+1. No seu servidor Discord, abra **Configurações do Servidor** → **Cargos**.
+2. Encontre o cargo do **atlas** (o mesmo nome do bot; é o que ele usa para falar).
+3. **Arraste o cargo do atlas para cima** dos cargos que ele deve gerenciar.
+
+⚠️ **A direção da lista depende do aparelho** (isso confunde muita gente — e já confundiu o dono deste projeto):
+
+| Onde você está | Como a lista aparece | Para onde arrCargo-12r o atlas |
+| --- | --- | --- |
+| **PC** (app ou navegador) | o cargo **mais forte** fica no **topo**, e o `@everyone` no **fim** | para **CIMA** |
+| **Celular** (Android/iOS) | a lista é **invertida**: o `@everyone` aparece **primeiro** e o mais forte no **fim** | para **BAIXO** (para o fim da lista) |
+
+> Se você está no celular e viu o `@everyone` no topo da lista, é essa tela invertida: ali o cargo que aparece em 3º lugar é o 3º **mais fraco**, não o 3º mais forte.
+4. Não existe botão de salvar: o Discord grava a nova ordem na hora.
+5. Pronto — o atlas passa a criar, colorir, dar, tirar e apagar os cargos abaixo dele. Para conferir, peça "liste os cargos": os que estiverem **abaixo** do cargo dele são gerenciáveis.
 
 ---
 
 ### Passo 4: Permissões do Usuário (Quem pode dar comandos)
-O Farol possui uma **política de segurança de mão dupla** (`brain/policy.py`). Antes de executar qualquer ação, ele valida:
+O Atlas possui uma **política de segurança de mão dupla** (`brain/policy.py`). Antes de executar qualquer ação, ele valida:
 1. Se o **bot** tem permissão técnica no servidor.
 2. Se o **usuário que chamou o bot** tem legitimidade para pedir aquilo.
 
@@ -88,53 +97,154 @@ O Farol possui uma **política de segurança de mão dupla** (`brain/policy.py`)
 | Cargos (criar, editar, excluir, dar, tirar, permissões) | `Gerenciar cargos` (`manage_roles`) |
 | Servidor (editar nome, alterar ícone, exportar estrutura) | `Gerenciar servidor` (`manage_guild`) |
 | Modelos (`apply_template`) e Backups (`import_structure`) | `Gerenciar canais` + `Gerenciar cargos` |
-| Consultas públicas (listar cargos, ver permissões, info, cores, emojis, tradução) | *Nenhuma (Livre para todos os membros)* |
-
-*Nota:* Administradores do servidor possuem bypass natural em suas próprias checagens, mas o Farol **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
 
 ---
 
-## ⚡ 3. As 27 Ferramentas do Farol
+### Passo 4.1: A cara das respostas (`ACCENT_COLOR` e `MENSAGEM_V2`)
 
-O Farol inclui 27 ferramentas com validação estrita de schemas e executores:
+O atlas responde em **Components V2**: um container com a cor de destaque, que organiza o texto
+e mostra o avatar dele ao lado — em vez de um textão solto.
+
+* **`ACCENT_COLOR`** (variável de repositório / ambiente): vazio ou `auto` faz o atlas **medir a
+  cor do próprio avatar** e usá-la (é o padrão — nada a configurar). Para fixar uma cor, use
+  `ACCENT_COLOR=#5865F2`.
+* **`MENSAGEM_V2`** (padrão `true`): `false` volta para o texto simples. Serve de plano B se
+  algum dia o Discord mudar o formato das mensagens V2.
+* Seja qual for a configuração, o envio em texto continua funcionando: a aparência **nunca**
+  impede a resposta de sair.
+| Consultas públicas (listar cargos, ver permissões, info, cores, emojis, tradução) | *Nenhuma (Livre para todos os membros)* |
+
+*Nota:* Cargo-3istradores do servidor possuem bypass natural em suas próprias checagens, mas o Atlas **sempre** confere se o seu próprio cargo possui as permissões necessárias antes de agir.
+
+---
+
+## ⚡ 3. As 31 Ferramentas do Atlas
+
+O Atlas inclui 31 ferramentas com validação estrita de schemas e executores:
 
 - **Canais (5):** `create_channels`, `edit_channel`, `delete_channels`, `move_channel`, `clone_channel`
-- **Cargos (6):** `create_roles`, `edit_role`, `delete_role`, `give_role`, `take_role`, `list_roles`
+- **Cargos (7):** `create_roles`, `edit_role`, `delete_role`, `delete_roles` (lote), `give_role`, `take_role`, `list_roles`
 - **Permissões (4):** `set_permissions`, `clear_permissions`, `sync_permissions`, `show_permissions`
 - **Servidor (3):** `edit_server`, `server_info`, `set_icon`
 - **Modelos Prontos (1):** `apply_template` (opções: `gamer`, `estudos`, `comunidade`)
 - **Backups (2):** `export_structure` (exporta JSON estruturado), `import_structure` (lê de texto ou anexo de arquivo)
 - **Utilidades Externas (5):** `color_palette`, `color_name`, `emoji_search`, `topic_suggest`, `translate_text`
-- **Sessão (1):** `conversation_clear` (limpa o histórico da memória deste canal)
+- **Sessão (4):** `conversation_clear` (limpa a memória do canal), `clear_messages` (apaga as mensagens),
+  `performance_report` ("quanto tempo você está levando?") e `diagnostic_report` (manda por DM um arquivo com a conversa + tempos)
 
 ### Confirmação Inteligente de Ações Destrutivas
-- **Exclusão de 1 canal nominal:** O usuário disse explicitamente `@farol apaga o canal #teste` → **Executa imediatamente** sem travar o fluxo.
+- **Exclusão de 1 canal nominal:** O usuário disse explicitamente `@atlas apaga o canal #teste` → **Executa imediatamente** sem travar o fluxo.
 - **Exclusão em massa (2+ canais ou categoria inteira):** O bot calcula o dano, interrompe e avisa: *"Isso apaga 8 canais de **antiga** — posso confirmar?"*. Ao receber "sim" ou "confirmo", executa na mesma rodada.
 - **Exclusão de cargo:** Sempre solicita confirmação prévia para evitar perda acidental de permissões.
+- **O canal da conversa NUNCA é apagado:** se o pedido for "apague todos os canais menos esse" e a lista vier com o canal atual dentro, o atlas tira ele da lista e avisa ("Mantive <#canal> fora da lista: é aqui que estamos conversando"). Pedir só esse canal é recusado, explicando o motivo e o caminho alternativo (`clear_messages`, para apagar as mensagens daqui).
 
 ---
 
 ## 🧠 4. O Cérebro: Corrida de LLMs
 
-O Farol utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
+O Atlas utiliza uma arquitetura de **corrida concorrente** (`AutoProvider`):
 1. Cada mensagem do usuário dispara chamadas simultâneas para todos os corredores configurados, com o mesmo timeout.
 2. A primeira resposta válida vence a rodada e as requisições restantes são **canceladas imediatamente**.
 3. Se um provedor cair, limitar (`429`) ou recusar o modelo (`400/404`), ele perde a corrida — e cada corredor ainda tenta o próximo modelo da sua lista antes de desistir.
-4. Se **todos** falharem, o erro enviado ao Discord traz uma linha por corredor (sem HTML) e diz exatamente qual segredo configurar.
+4. No fim, se ninguém respondeu, o bot tenta **uma segunda onda** de corrida (os gratuitos oscilam muito) antes de desistir.
+5. Se **todos** falharem de verdade, o cliente recebe uma frase curta e útil ("os modelos gratuitos estão com a fila cheia, tente de novo") — o relatório técnico completo (uma linha por corredor, sem HTML) fica no log da run.
 
-### Corredores anônimos (sem chave, ligados por padrão)
+### Pool de capacidade gratuita (`FREE_PROVIDERS`)
 
-| Corredor | Endpoint | Cadeia de modelos | Function calling |
-| --- | --- | --- | --- |
-| `llm7` | `api.llm7.io/v1` | `gpt-4o-mini` → `deepseek-v3-0324` → `mistral-small-3.1-24b` → `qwen2.5-coder-32b` | nativo (degrada sozinho se o modelo recusar o schema) |
-| `ovh` | `oai.endpoints.kepler.ai.cloud.ovh.net/v1` | `Meta-Llama-3_3-70B-Instruct` → `Qwen3-Coder-30B-A3B-Instruct` → `Llama-3.1-8B-Instruct` | protocolo de texto |
-| `pollinations` | `text.pollinations.ai/openai` | `openai` → `openai-fast` | protocolo de texto |
+O pool é o único caminho sem chave paga. Cada ficha carrega base, modelos, contexto, cota e se já
+foi validada ao vivo. **Só entra corredor que responde de verdade** — e o que ainda não tem
+credencial cadastrada fica fora da corrida (o log diz exatamente qual secret falta).
 
-Desligue todos com `DISABLE_FREE_LLMS=true`.
+| Corredor | Como entra | Contexto | Cota gratuita | Tools |
+| --- | --- | --- | --- | --- |
+| `kilo` | **anônimo** (sem cadastro) | **1M** (vários) · 512K · 262K | 200 req/h por IP | nativo |
+| `gemini` | secret `GEMINI_API_KEY` | **1M** | 10–15 RPM · 250–1.500 req/dia (por projeto) | nativo |
+| `groq` | secret `GROQ_API_KEY` | 128K | 30 RPM · 1.000 req/dia · 200K tokens/dia (por organização) | nativo |
+| `mistral` | secret `MISTRAL_API_KEY` | 256K | ~1 bilhão de tokens/mês (~2 RPM) | nativo |
+| `nvidia` | secret `NVIDIA_API_KEY` | 128K–262K | 1.000–5.000 créditos · 40 RPM | nativo |
+| `zai` | secret `ZAI_API_KEY` | 131K | ~1.000 req/dia (GLM Flash custa US$0/token) | nativo |
+| `cloudflare` | `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` | 256K–1.3M | 10.000 neurônios/dia | protocolo de texto |
+| `ollama` | secret `OLLAMA_API_KEY` | 128K–1M | créditos mensais, 1 requisição concorrente | nativo |
+| `openrouter` | secret `OPENROUTER_API_KEY` | até 1M | 20 RPM · **50 req/dia** (variantes `:free`) | nativo |
+| `modelscope` | secret `MODELSCOPE_API_KEY` | 131K–1M | 2.000 req/dia (cadastro pede telefone) | nativo |
+| `siliconflow` | secret `SILICONFLOW_API_KEY` | 131K | modelos a US$0 (~1.000 RPM) | nativo |
+| `cohere` | secret `COHERE_API_KEY` | 128K | 1.000 chamadas/mês (**só uso não comercial**) | nativo |
 
-> ⚠️ **Serviços gratuitos mudam modelos e limites sem aviso.** As cadeias acima são
-> melhor-esforço: quando um corredor recebe "model unavailable", ele tenta o próximo modelo
-> da lista. Para o bot ficar estável 24/7, configure um provedor com chave (a seguir).
+Desligue o pool inteiro com `DISABLE_FREE_LLMS=true`.
+
+**Confirmação de ação destrutiva (`CONFIRM_DESTRUCTIVE`)** — padrão **desligada** (modo direto):
+*"apague todos os canais e deixe só esse"* executa na hora e responde o que apagou. Ligue com
+`CONFIRM_DESTRUCTIVE=true` para o modo cauteloso (2+ canais, categoria ou cargo pedem um "sim" antes).
+
+**Nunca vaza raciocínio nem responde em inglês:** modelos grátis às vezes devolvem o rascunho
+interno ("Here's a thinking process…") dentro do `content`. O provedor corta o rascunho e mantém só o
+que vier após o `final answer:`; se sobrar apenas rascunho, a resposta conta como vazia e o corredor
+passa para o próximo modelo. No agente há a última barreira (`MAX_RESPOSTA_CHARS`, heurística de
+idioma): resposta com mais de 1.000 caracteres, em inglês ou com cara de rascunho é **reescrita uma
+vez** em PT-BR curto; se o modelo insistir, o bot entrega o resultado real da ferramenta (já em PT-BR)
+ou um "Feito! ✅" honesto — nunca o texto ruim.
+
+**Limpar conversa ≠ apagar mensagens:** `conversation_clear` limpa só a memória do bot (o histórico
+interno), `clear_messages` apaga as mensagens do canal de verdade (exige "Gerenciar mensagens" e relata
+quantas apagou). Pedido do tipo *"exclua esse chat"* cai em `clear_messages`; *"esqueça o que eu falei"*
+cai em `conversation_clear`. O bot nunca responde ter feito o que a ferramenta não confirmou.
+
+**Resposta pronta não passa pelo LLM de novo (`DIRECT_TOOL_REPLY`, padrão ligado):** quando o turno
+tem **uma** ferramenta terminal (excluir canal/cargo, limpar conversa) e ela deu certo, o bot responde
+com o próprio resultado em vez de pedir um resumo ao modelo — isso corta quase metade do tempo até a
+mensagem aparecer. Desligue com `DIRECT_TOOL_REPLY=false`.
+
+**Ordem da fila por latência:** o primeiro modelo do corredor é o que responde primeiro no Discord.
+A ordem vem da medição real do CI, não de chute: o smoke mede **3 amostras por modelo por rodada**,
+guarda tudo em `reports/kilo-latencia-historico.json` e a fila sai da **mediana acumulada** +
+**taxa de resposta com conteúdo** (`reports/kilo-latencia-modelos.md`). Uma rodada isolada oscila
+(um modelo que respondeu em 0,66 s volta vazio na seguinte), então a decisão nunca é de uma amostra
+só. A CI cobra essa ordem: se as rodadas novas mudarem o ranking, o teste falha **trazendo a ordem
+sugerida** pela medição — bCargo-12 reordenar a ficha e as rodadas seguem. Critério (confiabilidade
+antes de velocidade): maior **taxa de rodadas com conteúdo** primeiro,
+mediana de latência como desempate, reservas que nunca responderam no fim e o roteador `kilo-auto`
+(o que mais devolve vazio) sempre por último. Ranquear só por mediana era enganoso — um modelo que
+acertou 1 de 4 rodadas aparecia em 1º. Agregado de 18/09 (4 rodadas × 3 amostras):
+`nemotron-3-ultra-550b` (100% · 1,30 s) → `nex-n2.5-pro` (100% · 2,13 s) →
+`nemotron-3.5-lightning` (100% · 2,20 s) → `nemotron-3-super-120b` (75% · 0,84 s) →
+`dots-3-note-preview` (75% · 1,43 s) → metade/metade (`lfm-2.5`, `step-3.7-flash`) →
+`north-mini-code` (25%) → reservas.
+
+**Auditoria de capacidades:** cada ferramenta é testada por **capacidade**, não por chamada —
+todos os parâmetros, valores (válidos e inválidos), combinações, limites e o efeito real no
+Discord. O protocolo e a matriz estão em [`AUDITORIA-CAPACIDADES.md`](AUDITORIA-CAPACIDADES.md);
+os testes offline em `tests/test_capacidades.py` e a verificação ao vivo na fase `caps` do E2E
+(`reports/e2e-latest.md`, seção *Matriz de capacidades*).
+
+**Lista de modelos conferida ao vivo:** a ficha do `kilo` não é chute — cada id sai do catálogo real
+(`GET /api/gateway/models`, 380 modelos, 21 marcados `:free`), publicado pelo CI em
+[`reports/kilo-modelos-free.md`](reports/kilo-modelos-free.md). Modelo que sai do catálogo é
+descartado sozinho pela descoberta automática.
+
+**Como saber quem está realmente respondendo:** a sonda ao vivo roda no CI a cada push em
+`llm/**` (workflow *Smoke LLM Providers*) e grava o resultado em
+[`reports/smoke-llm.md`](reports/smoke-llm.md) — tabela por corredor com `GET /models`,
+`POST /chat/completions` em português, tool call nativo, chamadas consecutivas (429/Retry-After)
+e fallback textual. Rode local com `python scripts/smoke_llm.py --timeout 30 --out /tmp/sonda.md`
+(requer rede; no sandbox fechado o GET volta `-`).
+
+**Cadastro de secrets (sem cartão):** `gh secret set GEMINI_API_KEY` · `GROQ_API_KEY` ·
+`MISTRAL_API_KEY` · `NVIDIA_API_KEY` · `ZAI_API_KEY` · `CLOUDFLARE_API_TOKEN` (+ variável
+`CLOUDFLARE_ACCOUNT_ID`: `gh variable set CLOUDFLARE_ACCOUNT_ID`) · `OLLAMA_API_KEY` ·
+`OPENROUTER_API_KEY` · `MODELSCOPE_API_KEY` · `SILICONFLOW_API_KEY` · `COHERE_API_KEY`.
+Cada secret cadastrado entra na corrida no próximo ciclo, sem mudar código.
+
+> 🧹 **Corredores removidos (17/09/2026):** `llm7`, `ovh` e `pollinations` **saíram do código** —
+> não são mais classe, corredor, fallback, segunda/terceira onda nem config. Eles falhavam juntos
+> (HTTP 429 "queue full/rate limit" e modelo aposentado) e derrubavam a corrida inteira.
+> Também continuam fora: GitHub Models (aposentado), OpenCode Zen (pago) e Cerebras (exige cartão).
+
+> ⚠️ **Cadastre as chaves gratuitas para o pool crescer:** o bot ativa automaticamente todo corredor
+> cuja chave existir. Sem nenhuma chave, sobra só o `kilo` (anônimo, 200 req/h por IP). O log da run
+> mostra a linha `Pool gratuito ativo: ...` e, logo abaixo,
+> `Fora do pool por falta de credencial: ...`.
+> Chaves: `aistudio.google.com/apikey` (Gemini) · `console.groq.com/keys` (Groq) ·
+> `console.mistral.ai` (Mistral) · `build.nvidia.com` (NVIDIA) · `docs.z.ai` (GLM).
 
 ### Corredores com chave (recomendado para uso contínuo)
 
@@ -162,6 +272,8 @@ Variáveis de ajuste:
 | `LLM_BASE_URL` | Base de **qualquer** gateway OpenAI-compatível (use com `LLM_PROVIDER=meu-nome`) |
 | `LLM_API_KEY` | Chave genérica — tem prioridade sobre o segredo específico do provedor |
 | `DISABLE_FREE_LLMS` | `true` para correr apenas com o provedor pago |
+| `LLM_RACE_WAVES` | Quantas ondas de corrida tentar antes de desistir (padrão `2`, máximo `5`) |
+| `LLM_RACE_DELAY` | Pausa em segundos entre as ondas (padrão `0,8`) |
 
 O provedor com chave **não desliga** os gratuitos: ele entra na corrida como mais um
 corredor e, por responder com function calling nativo, costuma vencer.
@@ -189,25 +301,64 @@ detecta o erro, degrada para o protocolo de texto e repete a chamada sozinho.
 1. Confira o log da run: a linha `Corredores de LLM na corrida: ...` mostra quem entrou na disputa.
 2. Se só houver corredores gratuitos, eles provavelmente caíram ou mudaram de modelo — cadastre uma chave (`GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`…) e defina `LLM_PROVIDER`.
 3. Se a mensagem trouxer `HTTP 401`, a chave está errada; `HTTP 404` em HTML indica `LLM_BASE_URL` errado.
-4. Depois de mudar segredos/variáveis, rode **Actions → Farol Bot 24/7 → Run workflow** para reiniciar o processo.
+4. Provedor gratuito de castigo (`HTTP 429`, "queue full") é passageiro: o bot já repete a onda sozinho e o cliente vê apenas um pedido para tentar de novo em segundos.
+5. Depois de mudar segredos/variáveis, rode **Actions → Atlas Bot 24/7 → Run workflow** para reiniciar o processo.
 
 ---
 
 ## ♾️ 5. Hospedagem 24/7 no GitHub Actions
 
-O Farol mantém-se online gratuitamente no GitHub Actions através de um loop auto-sustentável:
+O Atlas mantém-se online gratuitamente no GitHub Actions através de um loop auto-sustentável:
 1. Cada execução roda por até **~5 horas e 35 minutos** (`timeout 20100s bash run.sh`).
 2. O script `run.sh` mantém o processo vivo e aplica backoff exponencial se houver quedas transitórias de conexão.
 3. Ao término do tempo limite, o job finaliza com sucesso (`exit 124` mapeado para sucesso) e aciona a etapa **Encadear**, que agenda a próxima execução via `gh workflow run`.
 4. Um gatilho de cron agendado (`cron: '25 */5 * * *'`) serve como redundância de segurança.
 
 ### 🛡️ Guarda de Obsolescência (`freshness.py`)
-No primeiro passo da esteira (antes mesmo do checkout), o Farol verifica a ponta do repositório remoto (`git ls-remote --heads origin`). Se um novo commit tiver sido enviado enquanto uma run estava na fila, o commit desatualizado **aborta imediatamente com `sys.exit(1)`**, impedindo que código antigo desfaça correções recentes.
+No primeiro passo da esteira (antes mesmo do checkout), o Atlas verifica a ponta do repositório remoto (`git ls-remote --heads origin`). Se um novo commit tiver sido enviado enquanto uma run estava na fila, o commit desatualizado **aborta imediatamente com `sys.exit(1)`**, impedindo que código antigo desfaça correções recentes.
+
+### 🔌 Ligar / reiniciar / parar o bot
+
+| Quero | Como fazer |
+| --- | --- |
+| **Ligar ou reiniciar** | Toque no arquivo `.github/bot-24x7-enabled` (qualquer alteração) ou faça um merge na `main`. O workflow *Atlas Bot 24/7* dispara na hora. |
+| **Conferir se está no ar** | Aba **Actions** → *Atlas Bot 24/7*: deve existir uma execução *In progress*. O workflow *Atlas Vigia 24/7* também avisa nas anotações a cada 30 min. |
+| **Parar só agora** | Cancele a execução em andamento. O vigia reergue em até 30 minutos. |
+| **Parar de vez** | Crie o arquivo `.github/bot-disabled` (o bot não sobe e o vigia não o reergue) ou desative o workflow na aba Actions. |
+
+### 🐕 O vigia (`bot-watchdog.yml`)
+
+A corrente sozinha já mantém o bot no ar, mas ela pode romper (erro, runner perdido, cancelamento
+acidental, push no meio da run). O *Atlas Vigia 24/7* fecha essas brechas:
+
+1. confere a cada **30 minutos** se existe execução do bot ativa/na fila — se não existir, sobe uma;
+2. se a ponta do ramo estiver parada há **mais de 45 dias**, grava um batimento (commit trivial) para
+   o GitHub não suspender os agendamentos por inatividade — é o que evita o bot morrer no 60º dia;
+3. respeita o `.github/bot-disabled` para não lutar contra uma parada proposital.
+
+O passo de frescor do bot também mudou: em vez de abortar quando o checkout está obsoleto (o que
+matava a corrente), ele **agenda uma run nova** — que já roda o código atualizado. Na prática, um
+push na `main` faz o bot se atualizar sozinho no fim da fatia de 5h35m.
+
+### 🧩 Vários servidores ao mesmo tempo (isolamento)
+
+O Atlas é feito para ser vendido e usado em muitos servidores por UM processo só. Tudo que é
+por conversa usa a chave `servidor:canal` (`brain/memory.py`):
+
+- **histórico da conversa** — o que foi dito no servidor A nunca entra no prompt do servidor B;
+- **pendência de confirmação** — o "sim" de um servidor não autoriza exclusão em outro;
+- **lock de processamento** — duas mensagens do mesmo canal entram em fila, canais de outros
+  servidores nem se enxergam;
+- **memória limitada** — as conversas mais antigas saem por LRU (`max_conversations`, 400 por
+  padrão) e o histórico por canal tem teto, então o bot pode ficar meses no ar sem crescer.
+
+Cobertura: `tests/test_isolation.py` (12 testes, incluindo dois servidores com o MESMO id de canal)
+e a checagem *conversa isolada por servidor* na fase `spy` do E2E.
 
 ### ⏰ Como Reativar o Schedule Após 60 Dias
 O GitHub suspende cron schedules automaticamente em repositórios sem atividade após 60 dias. Para manter ou reativar:
 1. Acesse a aba **Actions** no seu repositório GitHub.
-2. No menu esquerdo, clique no workflow **Farol Bot 24/7**.
+2. No menu esquerdo, clique no workflow **Atlas Bot 24/7**.
 3. Se houver um banner amarelo avisando da suspensão, clique em **Enable workflow** ou dispare manualmente via **Run workflow**.
 4. Qualquer push para o repositório reinicia o contador de 60 dias do GitHub.
 
@@ -241,7 +392,7 @@ O único segredo obrigatório é o `DISCORD_TOKEN`.
 
 ## 🧪 7. Testes e Validação Local
 
-A suíte de testes do Farol foi desenvolvida sem dependência de tokens de rede ou instâncias reais do Discord:
+A suíte de testes do Atlas foi desenvolvida sem dependência de tokens de rede ou instâncias reais do Discord:
 - Toda a lógica de `brain/` é duck-typed.
 - Cobertura completa de intents, policy, hierarquia de cargos, confirmação destrutiva, loop do agente com mock LLM, isolamento do bulk, resolução de queries e guarda de frescor.
 - Verificação estrita contra `ResourceWarning` ou skips.
@@ -251,6 +402,32 @@ Para executar os testes localmente:
 pip install -r requirements.txt
 python -W error::ResourceWarning -m unittest discover -s tests -v
 ```
+
+### 🛰️ Teste E2E ao vivo (`scripts/e2e_live.py`)
+
+Os testes acima são offline (duplos de teste fiéis ao `discord.py`). Para provar que o bot
+**faz de verdade** no servidor, existe a suíte E2E ao vivo, que roda no GitHub Actions
+(workflow **E2E ao vivo do Atlas**) porque o runner tem acesso a `discord.com`:
+
+| Fase | O que verifica |
+| --- | --- |
+| `static` | ferramentas ↔ executores ↔ políticas (conjuntos idênticos), schemas e prompt |
+| `spy` | cada ferramenta "promete e cumpre": duplos que imitam o discord.py 2.7.1 |
+| `policy` | permissões do autor/bot, `@everyone`, cargos gerenciados, hierarquia, confirmação |
+| `connect` / `audit` | login no gateway, corrida de LLMs, permissões e cache vs API |
+| `tools` | ferramentas de leitura no servidor real |
+| `agent` | prompt → ferramenta → resposta com o modelo real |
+| `mutate` | cria/edita/apaga objetos 🧪 **no servidor** e confere pela API (limpeza garantida) |
+| `botloop` | `core.bot.AtlasBot` recebendo mensagem real (menção, DM, reações, ferramenta) |
+| `sweep` | varredura de sobras 🧪 no fim |
+
+O relatório consolidado é publicado no branch em `reports/e2e-latest.{json,md}` e comentado no PR.
+
+As fases destrutivas só rodam com autorização explícita — qualquer um destes interruptores liga:
+variável de repositório `E2E_MUTATIONS=true`, disparo manual com `mutate=true`, ou o arquivo
+`.github/e2e-mutations-enabled` presente no branch. Tudo que o teste cria fica marcado com 🧪,
+é registrado por diferença de estado na API e removido no fim (a fase `sweep` limpa o que sobrar).
+`edit_server` e `set_icon` **não** são executados no servidor real (mudariam nome/ícone).
 
 ---
 

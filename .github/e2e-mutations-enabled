@@ -1,0 +1,8 @@
+Mutações reais autorizadas pelo dono do servidor (resposta "Sim, autorizo" na sessão de testes).
+
+Enquanto este arquivo existir no branch, o workflow E2E liga as fases 5–7 (mutate/botloop/sweep):
+elas criam objetos temporários marcados com 🧪 no servidor de teste, verificam pela API do
+Discord que cada operação realmente aconteceu e removem tudo no fim (guarda de propriedade).
+
+Para voltar ao modo somente-leitura, apague este arquivo (ou o workflow para de rodar as
+mutações com a variável de repositório E2E_MUTATIONS=false).

@@ -1,0 +1,2464 @@
+{
+  "rodadas": [
+    {
+      "em": "2026-09-18T01:40:02Z",
+      "modelos": {
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 600,
+          "amostras": [
+            [
+              "200 vazio",
+              600
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 1490,
+          "amostras": [
+            [
+              "HTTP 429",
+              1490
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1200,
+          "amostras": [
+            [
+              "200 vazio",
+              1200
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 770,
+          "amostras": [
+            [
+              "200 vazio",
+              770
+            ]
+          ]
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 2230,
+          "amostras": [
+            [
+              "200",
+              2230
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 6660,
+          "amostras": [
+            [
+              "200",
+              6660
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 800,
+          "amostras": [
+            [
+              "200 vazio",
+              800
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 1890,
+          "amostras": [
+            [
+              "200",
+              1890
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1450,
+          "amostras": [
+            [
+              "200 vazio",
+              1450
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1300,
+          "amostras": [
+            [
+              "200 vazio",
+              1300
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 3100,
+          "amostras": [
+            [
+              "200",
+              3100
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1910,
+          "amostras": [
+            [
+              "200 vazio",
+              1910
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T02:53:24Z",
+      "modelos": {
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 350,
+          "amostras": [
+            [
+              "HTTP 429",
+              350
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 460,
+          "amostras": [
+            [
+              "HTTP 429",
+              460
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 490,
+          "amostras": [
+            [
+              "HTTP 429",
+              490
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 550,
+          "amostras": [
+            [
+              "200 vazio",
+              550
+            ]
+          ]
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 660,
+          "amostras": [
+            [
+              "200",
+              660
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 690,
+          "amostras": [
+            [
+              "200",
+              690
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 850,
+          "amostras": [
+            [
+              "200 vazio",
+              850
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1100,
+          "amostras": [
+            [
+              "200 vazio",
+              1100
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1180,
+          "amostras": [
+            [
+              "200",
+              1180
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1430,
+          "amostras": [
+            [
+              "200 vazio",
+              1430
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 1580,
+          "amostras": [
+            [
+              "200",
+              1580
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1980,
+          "amostras": [
+            [
+              "200 vazio",
+              1980
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T03:16:31Z",
+      "modelos": {
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 783,
+          "amostras": [
+            [
+              "200",
+              783
+            ],
+            [
+              "200",
+              1111
+            ],
+            [
+              "200",
+              606
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 658,
+          "amostras": [
+            [
+              "200",
+              658
+            ],
+            [
+              "200 vazio",
+              510
+            ],
+            [
+              "200",
+              767
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1812,
+          "amostras": [
+            [
+              "200",
+              1812
+            ],
+            [
+              "200",
+              2269
+            ],
+            [
+              "200",
+              1003
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 2152,
+          "amostras": [
+            [
+              "200",
+              2573
+            ],
+            [
+              "200",
+              2152
+            ],
+            [
+              "200",
+              2140
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 1297,
+          "amostras": [
+            [
+              "200",
+              1297
+            ],
+            [
+              "200",
+              24920
+            ],
+            [
+              "200",
+              762
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2215,
+          "amostras": [
+            [
+              "200",
+              14104
+            ],
+            [
+              "200",
+              2101
+            ],
+            [
+              "200",
+              2215
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 401,
+          "amostras": [
+            [
+              "HTTP 429",
+              1655
+            ],
+            [
+              "HTTP 429",
+              354
+            ],
+            [
+              "HTTP 429",
+              401
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 412,
+          "amostras": [
+            [
+              "HTTP 429",
+              412
+            ],
+            [
+              "HTTP 429",
+              409
+            ],
+            [
+              "HTTP 429",
+              420
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1745,
+          "amostras": [
+            [
+              "200 vazio",
+              1745
+            ],
+            [
+              "200 vazio",
+              9200
+            ],
+            [
+              "200 vazio",
+              1620
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 985,
+          "amostras": [
+            [
+              "200",
+              2417
+            ],
+            [
+              "200 vazio",
+              949
+            ],
+            [
+              "200 vazio",
+              985
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 573,
+          "amostras": [
+            [
+              "200",
+              573
+            ],
+            [
+              "200",
+              594
+            ],
+            [
+              "200",
+              523
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200",
+          "ms_mediana": 1550,
+          "amostras": [
+            [
+              "200 vazio",
+              1550
+            ],
+            [
+              "200",
+              1598
+            ],
+            [
+              "200",
+              1294
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T03:22:59Z",
+      "modelos": {
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 2131,
+          "amostras": [
+            [
+              "200",
+              859
+            ],
+            [
+              "200",
+              12231
+            ],
+            [
+              "200",
+              2131
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 1223,
+          "amostras": [
+            [
+              "200",
+              2862
+            ],
+            [
+              "200",
+              1223
+            ],
+            [
+              "200",
+              725
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1429,
+          "amostras": [
+            [
+              "200",
+              1400
+            ],
+            [
+              "200",
+              1429
+            ],
+            [
+              "200",
+              1499
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 841,
+          "amostras": [
+            [
+              "200",
+              601
+            ],
+            [
+              "200",
+              841
+            ],
+            [
+              "200",
+              1233
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 2201,
+          "amostras": [
+            [
+              "200",
+              688
+            ],
+            [
+              "TimeoutError",
+              60782
+            ],
+            [
+              "200",
+              2201
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 1618,
+          "amostras": [
+            [
+              "200",
+              950
+            ],
+            [
+              "200",
+              1618
+            ],
+            [
+              "200",
+              2392
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2303,
+          "amostras": [
+            [
+              "200",
+              2062
+            ],
+            [
+              "200",
+              2682
+            ],
+            [
+              "200",
+              2303
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 340,
+          "amostras": [
+            [
+              "HTTP 429",
+              340
+            ],
+            [
+              "HTTP 429",
+              312
+            ],
+            [
+              "HTTP 429",
+              444
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 368,
+          "amostras": [
+            [
+              "HTTP 429",
+              384
+            ],
+            [
+              "HTTP 429",
+              360
+            ],
+            [
+              "HTTP 429",
+              368
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 2356,
+          "amostras": [
+            [
+              "HTTP 429",
+              444
+            ],
+            [
+              "200 vazio",
+              2356
+            ],
+            [
+              "200 vazio",
+              4541
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 620,
+          "amostras": [
+            [
+              "200",
+              640
+            ],
+            [
+              "200",
+              620
+            ],
+            [
+              "200",
+              549
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200",
+          "ms_mediana": 1230,
+          "amostras": [
+            [
+              "200",
+              1230
+            ],
+            [
+              "200",
+              1140
+            ],
+            [
+              "200",
+              1311
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T03:28:36Z",
+      "modelos": {
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 2320,
+          "amostras": [
+            [
+              "200",
+              2320
+            ],
+            [
+              "200",
+              747
+            ],
+            [
+              "200",
+              6687
+            ]
+          ]
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 1561,
+          "amostras": [
+            [
+              "200",
+              1908
+            ],
+            [
+              "200",
+              1545
+            ],
+            [
+              "200",
+              1561
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 4611,
+          "amostras": [
+            [
+              "200",
+              1895
+            ],
+            [
+              "200",
+              11317
+            ],
+            [
+              "200",
+              4611
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 975,
+          "amostras": [
+            [
+              "200",
+              975
+            ],
+            [
+              "200",
+              1437
+            ],
+            [
+              "200",
+              697
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1448,
+          "amostras": [
+            [
+              "200",
+              1448
+            ],
+            [
+              "200",
+              1840
+            ],
+            [
+              "200",
+              1298
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 1495,
+          "amostras": [
+            [
+              "200",
+              1495
+            ],
+            [
+              "200",
+              763
+            ],
+            [
+              "200",
+              1503
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2185,
+          "amostras": [
+            [
+              "200",
+              4809
+            ],
+            [
+              "200",
+              2078
+            ],
+            [
+              "200",
+              2185
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 956,
+          "amostras": [
+            [
+              "200",
+              956
+            ],
+            [
+              "200",
+              526
+            ],
+            [
+              "200",
+              1972
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 413,
+          "amostras": [
+            [
+              "HTTP 429",
+              364
+            ],
+            [
+              "HTTP 429",
+              499
+            ],
+            [
+              "HTTP 429",
+              413
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 485,
+          "amostras": [
+            [
+              "200",
+              1113
+            ],
+            [
+              "HTTP 429",
+              461
+            ],
+            [
+              "HTTP 429",
+              485
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 4054,
+          "amostras": [
+            [
+              "200 vazio",
+              4054
+            ],
+            [
+              "200 vazio",
+              4831
+            ],
+            [
+              "HTTP 429",
+              520
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 5966,
+          "amostras": [
+            [
+              "200 vazio",
+              7089
+            ],
+            [
+              "HTTP 429",
+              927
+            ],
+            [
+              "200 vazio",
+              5966
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T05:22:22Z",
+      "modelos": {
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 2011,
+          "amostras": [
+            [
+              "200",
+              8258
+            ],
+            [
+              "200",
+              1594
+            ],
+            [
+              "200",
+              2011
+            ]
+          ]
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 789,
+          "amostras": [
+            [
+              "TimeoutError",
+              61040
+            ],
+            [
+              "200",
+              736
+            ],
+            [
+              "200",
+              789
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 2479,
+          "amostras": [
+            [
+              "200",
+              43585
+            ],
+            [
+              "200",
+              1569
+            ],
+            [
+              "200",
+              2479
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 841,
+          "amostras": [
+            [
+              "200",
+              1499
+            ],
+            [
+              "200",
+              841
+            ],
+            [
+              "200 vazio",
+              524
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1514,
+          "amostras": [
+            [
+              "200",
+              1498
+            ],
+            [
+              "200 vazio",
+              1628
+            ],
+            [
+              "200",
+              1514
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 798,
+          "amostras": [
+            [
+              "200",
+              798
+            ],
+            [
+              "200",
+              737
+            ],
+            [
+              "200",
+              810
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2016,
+          "amostras": [
+            [
+              "200",
+              2016
+            ],
+            [
+              "200",
+              2116
+            ],
+            [
+              "200",
+              1964
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 805,
+          "amostras": [
+            [
+              "200",
+              2627
+            ],
+            [
+              "200",
+              805
+            ],
+            [
+              "200",
+              692
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 379,
+          "amostras": [
+            [
+              "HTTP 429",
+              360
+            ],
+            [
+              "HTTP 429",
+              379
+            ],
+            [
+              "HTTP 429",
+              408
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 468,
+          "amostras": [
+            [
+              "200",
+              1407
+            ],
+            [
+              "HTTP 429",
+              468
+            ],
+            [
+              "HTTP 429",
+              424
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 740,
+          "amostras": [
+            [
+              "HTTP 429",
+              766
+            ],
+            [
+              "HTTP 429",
+              473
+            ],
+            [
+              "HTTP 429",
+              740
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200",
+          "ms_mediana": 1906,
+          "amostras": [
+            [
+              "200",
+              38691
+            ],
+            [
+              "200",
+              1577
+            ],
+            [
+              "200",
+              1906
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T06:26:00Z",
+      "modelos": {
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 1932,
+          "amostras": [
+            [
+              "200",
+              1288
+            ],
+            [
+              "200",
+              1932
+            ],
+            [
+              "200",
+              3716
+            ]
+          ]
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 1212,
+          "amostras": [
+            [
+              "200",
+              1212
+            ],
+            [
+              "200",
+              662
+            ],
+            [
+              "200",
+              36180
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 43997,
+          "amostras": [
+            [
+              "200",
+              43997
+            ],
+            [
+              "TimeoutError",
+              60607
+            ],
+            [
+              "200",
+              2126
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 1758,
+          "amostras": [
+            [
+              "200",
+              1758
+            ],
+            [
+              "200",
+              2799
+            ],
+            [
+              "200",
+              713
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1597,
+          "amostras": [
+            [
+              "200",
+              1597
+            ],
+            [
+              "200",
+              1947
+            ],
+            [
+              "200 vazio",
+              1565
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 611,
+          "amostras": [
+            [
+              "200",
+              1307
+            ],
+            [
+              "200",
+              611
+            ],
+            [
+              "200",
+              502
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 3387,
+          "amostras": [
+            [
+              "200",
+              3387
+            ],
+            [
+              "200",
+              2425
+            ],
+            [
+              "200",
+              4253
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 2738,
+          "amostras": [
+            [
+              "200",
+              1001
+            ],
+            [
+              "200",
+              5854
+            ],
+            [
+              "200",
+              2738
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 361,
+          "amostras": [
+            [
+              "HTTP 429",
+              347
+            ],
+            [
+              "HTTP 429",
+              361
+            ],
+            [
+              "HTTP 429",
+              410
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 2158,
+          "amostras": [
+            [
+              "200 vazio",
+              3329
+            ],
+            [
+              "200 vazio",
+              2158
+            ],
+            [
+              "200",
+              1558
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 2337,
+          "amostras": [
+            [
+              "HTTP 429",
+              522
+            ],
+            [
+              "200 vazio",
+              5790
+            ],
+            [
+              "200 vazio",
+              2337
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1498,
+          "amostras": [
+            [
+              "HTTP 429",
+              511
+            ],
+            [
+              "200 vazio",
+              3725
+            ],
+            [
+              "200 vazio",
+              1498
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T06:29:07Z",
+      "modelos": {
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 855,
+          "amostras": [
+            [
+              "200",
+              3653
+            ],
+            [
+              "200",
+              784
+            ],
+            [
+              "200",
+              855
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 625,
+          "amostras": [
+            [
+              "200",
+              609
+            ],
+            [
+              "200",
+              1144
+            ],
+            [
+              "200",
+              625
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 2102,
+          "amostras": [
+            [
+              "200",
+              5944
+            ],
+            [
+              "200",
+              1786
+            ],
+            [
+              "200",
+              2102
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 726,
+          "amostras": [
+            [
+              "200",
+              688
+            ],
+            [
+              "200",
+              726
+            ],
+            [
+              "200",
+              1053
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1365,
+          "amostras": [
+            [
+              "200",
+              1365
+            ],
+            [
+              "200",
+              837
+            ],
+            [
+              "200",
+              1433
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 842,
+          "amostras": [
+            [
+              "200",
+              930
+            ],
+            [
+              "200",
+              842
+            ],
+            [
+              "200",
+              603
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2224,
+          "amostras": [
+            [
+              "200",
+              2094
+            ],
+            [
+              "200",
+              2224
+            ],
+            [
+              "200",
+              2359
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 603,
+          "amostras": [
+            [
+              "200",
+              626
+            ],
+            [
+              "200",
+              603
+            ],
+            [
+              "200",
+              459
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 400,
+          "amostras": [
+            [
+              "HTTP 429",
+              408
+            ],
+            [
+              "HTTP 429",
+              400
+            ],
+            [
+              "HTTP 429",
+              351
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "200",
+          "ms_mediana": 1060,
+          "amostras": [
+            [
+              "HTTP 429",
+              400
+            ],
+            [
+              "200",
+              1060
+            ],
+            [
+              "200",
+              4494
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 6945,
+          "amostras": [
+            [
+              "HTTP 429",
+              538
+            ],
+            [
+              "200 vazio",
+              9015
+            ],
+            [
+              "200 vazio",
+              6945
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200",
+          "ms_mediana": 1129,
+          "amostras": [
+            [
+              "200",
+              1191
+            ],
+            [
+              "200",
+              1129
+            ],
+            [
+              "200",
+              866
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T07:03:23Z",
+      "modelos": {
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 640,
+          "amostras": [
+            [
+              "200",
+              661
+            ],
+            [
+              "200",
+              594
+            ],
+            [
+              "200",
+              640
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 936,
+          "amostras": [
+            [
+              "200",
+              936
+            ],
+            [
+              "200",
+              1783
+            ],
+            [
+              "200 vazio",
+              502
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 14307,
+          "amostras": [
+            [
+              "200",
+              22438
+            ],
+            [
+              "200",
+              2320
+            ],
+            [
+              "200",
+              14307
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 837,
+          "amostras": [
+            [
+              "200",
+              837
+            ],
+            [
+              "200",
+              1570
+            ],
+            [
+              "200 vazio",
+              414
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1426,
+          "amostras": [
+            [
+              "200",
+              1460
+            ],
+            [
+              "200",
+              1426
+            ],
+            [
+              "200",
+              894
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 1983,
+          "amostras": [
+            [
+              "200",
+              1661
+            ],
+            [
+              "200",
+              2169
+            ],
+            [
+              "200",
+              1983
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2036,
+          "amostras": [
+            [
+              "200",
+              1889
+            ],
+            [
+              "200",
+              2036
+            ],
+            [
+              "200",
+              2108
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 2679,
+          "amostras": [
+            [
+              "200 vazio",
+              2679
+            ],
+            [
+              "200",
+              3452
+            ],
+            [
+              "200",
+              1363
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "200",
+          "ms_mediana": 995,
+          "amostras": [
+            [
+              "200",
+              9853
+            ],
+            [
+              "200",
+              943
+            ],
+            [
+              "200",
+              995
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 264,
+          "amostras": [
+            [
+              "HTTP 429",
+              415
+            ],
+            [
+              "HTTP 429",
+              251
+            ],
+            [
+              "HTTP 429",
+              264
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 578,
+          "amostras": [
+            [
+              "200 vazio",
+              4645
+            ],
+            [
+              "HTTP 429",
+              469
+            ],
+            [
+              "HTTP 429",
+              578
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 1248,
+          "amostras": [
+            [
+              "200 vazio",
+              1395
+            ],
+            [
+              "200 vazio",
+              1248
+            ],
+            [
+              "200 vazio",
+              1092
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T10:20:39Z",
+      "modelos": {
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 669,
+          "amostras": [
+            [
+              "200",
+              1784
+            ],
+            [
+              "200",
+              669
+            ],
+            [
+              "200",
+              570
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 2729,
+          "amostras": [
+            [
+              "200",
+              1254
+            ],
+            [
+              "200",
+              2729
+            ],
+            [
+              "200",
+              13143
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 4173,
+          "amostras": [
+            [
+              "200",
+              4173
+            ],
+            [
+              "200",
+              6303
+            ],
+            [
+              "200",
+              3272
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 703,
+          "amostras": [
+            [
+              "200",
+              867
+            ],
+            [
+              "200",
+              703
+            ],
+            [
+              "200",
+              652
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1258,
+          "amostras": [
+            [
+              "HTTP 400",
+              15487
+            ],
+            [
+              "200",
+              1258
+            ],
+            [
+              "200",
+              797
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 552,
+          "amostras": [
+            [
+              "200",
+              552
+            ],
+            [
+              "200",
+              491
+            ],
+            [
+              "200",
+              776
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2012,
+          "amostras": [
+            [
+              "200",
+              2012
+            ],
+            [
+              "200",
+              1917
+            ],
+            [
+              "200",
+              2032
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 909,
+          "amostras": [
+            [
+              "200",
+              909
+            ],
+            [
+              "200",
+              1241
+            ],
+            [
+              "200",
+              803
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 310,
+          "amostras": [
+            [
+              "HTTP 429",
+              310
+            ],
+            [
+              "HTTP 429",
+              295
+            ],
+            [
+              "HTTP 429",
+              311
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 404,
+          "amostras": [
+            [
+              "HTTP 429",
+              455
+            ],
+            [
+              "HTTP 429",
+              352
+            ],
+            [
+              "HTTP 429",
+              404
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 390,
+          "amostras": [
+            [
+              "HTTP 429",
+              390
+            ],
+            [
+              "HTTP 429",
+              383
+            ],
+            [
+              "200 vazio",
+              4936
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200",
+          "ms_mediana": 1196,
+          "amostras": [
+            [
+              "200",
+              1155
+            ],
+            [
+              "200",
+              1196
+            ],
+            [
+              "200",
+              1391
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-18T10:41:18Z",
+      "modelos": {
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 762,
+          "amostras": [
+            [
+              "200",
+              765
+            ],
+            [
+              "200",
+              762
+            ],
+            [
+              "200",
+              651
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 900,
+          "amostras": [
+            [
+              "200",
+              813
+            ],
+            [
+              "200",
+              1642
+            ],
+            [
+              "200",
+              900
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "200",
+          "ms_mediana": 2208,
+          "amostras": [
+            [
+              "200",
+              2177
+            ],
+            [
+              "200",
+              3139
+            ],
+            [
+              "200",
+              2208
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 1575,
+          "amostras": [
+            [
+              "200",
+              1575
+            ],
+            [
+              "200",
+              1954
+            ],
+            [
+              "200",
+              749
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1559,
+          "amostras": [
+            [
+              "200",
+              1559
+            ],
+            [
+              "200 vazio",
+              1630
+            ],
+            [
+              "200",
+              1437
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 612,
+          "amostras": [
+            [
+              "200",
+              598
+            ],
+            [
+              "200",
+              612
+            ],
+            [
+              "200",
+              615
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 2243,
+          "amostras": [
+            [
+              "200",
+              7973
+            ],
+            [
+              "200",
+              1958
+            ],
+            [
+              "200",
+              2243
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 2148,
+          "amostras": [
+            [
+              "200",
+              4780
+            ],
+            [
+              "200",
+              1897
+            ],
+            [
+              "200",
+              2148
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 5014,
+          "amostras": [
+            [
+              "200",
+              27908
+            ],
+            [
+              "200 vazio",
+              1387
+            ],
+            [
+              "200 vazio",
+              5014
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "HTTP 429",
+          "ms_mediana": 412,
+          "amostras": [
+            [
+              "HTTP 429",
+              405
+            ],
+            [
+              "HTTP 429",
+              426
+            ],
+            [
+              "HTTP 429",
+              412
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 3763,
+          "amostras": [
+            [
+              "200 vazio",
+              4913
+            ],
+            [
+              "200 vazio",
+              3763
+            ],
+            [
+              "HTTP 429",
+              513
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200",
+          "ms_mediana": 1178,
+          "amostras": [
+            [
+              "200",
+              3882
+            ],
+            [
+              "200",
+              1178
+            ],
+            [
+              "200",
+              1000
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "em": "2026-09-19T00:49:31Z",
+      "modelos": {
+        "nex-agi/nex-n2.5-pro:free": {
+          "resultado": "200",
+          "ms_mediana": 1707,
+          "amostras": [
+            [
+              "200",
+              1513
+            ],
+            [
+              "200",
+              7913
+            ],
+            [
+              "200",
+              1707
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "resultado": "200",
+          "ms_mediana": 5479,
+          "amostras": [
+            [
+              "200",
+              1605
+            ],
+            [
+              "200",
+              5479
+            ],
+            [
+              "200",
+              6334
+            ]
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "resultado": "TimeoutError",
+          "ms_mediana": 60539,
+          "amostras": [
+            [
+              "TimeoutError",
+              60539
+            ],
+            [
+              "200",
+              2006
+            ],
+            [
+              "TimeoutError",
+              61028
+            ]
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "resultado": "200",
+          "ms_mediana": 1202,
+          "amostras": [
+            [
+              "200",
+              4178
+            ],
+            [
+              "200",
+              771
+            ],
+            [
+              "200",
+              1202
+            ]
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "resultado": "200",
+          "ms_mediana": 1683,
+          "amostras": [
+            [
+              "200",
+              1676
+            ],
+            [
+              "200 vazio",
+              2385
+            ],
+            [
+              "200",
+              1683
+            ]
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "resultado": "200",
+          "ms_mediana": 1076,
+          "amostras": [
+            [
+              "200",
+              1076
+            ],
+            [
+              "200",
+              1481
+            ],
+            [
+              "200",
+              511
+            ]
+          ]
+        },
+        "stepfun/step-3.7-flash:free": {
+          "resultado": "200",
+          "ms_mediana": 1907,
+          "amostras": [
+            [
+              "200",
+              1851
+            ],
+            [
+              "200",
+              2076
+            ],
+            [
+              "200",
+              1907
+            ]
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "resultado": "200",
+          "ms_mediana": 1775,
+          "amostras": [
+            [
+              "200",
+              1775
+            ],
+            [
+              "200",
+              8237
+            ],
+            [
+              "200",
+              874
+            ]
+          ]
+        },
+        "qwen/qwen3.8-27b:free": {
+          "resultado": "200",
+          "ms_mediana": 954,
+          "amostras": [
+            [
+              "200",
+              1324
+            ],
+            [
+              "200",
+              954
+            ],
+            [
+              "HTTP 429",
+              252
+            ]
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "resultado": "200",
+          "ms_mediana": 737,
+          "amostras": [
+            [
+              "200",
+              673
+            ],
+            [
+              "200",
+              737
+            ],
+            [
+              "200 vazio",
+              789
+            ]
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 2915,
+          "amostras": [
+            [
+              "200 vazio",
+              2915
+            ],
+            [
+              "200 vazio",
+              2953
+            ],
+            [
+              "200 vazio",
+              1300
+            ]
+          ]
+        },
+        "kilo-auto/free": {
+          "resultado": "200 vazio",
+          "ms_mediana": 2730,
+          "amostras": [
+            [
+              "200 vazio",
+              2192
+            ],
+            [
+              "200 vazio",
+              2730
+            ],
+            [
+              "200 vazio",
+              2855
+            ]
+          ]
+        }
+      }
+    }
+  ]
+}

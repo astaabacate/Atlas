@@ -1,0 +1,215 @@
+LIGAR / REINICIAR O BOT 24/7
+============================
+
+Tocar neste arquivo (qualquer alteração, mesmo um espaço) dispara o workflow
+"Atlas Bot 24/7" no ramo em que o arquivo foi alterado. A partir daí o bot:
+
+  1. fica online por ~5h35m em um runner do GitHub Actions;
+  2. ao terminar a fatia, agenda a próxima execução sozinho (encadeamento);
+  3. tem um cron de 5 em 5 horas como rede de segurança;
+  4. tem o workflow "Atlas Vigia 24/7" conferindo a cada 30 minutos se algo caiu —
+     se a corrente se romper, o vigia sobe o bot de novo.
+
+ONDE ELE ATENDE
+---------------
+O mesmo processo atende VÁRIOS servidores ao mesmo tempo. O histórico de conversa, o
+contexto do prompt e a pendência de confirmação são sempre por (servidor, canal), então
+um servidor nunca vê a conversa do outro. A memória é limitada (LRU) para o bot poder
+ficar meses no ar sem crescer.
+
+PARAR DE VEZ
+------------
+Crie o arquivo .github/bot-disabled (o bot e o vigia param) ou desative o workflow na
+aba Actions ("Atlas Bot 24/7" -> Disable workflow).
+
+PARAR SÓ AGORA
+--------------
+Cancele a execução em andamento. Atenção: o vigia reergue o bot em até 30 minutos —
+para uma parada longa, use o .github/bot-disabled.
+
+RESTART PEDIDO EM 2026-09-17T23:39Z
+-------------------------------
+Motivo: levar ao bot online a correção da corrida de LLMs gratuitos (429 / catálogo morto /
+fila cheia). O reinício entra na fila e assume quando a fatia atual terminar; se quiser
+imediato, cancele a execução em andamento na aba Actions.
+
+RESTART PEDIDO EM 2026-09-18T01:10Z
+-------------------------------
+Motivo: levar ao bot online a limpeza do LLM (llm7/OVH/Pollinations fora; pool gratuito
+FREE_PROVIDERS no lugar) e a repetição com mais tokens quando o modelo grátis devolve vazio.
+Entra na fila e assume quando a fatia atual terminar.
+
+RESTART PEDIDO EM 2026-09-18T02:20Z
+-------------------------------
+Motivo: subir o bot no código com o pool gratuito (llm7/OVH/Pollinations fora) e a
+repetição de resposta vazia do roteador. Este é o reinício que deve sobreviver na fila.
+
+RESTART PEDIDO EM 2026-09-18T02:05Z
+-------------------------------
+Motivo: levar ao bot vivo o MODO DIRETO (não pergunta antes de apagar: o pedido já é a
+autorização) e o atalho de velocidade (resposta pronta da ferramenta não volta ao LLM).
+
+RESTART PEDIDO EM 2026-09-18T02:45Z
+-------------------------------
+Motivo: 'exclua esse chat' apagava nada e o bot dizia que apagou. Entram a ferramenta
+clear_messages (bulk delete real) e a resposta honesta do conversation_clear.
+
+RESTART PEDIDO EM 2026-09-18T03:20Z
+-------------------------------
+Motivo: o bot mandou o rascunho interno do modelo (textão em inglês). Entram o corte de
+raciocínio no provedor e a barreira de resposta no agente (PT-BR, curto, nunca rascunho).
+
+RESTART PEDIDO EM 2026-09-18T03:35Z
+-------------------------------
+Motivo: fila do corredor kilo reordenada por MEDIANA medida (3 amostras/rodada + histórico),
+para o bot pegar o modelo que de fato responde primeiro.
+
+RESTART PEDIDO EM 2026-09-18T05:50Z
+-------------------------------
+Motivo: subir o bot no código da auditoria de capacidades (matriz ao vivo ✅104 · ❌0).
+Entram: recusa de cargo medida na API (cache do discord.py não bloqueia mais o bot), segunda
+tentativa automática em erro 5xx do Discord (criar cargo/canal/fórum e apagar mensagens),
+bitrate validado contra o teto real do servidor, palco sem recurso Comunidade explicado em
+português, export avisando quando o JSON não cabe, posição real relatada no mover/editar,
+membro buscado na API quando o cache está vazio, e as respostas honestas de server_info,
+color_name, translate_text, emoji_search e topic_suggest. O reinício entra na fila e assume
+quando a fatia atual terminar.
+
+RESTART PEDIDO EM 2026-09-18T06:23Z
+-------------------------------
+Motivo: o bot online ainda estava no código ANTIGO — foi ele que mandou o planejamento em
+inglês ("[Ação solicitada: edit_channel(...)] Let's start by editing categories...") quando
+alguém só disse "oi", e ele dava "Não consegui falar com nenhum modelo de linguagem" em
+tarefas específicas. Este reinício leva tudo: (1) a barreira de resposta (sem rascunho, sem
+inglês, sem eco do contexto interno, no máximo ~1000 caracteres); (2) a corrida de LLM com 3
+ondas e repetição com histórico cortado quando o pedido não cabe no modelo — com mensagem
+honesta ("a conversa ficou comprida demais") em vez do genérico; (3) o resultado real da
+ferramenta quando o LLM cai depois de a ação já ter rodado; e (4) as correções da matriz de
+capacidades (hierarquia medida na API, retentativa em 5xx, bitrate pelo teto do servidor,
+export com aviso de recorte).
+
+RESTART PEDIDO EM 2026-09-18T06:27Z
+-------------------------------
+Motivo: incluir na fatia a fila do kilo reordenada pela medição de 7 rodadas (o
+nex-n2.5-pro responde com conteúdo 100% das vezes em 1,21 s; ele assume a ponta no lugar do
+ultra-550b, de 1,93 s) — resposta do bot começa ~0,7 s antes. Entra na fila e substitui a
+execução ainda pendente.
+
+RESTART PEDIDO EM 2026-09-18T07:01Z
+-------------------------------
+Motivo: a fatia pendente estava num ponto ANTERIOR às últimas correções do LLM. Entram: a
+espera pelo castigo curto quando todo o pool cai (com um corredor só, era falha na hora — a
+causa do "não consegui falar com nenhum modelo" nas tarefas específicas), a poda progressiva do
+histórico quando o pedido não cabe, o motivo certo na mensagem ("conversa comprida demais"),
+a barreira contra eco do contexto (o textão em inglês que começava com "[Ação solicitada: ...]"),
+e a fila do kilo medida na 8ª rodada. Esta execução substitui a pendente anterior.
+
+
+RESTART PEDIDO EM 2026-09-18T09:10Z
+-------------------------------
+Motivo: os 3 bugs que o dono viu AO VIVO usando o bot: (1) "recrie o canal" devolvia o canal como
+estava — a ordem crua do modelo (delete antes do clone) era executada como veio e, se a criação
+falhasse, o canal sumia; agora quem CRIA roda antes de quem APAGA, a exclusão da mesma mensagem é
+bloqueada quando a criação falhou e a retentativa só repete com 5xx confirmado; o clone passa a
+copiar também a POSIÇÃO. (2) cargos/canais duplicados — chamada idêntica repetida pelo modelo era
+executada de novo (dedupe por nome+args agora) e create_roles/create_channels não criam o que já
+existe com o mesmo nome (recriação do que a mesma mensagem vai apagar continua valendo).
+(3) demora para agir — o atalho de resposta direta só valia para ferramentas "terminais": as
+outras obrigavam uma SEGUNDA ida ao modelo só para resumir o que já estava pronto (era o delay do
+lote de 5 canais); agora vale para qualquer ferramenta única. Esta execução substitui a pendente.
+
+RESTART PEDIDO EM 2026-09-18T09:25Z
+-------------------------------
+Motivo: o E2E ao vivo pegou mais uma duplicata REAL no lote — `run_bulk` roda concorrente (3 por
+vez) e o nome só era marcado como usado DEPOIS da criação, então dois itens com o mesmo nome
+numa chamada só criavam os dois (canais e cargos). Agora o nome é reservado ANTES do await (e
+liberado se a criação falhar). Substitui a pendência anterior: esta fatia já leva os 3 bugs do
+dono + esta corrida.
+
+RESTART PEDIDO EM 2026-09-18T10:05Z
+-------------------------------
+Motivo: "tive que pedir várias vezes" e "demora para agir". Entram: (1) cobrança da ação quando o
+modelo só PROMETE ("Vou criar o canal agora!") sem chamar ferramenta — era isso que obrigava o dono
+a pedir de novo; (2) o protocolo de texto dos provedores sem function calling agora entende JSON
+solto no meio da frase e a forma nativa {"tool_calls": ...}; (3) medição de tempo por resposta
+(LLM × ações, sem nenhum conteúdo de conversa) e a ferramenta `performance_report` para o dono
+perguntar "quanto tempo o bot está levando?"; (4) o workflow da sonda não deixa mais execução
+antiga na fila consumindo a MESMA cota grátis que o bot usa para responder no Discord.
+
+RESTART PEDIDO EM 2026-09-18T10:55Z
+-------------------------------
+Motivo: "continua demorando". Entram: (1) HEDGE na fila de modelos do provedor — se o modelo da
+frente não responde em 1,6 s, o próximo entra em paralelo (antes era 100% sequencial: um modelo
+congelado custava o tempo inteiro dele); (2) recuperação da chamada de ferramenta escrita DENTRO
+do rascunho do modelo (o corte do rascunho apagava a ação — ninguém agia e o cliente pedia de
+novo); (3) medição de "mensagem → resposta" no E2E do loop de produção; (4) ferramentas novas para
+o dono: performance_report ("quanto tempo o bot está levando?") e diagnostic_report (manda por DM
+um arquivo com a conversa recente + tempos, para repassar ao suporte sem expor o chat em log).
+
+RESTART PEDIDO EM 2026-09-18T11:35Z
+-------------------------------
+Motivo: "pedi pra apagar todos os cargos e ele diz que não consegue". Entram: (1) exclusão de cargo
+EM LOTE (ferramenta delete_roles) — apaga o que pode, diz o que ficou e o motivo, com o caminho
+exato para resolver (arrastar o cargo do atlas para cima); (2) mensagem de hierarquia com posições
+medidas + passo a passo, também no delete_role individual; (3) empate de posição passa a TENTAR a
+exclusão de verdade (o cache do discord.py pode estar velho); (4) fim da mentira: quando tudo
+falha e o modelo devolve texto vazio, o bot responde o motivo real em vez de "Feito!".
+
+RESTART PEDIDO EM 2026-09-18T11:22Z
+-------------------------------
+Motivo: a instrução de hierarquia passa a dizer o NOME REAL do cargo do atlas no servidor
+(em vez de um nome genérico), para o passo a passo do Discord ficar acionável sem adivinhação.
+Esta fatia leva tudo da anterior (delete_roles em lote, motivo por cargo bloqueado, empate de
+posição tenta a exclusão de verdade, fim do "Feito!" quando nada foi feito). Substitui a
+execução ainda pendente.
+
+RESTART PEDIDO EM 2026-09-18T12:05Z
+-------------------------------
+Motivo: LIGAR o bot com o token novo (o dono atualizou/resetou). Leva tudo: exclusão de cargos
+em lote (delete_roles), instrução de hierarquia com o nome real do cargo e a direção certa da
+lista (celular é invertido), fim do "Feito!" quando nada foi feito, hedge da fila de LLM e a
+recusa honesta quando o Discord não deixa mexer.
+
+RESTART PEDIDO EM 2026-09-18T12:20Z
+-------------------------------
+Motivo: conferir se o segredo DISCORD_TOKEN foi atualizado — este reinício tenta subir o bot
+com o token novo. Se o Discord recusar de novo, o token do segredo ainda é o antigo.
+
+RESTART PEDIDO EM 2026-09-18T12:55Z
+-------------------------------
+Motivo: (1) BUG — "apague todos os canais menos esse" apagava o canal da conversa; agora ele fica
+fora da lista, com aviso, e pedir só ele é recusado explicando o clear_messages. (2) CARA NOVA —
+as respostas passam a sair em Components V2 (container organizado) com a cor de destaque MEDIDA do
+avatar do atlas (ACCENT_COLOR vazio = medir; ou fixe um hex). Substitui a pendência anterior.
+
+
+RESTART PEDIDO EM 2026-09-18T20:05Z
+-------------------------------
+Motivo: o `bot.yml` ficou com YAML INVÁLIDO na edição da cara nova (indentação do ACCENT_COLOR
+fora do `env:`), e o GitHub criava a run com ZERO jobs ("failed because of a workflow file
+issue") — por isso nenhuma execução nova subia desde as 19:41Z. Corrigido: o bloco voltou para
+dentro do `env:` do passo "Executar bot" e entrou um teste que parseia TODOS os workflows
+(tests/test_workflows.py), então uma indentação errada nunca mais passa pela CI em silêncio.
+Esta fatia leva a cara nova (Components V2 com a cor medida do avatar), o bug do canal da
+conversa ("apague todos menos esse") e a correção da cor medida.
+
+
+RESTART PEDIDO EM 2026-09-18T20:20Z
+-------------------------------
+Motivo: substituir a fatia ainda pendente por esta, que leva MAIS uma correção da cara: a cor do
+avatar passa a ser remedida quando o dono troca a foto com o bot no ar (o endereço do avatar muda
+e a resposta seguinte já sai na cor nova, sem reiniciar) e uma leitura que falhou (CDN fora) tenta
+de novo na mensagem seguinte em vez de ficar presa na cor de reserva. Se quiser que ele assuma
+AGORA, cancele a execução em andamento na aba Actions; senão ele entra sozinho quando a fatia
+atual terminar.
+
+
+RESTART PEDIDO EM 2026-09-18T20:35Z
+-------------------------------
+Motivo: a fatia no ar é a de 19:15Z (código `4bf354d`, sem a cara nova nem o bug do canal) e o
+cron de segurança levantou uma execução a partir da `main` (código velho `8c9f636`) — esta
+pendência entra na frente para o bot voltar com o código novo do ramo da sessão: Components V2
+com a cor medida do avatar, o canal da conversa nunca apagado ("menos esse"), a cor remedida
+quando a foto trocar e o conserto do `bot.yml` que ficou inválido às 19:59Z.
+
+Reinício 19/09 (madrugada): exclusão de canais conferida na API ("apague todos" lê o servidor na hora) + e2e com retry e marca única. O bot pega este código quando esta fatia terminar.

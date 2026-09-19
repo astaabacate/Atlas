@@ -1,5 +1,5 @@
 """
-Configuração do bot farol a partir de variáveis de ambiente.
+Configuração do bot atlas a partir de variáveis de ambiente.
 Apenas stdlib (sem dependências externas nesta etapa).
 """
 
@@ -12,6 +12,19 @@ from dataclasses import dataclass, field
 class ConfigError(Exception):
     """Erro acionável de configuração."""
     pass
+
+
+def _parse_cor(value: str | None) -> int | None:
+    """Cor de destaque: aceita #RRGGBB, RRGGBB, 0xRRGGBB. Vazio ou 'auto' = medir do avatar."""
+    v = (value or "").strip().lower()
+    if not v or v in ("auto", "avatar", "automatico", "automático"):
+        return None
+    v = v.lstrip("#").removeprefix("0x")
+    try:
+        cor = int(v, 16)
+    except ValueError:
+        return None
+    return cor if 0 <= cor <= 0xFFFFFF else None
 
 
 def _parse_bool(value: str | None, default: bool = False) -> bool:
@@ -48,6 +61,15 @@ class Config:
     disable_free_llms: bool = False
     llm_timeout: float = 60.0
     llm_max_tokens: int = 1024
+    # Confirmação de ação destrutiva em lote. Padrão do dono: executa direto e informa
+    # (o pedido já é a autorização). Ligue com CONFIRM_DESTRUCTIVE=true se quiser perguntar.
+    confirm_destructive: bool = False
+    # Ferramentas "terminais" (excluir/limpar) já devolvem a resposta pronta: responder com ela
+    # economiza uma ida ao LLM inteira (~metade do tempo até a mensagem aparecer no Discord).
+    direct_tool_reply: bool = True
+    # Quando o modelo só PROMETE a ação (sem chamar ferramenta), cobra a ferramenta uma vez antes
+    # de devolver o texto: era isso que fazia o cliente ter de pedir de novo.
+    nudge_promise: bool = True
     max_tool_rounds: int = 3
     history_len: int = 10
     bulk_concurrency: int = 3
@@ -59,6 +81,10 @@ class Config:
     members_intent: bool = False
     message_content_intent: bool = False
     github_token: str = ""
+    # Cara das respostas: mensagem em Components V2 (organizada) com a cor do atlas.
+    # ACCENT_COLOR vazio/"auto" = a cor é MEDIDA do avatar do bot; ou um hex (#5865F2).
+    accent_color: int | None = None
+    mensagem_v2: bool = True
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Config:
@@ -102,6 +128,10 @@ class Config:
         except ValueError:
             max_tokens = 1024
 
+        confirm_destructive = _parse_bool(src.get("CONFIRM_DESTRUCTIVE"))
+        direct_tool_reply = _parse_bool(src.get("DIRECT_TOOL_REPLY", "true"), default=True)
+        nudge_promise = _parse_bool(src.get("NUDGE_PROMISE", "true"), default=True)
+
         try:
             max_tool_rounds = int(src.get("MAX_TOOL_ROUNDS", "3").strip())
         except ValueError:
@@ -144,6 +174,8 @@ class Config:
         members_intent = _parse_bool(src.get("MEMBERS_INTENT"))
         message_content_intent = _parse_bool(src.get("MESSAGE_CONTENT_INTENT"))
         github_token = src.get("GITHUB_TOKEN", "").strip()
+        accent_color = _parse_cor(src.get("ACCENT_COLOR"))
+        mensagem_v2 = _parse_bool(src.get("MENSAGEM_V2", "true"), default=True)
 
         return cls(
             discord_token=raw_token,
@@ -153,6 +185,9 @@ class Config:
             llm_api_key=api_key,
             llm_models=llm_models,
             disable_free_llms=disable_free_llms,
+            confirm_destructive=confirm_destructive,
+            direct_tool_reply=direct_tool_reply,
+            nudge_promise=nudge_promise,
             llm_timeout=timeout,
             llm_max_tokens=max_tokens,
             max_tool_rounds=max_tool_rounds,
@@ -166,4 +201,6 @@ class Config:
             members_intent=members_intent,
             message_content_intent=message_content_intent,
             github_token=github_token,
+            accent_color=accent_color,
+            mensagem_v2=mensagem_v2,
         )

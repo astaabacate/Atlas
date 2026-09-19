@@ -1,0 +1,16 @@
+BOT ANTIGO DESLIGADO (por favor, leia)
+======================================
+
+O bot antigo (`main.py`, workflow "Atlas Bot 24/7") está desligado de propósito desde
+19/09/2026: ele foi substituído pelo "Atlas 2" (pasta atlas2/, workflow "Atlas 2 (novo)"),
+ligado por .github/atlas2-on.
+
+Motivo: no bot antigo TODO pedido passava pelo modelo de IA antes de virar ação — daí a demora
+de ~15s e as respostas erradas (o dono pediu "apague todos os canais e deixe esse" e recebeu a
+ficha do servidor). O novo executa o comando reconhecido direto, sem IA.
+
+PARA VOLTAR ATRÁS: apague este arquivo e crie .github/bot-24x7-enabled (tocando nos dois, a
+corrente sobe do jeito antigo). Não ligue os dois ao mesmo tempo: cada mensagem seria respondida
+duas vezes, porque os dois usam o mesmo token.
+
+O código do bot antigo continua no repositório — nada foi apagado.

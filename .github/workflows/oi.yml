@@ -1,0 +1,91 @@
+name: "Atlas — mandar oi"
+
+# Envia uma mensagem curta ao vivo no servidor, pelo próprio bot, e publica o
+# resultado em reports/oi-latest.md. Serve de teste real de ponta a ponta:
+# se o "oi" chega, o DISCORD_TOKEN, o gateway e as permissões de escrita estão sãos.
+#
+# Disparo:
+#  - botão "Run workflow" aqui na aba Actions (o dono pode mandar o oi quando quiser);
+#  - push que toque neste workflow ou em scripts/oi.py.
+#
+# Sem segredo em log ou relatório — o token só vive nos segredos do repositório.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mensagem:
+        description: "Mensagem curta a enviar (vazio = padrão)"
+        required: false
+        default: ""
+      channel_id:
+        description: "ID do canal (vazio = primeiro canal de texto escrevível)"
+        required: false
+        default: ""
+      criar_canal:
+        description: "Nome de canal para usar/criar (vazio = não cria)"
+        required: false
+        default: ""
+  push:
+    branches: ["arena/01a0b13c-atlas"]
+    paths:
+      - "scripts/oi.py"
+      - ".github/workflows/oi.yml"
+
+permissions:
+  contents: write # publicar o relatório no branch
+
+concurrency:
+  group: atlas-oi
+  cancel-in-progress: false
+
+jobs:
+  oi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+      E2E_GUILD_ID: ${{ vars.E2E_GUILD_ID || '' }}
+      OI_CHANNEL_ID: ${{ inputs.channel_id || '' }}
+      # No disparo por push (primeira execução após o commit), usa/cria o canal dedicado;
+      # no botão manual, o dono decide no campo criar_canal.
+      OI_CRIAR_CANAL: ${{ inputs.criar_canal || (github.event_name == 'push' && 'atlas-oi-da-ia') || '' }}
+      OI_MENSAGEM: ${{ inputs.mensagem || '' }}
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: pip install aiohttp discord.py
+
+      - name: Mandar o oi ao vivo
+        timeout-minutes: 3
+        run: python scripts/oi.py --outdir reports
+
+      - name: Publicar relatório no branch (sempre, mesmo em falha)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -f reports/oi-latest.md ] || { echo "::error title=oi publicar::relatório não foi gerado (ordem dos passos)"; exit 0; }
+          publicar() {
+            local caminho="$1" mensagem="$2"
+            local conteudo sha erro
+            conteudo=$(base64 -w0 "$caminho") || { echo "::error title=oi publicar::base64 falhou"; return 1; }
+            sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+            if [ -n "$sha" ]; then
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=oi publicar::$(printf '%s' "$erro" | head -c 400)"; return 1; }
+            else
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=oi publicar::$(printf '%s' "$erro" | head -c 400)"; return 1; }
+            fi
+            echo "::notice title=oi publicar::${caminho} publicado no branch ${GITHUB_REF_NAME}"
+          }
+          publicar "reports/oi-latest.md" "chore(oi): relatório do envio ${GITHUB_RUN_ID} [skip ci]" || true

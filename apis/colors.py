@@ -10,7 +10,7 @@ from typing import Any
 
 import aiohttp
 
-logger = logging.getLogger("farol.apis.colors")
+logger = logging.getLogger("atlas.apis.colors")
 
 FALLBACK_PALETTES: dict[str, list[dict[str, str]]] = {
     "gamer": [

@@ -1,0 +1,221 @@
+name: E2E ao vivo do Atlas
+
+# Testa o bot de verdade: conecta com o DISCORD_TOKEN, audita o servidor, roda as
+# ferramentas, aciona o Agente com a corrida de LLMs real e (quando autorizado) cria e
+# apaga objetos de teste com limpeza garantida.
+#
+# O relatório completo é publicado no próprio branch da sessão
+# (reports/e2e-latest.json e reports/e2e-latest.md) e resumido em anotações de check-run.
+#
+# Mutações reais (criar/apagar objetos marcados com 🧪, sempre com limpeza garantida) só rodam
+# quando autorizadas: variável de repositório E2E_MUTATIONS=true, disparo manual com mutate=true,
+# ou o arquivo .github/e2e-mutations-enabled presente no branch.
+
+on:
+  push:
+    branches: ["arena/01a0b13c-atlas"]
+    paths:
+      - "scripts/e2e_live.py"
+      - ".github/workflows/e2e.yml"
+      - "brain/**"
+      - "core/**"
+      - "llm/**"
+      - "apis/**"
+      - "config.py"
+      - "main.py"
+      - "requirements.txt"
+  workflow_dispatch:
+    inputs:
+      mutate:
+        description: "Autorizar mutações reais (cria e apaga objetos de teste)?"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write        # publicar o relatório no branch
+  pull-requests: write   # comentar o relatório na PR aberta
+  actions: read
+
+concurrency:
+  group: e2e-live
+  # A execução NOVA derruba a antiga de propósito: um travamento (visto em 18/09: a fase de
+  # mutações presa numa espera de rate limit) não pode bloquear a fila para sempre. O que ficar
+  # de sobra no servidor é objeto de teste 🧪 — a fase 8 (varredura) da execução seguinte limpa.
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # 8 fases ao vivo (conexão, ferramentas, agente, mutações, matriz de capacidades, loop do
+    # bot e varredura). Cada fase tem limite PRÓPRIO (no harness, via asyncio.wait_for) e cada
+    # passo tem o seu aqui — uma fase travada é interrompida e registrada no relatório, em vez de
+    # matar a execução inteira e perder as evidências. O teto do job cobre a soma dos limites do
+    # harness (75 min), para o relatório SEMPRE ser publicado.
+    timeout-minutes: 80
+    env:
+      PYTHONUNBUFFERED: "1"
+      DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+      # mesma configuração do bot 24/7 (para o teste refletir a produção)
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'auto' }}
+      LLM_MODEL: ${{ vars.LLM_MODEL || '' }}
+      LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
+      LLM_MODELS: ${{ vars.LLM_MODELS || '' }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY || '' }}
+      DISABLE_FREE_LLMS: ${{ vars.DISABLE_FREE_LLMS || 'false' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || '' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || '' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || '' }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || '' }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || '' }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY || '' }}
+      CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY || '' }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY || '' }}
+      OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY || '' }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY || '' }}
+      ZAI_API_KEY: ${{ secrets.ZAI_API_KEY || '' }}
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY || '' }}
+      ZENMUX_API_KEY: ${{ secrets.ZENMUX_API_KEY || '' }}
+      MODELSCOPE_API_KEY: ${{ secrets.MODELSCOPE_API_KEY || '' }}
+      SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY || '' }}
+      COHERE_API_KEY: ${{ secrets.COHERE_API_KEY || '' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || '' }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '' }}
+      KILOCODE_API_KEY: ${{ secrets.KILOCODE_API_KEY || '' }}
+      LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '60' }}
+      MAX_TOOL_ROUNDS: ${{ vars.MAX_TOOL_ROUNDS || '3' }}
+      # Cara das respostas: ACCENT_COLOR vazio = a cor é medida do avatar do bot.
+      ACCENT_COLOR: ${{ vars.ACCENT_COLOR || '' }}
+      MENSAGEM_V2: ${{ vars.MENSAGEM_V2 || 'true' }}
+      HISTORY_LEN: ${{ vars.HISTORY_LEN || '10' }}
+      API_TIMEOUT: ${{ vars.API_TIMEOUT || '10' }}
+      LOG_LEVEL: "WARNING"
+      ALLOWED_CHANNEL_IDS: ${{ vars.ALLOWED_CHANNEL_IDS || '' }}
+      MEMBERS_INTENT: ${{ vars.MEMBERS_INTENT || 'false' }}
+      MESSAGE_CONTENT_INTENT: ${{ vars.MESSAGE_CONTENT_INTENT || 'false' }}
+      E2E_GUILD_ID: ${{ vars.E2E_GUILD_ID || '' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Decidir se as mutações reais estão autorizadas
+        id: modo
+        run: |
+          # Qualquer um dos interruptores liga as mutações (nada destrutivo sem autorização):
+          #  1. variável de repositório E2E_MUTATIONS=true
+          #  2. disparo manual com mutate=true
+          #  3. arquivo .github/e2e-mutations-enabled presente no branch
+          if [ "${{ vars.E2E_MUTATIONS || 'false' }}" = "true" ] || [ "${{ inputs.mutate }}" = "true" ] \
+             || [ -f .github/e2e-mutations-enabled ]; then
+            echo "autorizado=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=e2e modo::mutações reais AUTORIZADAS — objetos 🧪 serão criados e removidos no servidor"
+          else
+            echo "autorizado=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=e2e modo::somente leitura — para autorizar: variável E2E_MUTATIONS=true"
+          fi
+
+      - name: "Fase 1 — offline: schemas, duplos de teste e política"
+        timeout-minutes: 7
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases static,spy,policy --outdir reports/parts --tag 1-offline
+
+      - name: "Fase 2 — conexão real e diagnóstico do servidor"
+        timeout-minutes: 7
+        if: always()
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases connect,audit --outdir reports/parts --tag 2-conexao
+
+      - name: "Fase 3 — ferramentas somente-leitura no servidor real"
+        timeout-minutes: 7
+        if: always()
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases tools --outdir reports/parts --tag 3-ferramentas
+
+      - name: "Fase 4 — Agente + corrida de LLMs ao vivo"
+        timeout-minutes: 9
+        if: always()
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases agent --outdir reports/parts --tag 4-agente
+
+      - name: "Fase 5 — mutações reais em objetos de teste (criar/editar/apagar)"
+        timeout-minutes: 17
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases mutate --mutate --allow-template --outdir reports/parts --tag 5-mutacoes
+
+      - name: "Fase 6 — matriz de capacidades (cada parâmetro, valor e combinação, no Discord real)"
+        timeout-minutes: 17
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases caps --mutate --outdir reports/parts --tag 6-capacidades
+
+      - name: "Fase 7 — loop real do core.bot (on_message → resposta)"
+        timeout-minutes: 9
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases botloop --mutate --outdir reports/parts --tag 7-loop
+
+      - name: "Fase 8 — varredura de sobras de teste"
+        timeout-minutes: 7
+        if: always() && steps.modo.outputs.autorizado == 'true' && env.DISCORD_TOKEN != ''
+        continue-on-error: true
+        run: python scripts/e2e_live.py --phases sweep --mutate --outdir reports/parts --tag 8-varredura
+
+      - name: Consolidar relatório e publicar no branch
+        if: always()
+        timeout-minutes: 8
+        # Atenção: o runner executa `bash -e`; por isso cada comando é tratado aqui —
+        # o merge sai com 1 quando existe falha de teste e NÃO pode abortar a publicação.
+        run: |
+          set -uo pipefail
+          mkdir -p reports
+
+          MERGE_STATUS=0
+          python scripts/e2e_live.py --merge reports/parts --outdir reports \
+            --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || MERGE_STATUS=$?
+
+          echo "=== resumo ==="
+          head -12 reports/e2e-latest.md || true
+
+          publicar() {
+            local caminho="$1" mensagem="$2"
+            local conteudo sha erro
+            conteudo=$(base64 -w0 "$caminho" 2>/dev/null) || { echo "::error title=e2e publicar::base64 falhou em ${caminho}"; return 1; }
+            sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${caminho}?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+            if [ -n "$sha" ]; then
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=e2e publicar ${caminho}::$(printf '%s' "$erro" | head -c 400)"; return 1; }
+            else
+              erro=$(gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/${caminho}" \
+                -f message="$mensagem" -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" 2>&1 >/dev/null) \
+                || { echo "::error title=e2e publicar ${caminho}::$(printf '%s' "$erro" | head -c 400)"; return 1; }
+            fi
+            echo "::notice title=e2e publicar::${caminho} publicado no branch ${GITHUB_REF_NAME}"
+          }
+
+          publicar "reports/e2e-latest.json" "chore(e2e): relatório JSON da execução ${GITHUB_RUN_ID} [skip ci]" || true
+          publicar "reports/e2e-latest.md" "chore(e2e): relatório da execução ${GITHUB_RUN_ID} [skip ci]" || true
+
+          PR=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -n "$PR" ]; then
+            { echo "## E2E ao vivo — execução ${GITHUB_RUN_ID}"; echo; cat reports/e2e-latest.md; } > /tmp/comentario.md
+            erro_pr=$(gh pr comment "$PR" --body-file /tmp/comentario.md 2>&1 >/dev/null) \
+              || echo "::warning title=e2e comentario::$(printf '%s' "$erro_pr" | head -c 300)"
+          fi
+
+          # resumo em anotações: canal garantido mesmo se a publicação falhar
+          python scripts/e2e_live.py --merge reports/parts --outdir reports --resumo-anotacoes \
+            --started-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null 2>&1 || true
+
+          exit $MERGE_STATUS

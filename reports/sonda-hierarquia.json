@@ -1,0 +1,41 @@
+{
+  "gerado_em": "2026-09-19T00:54:02Z",
+  "guilds": [
+    {
+      "id": "<id>",
+      "nome": "Servidor-1",
+      "cargos": 4,
+      "pos_bot": 4,
+      "cargo_do_bot": "Atlas",
+      "pos_dono": null,
+      "experimento": {
+        "criado": {
+          "id": "<id>",
+          "posicao": 1
+        },
+        "editar": {
+          "status": 200,
+          "corpo": "ok"
+        },
+        "editar_abaixo": {
+          "status": 200,
+          "corpo": "ok"
+        },
+        "mover_para_empate": {
+          "status": 200,
+          "corpo": "ok"
+        },
+        "posicao_depois_do_empate": 3,
+        "editar_empatado": {
+          "status": 200,
+          "corpo": "ok"
+        },
+        "apagar_empatado": {
+          "status": 204,
+          "corpo": "ok"
+        },
+        "sobra": null
+      }
+    }
+  ]
+}

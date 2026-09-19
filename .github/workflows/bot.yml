@@ -1,9 +1,17 @@
-name: Farol Bot 24/7
+name: Atlas Bot 24/7
 
 on:
   workflow_dispatch:
   schedule:
+    # Rede de segurança: se a corrente se romper, o relógio reergue o bot em até 5h.
     - cron: '25 */5 * * *'
+  push:
+    # Ligar/reiniciar o bot: basta tocar em um destes arquivos (ver README, seção 5).
+    # O merge na main também reinicia o bot, já com o código novo.
+    paths:
+      - ".github/bot-24x7-enabled"
+      - ".github/bot-disabled"
+      - ".github/workflows/bot.yml"
 
 concurrency:
   group: discord-bot
@@ -16,19 +24,36 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
       - name: Verificar frescor da run
         env:
           GITHUB_SHA: ${{ github.sha }}
           REF_NAME: ${{ github.ref_name }}
           REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           python3 -c '
-          import os, subprocess, sys
+          import os, subprocess, sys, shlex
           sha = os.environ.get("GITHUB_SHA", "")
           ref = os.environ.get("REF_NAME", "main")
           repo = os.environ.get("REPOSITORY", "")
           url = f"https://github.com/{repo}.git" if repo else "origin"
+
+          def reencaminhar(motivo):
+              """Não deixa a corrente morrer: agenda uma run nova, já no commit atualizado."""
+              print(f"::warning::Checkout obsoleto ({motivo}). Agendando uma run nova em vez de parar o bot.")
+              try:
+                  res = subprocess.run(["gh", "workflow", "run", "bot.yml", "--ref", ref],
+                                       capture_output=True, text=True, timeout=30)
+                  if res.returncode == 0:
+                      print("::notice::Nova run do bot agendada com o código atualizado.")
+                  else:
+                      print(f"::error::Não consegui agendar a run nova: {res.stderr.strip()[:200]}")
+              except Exception as exc:
+                  print(f"::error::Falha ao agendar a run nova: {exc}")
+              sys.exit(0)
+
           try:
               res = subprocess.run(["git", "ls-remote", "--heads", url, ref], capture_output=True, text=True, timeout=15)
               if res.returncode != 0:
@@ -39,10 +64,8 @@ jobs:
                   print(f"::warning::Ramo {ref} não encontrado no repositório remoto. Prosseguindo.")
                   sys.exit(0)
               remote_sha = out.split()[0]
-              if sha and remote_sha:
-                  if not sha.startswith(remote_sha) and not remote_sha.startswith(sha):
-                      print(f"::error::Checkout obsoleto! Commit local {sha[:7]} != ponta remota {remote_sha[:7]} no ramo {ref}. Abortando para evitar executar código antigo.")
-                      sys.exit(1)
+              if sha and remote_sha and not sha.startswith(remote_sha) and not remote_sha.startswith(sha):
+                  reencaminhar(f"local {sha[:7]} != ponta remota {remote_sha[:7]} em {ref}")
               print(f"Checkout atualizado: {sha[:7]} é a ponta de {ref}. Prosseguindo.")
               sys.exit(0)
           except subprocess.TimeoutExpired:
@@ -56,6 +79,17 @@ jobs:
       - name: Checkout do repositório
         uses: actions/checkout@v4
 
+      - name: Interruptor do bot (ligado/desligado)
+        id: ligado
+        run: |
+          if [ -f .github/bot-disabled ]; then
+            echo "rodar=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=atlas 24/7::DESLIGADO por .github/bot-disabled — o bot não sobe e a corrente para aqui."
+          else
+            echo "rodar=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=atlas 24/7::ligado — o bot sobe por ~5h35m e reagenda a própria execução."
+          fi
+
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
@@ -66,6 +100,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Executar bot
+        if: steps.ligado.outputs.rodar == 'true'
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'auto' }}
@@ -84,11 +119,22 @@ jobs:
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY || '' }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY || '' }}
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY || '' }}
-          LLM7_API_KEY: ${{ secrets.LLM7_API_KEY || '' }}
-          POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN || '' }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY || '' }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY || '' }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY || '' }}
+          ZENMUX_API_KEY: ${{ secrets.ZENMUX_API_KEY || '' }}
+          MODELSCOPE_API_KEY: ${{ secrets.MODELSCOPE_API_KEY || '' }}
+          SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY || '' }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY || '' }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || '' }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '' }}
+          KILOCODE_API_KEY: ${{ secrets.KILOCODE_API_KEY || '' }}
           LLM_TIMEOUT: ${{ vars.LLM_TIMEOUT || '60' }}
           LLM_MAX_TOKENS: ${{ vars.LLM_MAX_TOKENS || '1024' }}
           MAX_TOOL_ROUNDS: ${{ vars.MAX_TOOL_ROUNDS || '3' }}
+          # Cara das respostas: ACCENT_COLOR vazio = a cor é medida do avatar do bot.
+          ACCENT_COLOR: ${{ vars.ACCENT_COLOR || '' }}
+          MENSAGEM_V2: ${{ vars.MENSAGEM_V2 || 'true' }}
           HISTORY_LEN: ${{ vars.HISTORY_LEN || '10' }}
           BULK_CONCURRENCY: ${{ vars.BULK_CONCURRENCY || '3' }}
           API_TIMEOUT: ${{ vars.API_TIMEOUT || '10' }}
@@ -104,15 +150,16 @@ jobs:
           timeout 20100s bash run.sh || [ $? -eq 124 ]
 
       - name: Encadear próxima execução
-        if: success()
+        if: success() && steps.ligado.outputs.rodar == 'true'
         env:
           GH_TOKEN: ${{ secrets.CHAIN_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # Só agenda se não houver outra execução ativa ou na fila
+          # Continua no MESMO ramo que começou (main ou um branch de sessão).
           ACTIVE_RUNS=$(gh run list --workflow bot.yml --status in_progress --status queued --json databaseId -q '.[]' | wc -l)
           if [ "$ACTIVE_RUNS" -le 1 ]; then
-            echo "Nenhuma outra execução concorrente detectada. Encadeando próxima run do Farol..."
-            gh workflow run bot.yml || echo "Aviso: Não foi possível disparar novo workflow."
+            echo "Nenhuma outra execução concorrente detectada. Encadeando próxima run do Atlas em ${GITHUB_REF_NAME}..."
+            gh workflow run bot.yml --ref "${GITHUB_REF_NAME}" \
+              || echo "::warning::Não consegui encadear (o vigia retoma em até 30 minutos)."
           else
             echo "Já existe outra execução ativa ou na fila (${ACTIVE_RUNS} runs). Encadeamento dispensado."
           fi

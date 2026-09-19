@@ -1,0 +1,61 @@
+name: Atlas 2 — derrubar o bot antigo
+
+# Um bot por token: se o antigo (workflow "Atlas Bot 24/7") ainda estiver no ar quando o novo
+# sobe, cada mensagem é respondida duas vezes. Este workflow existe só para derrubar as fatias
+# antigas — ele roda na hora, sem esperar a fila do bot novo.
+#
+# Ele respeita .github/bot-disabled: se aquele arquivo existir, o antigo nem volta.
+# Também é seguro: só mexe em execuções do workflow bot.yml.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/atlas2-limpar.yml"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: atlas2-limpar
+  cancel-in-progress: false
+
+jobs:
+  derrubar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}   # sem checkout, o gh não deduz o repositório sozinho
+    steps:
+      - name: Cancelar toda execução do bot antigo que não terminou
+        run: |
+          set -uo pipefail
+          # Lista TODAS as execuções recentes e filtra por status no jq: "pending" e "waiting"
+          # não entram nos filtros --status e ficariam rodando (foi assim que uma fatia antiga
+          # continuou no ar depois de ligar o bot novo).
+          if ! ids=$(gh run list --workflow=bot.yml --limit 50 \
+                       --json databaseId,status \
+                       --jq '.[] | select(.status != "completed") | .databaseId'); then
+            echo "::error title=atlas2 limpar::não consegui listar as execuções do bot antigo"
+            exit 1
+          fi
+          if [ -z "${ids:-}" ]; then
+            echo "::notice title=atlas2 limpar::nenhuma execução do bot antigo no ar — nada a fazer."
+            exit 0
+          fi
+          derrubadas=0
+          for id in $ids; do
+            estado=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}" --jq .status 2>/dev/null || echo "?")
+            if [ "$estado" = "completed" ]; then
+              continue
+            fi
+            if gh run cancel "$id"; then
+              derrubadas=$((derrubadas + 1))
+              echo "::notice title=atlas2 limpar::execução ${id} do bot antigo derrubada (${estado})."
+            else
+              echo "::warning title=atlas2 limpar::não consegui derrubar a execução ${id} — se o bot antigo ainda responder, cancele na aba Actions."
+            fi
+          done
+          echo "derrubadas: ${derrubadas}"

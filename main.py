@@ -1,5 +1,5 @@
 """
-Ponto de entrada do bot Farol.
+Ponto de entrada do bot Atlas.
 Fluxo: Validação de Configuração → Healthcheck → Inicialização do Bot.
 Exit code 2 para erros de configuração ou autenticação (sem traceback).
 """
@@ -13,7 +13,7 @@ from apis.base import ApiRegistry
 from brain.agent import Agent
 from brain.memory import ChannelMemory
 from config import Config, ConfigError
-from core.bot import FarolBot
+from core.bot import AtlasBot
 from core.health import start_health_server
 from llm.auto import AutoProvider
 
@@ -36,8 +36,8 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    logger = logging.getLogger("farol.main")
-    logger.info("Iniciando farol com provedor LLM: %s", config.llm_provider)
+    logger = logging.getLogger("atlas.main")
+    logger.info("Iniciando atlas com provedor LLM: %s", config.llm_provider)
 
     # 3. Iniciar servidor de healthcheck opcional
     if config.health_port:
@@ -72,9 +72,12 @@ def main() -> None:
         max_tool_rounds=config.max_tool_rounds,
         llm_timeout=config.llm_timeout,
         api_registry=api_registry,
+        confirm_destructive=config.confirm_destructive,
+        direct_tool_reply=config.direct_tool_reply,
+        nudge_promise=config.nudge_promise,
     )
 
-    bot = FarolBot(config=config, agent=agent)
+    bot = AtlasBot(config=config, agent=agent)
 
     # 5. Executar o bot com tratamento amigável de erros do Discord
     import discord

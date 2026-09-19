@@ -10,13 +10,13 @@ import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
-logger = logging.getLogger("farol.health")
+logger = logging.getLogger("atlas.health")
 
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path in ("/health", "/", "/healthz"):
-            payload = json.dumps({"status": "ok", "bot": "farol"}).encode("utf-8")
+            payload = json.dumps({"status": "ok", "bot": "atlas"}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(payload)))

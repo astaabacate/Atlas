@@ -1,0 +1,80 @@
+name: Atlas Vigia 24/7
+
+# Vigia do bot: a cada 30 minutos confere se existe uma execução do "Atlas Bot 24/7" ativa
+# ou na fila e, se não existir, sobe uma. É o que garante o "infinito" mesmo quando:
+#   - a corrente se rompe (erro, cancelamento, kill do runner, GitHub fora);
+#   - alguém cancela a execução sem querer;
+#   - o repositório ficou 60 dias sem atividade e o cron do bot foi suspenso pelo GitHub.
+#
+# Se a ponta do ramo estiver parada há mais de 45 dias, ele também dá um "toque" (commit no
+# arquivo de batimento) para o GitHub não suspender os crons por inatividade.
+#
+# DESLIGAR DE VEZ: crie o arquivo .github/bot-disabled (o vigia e o bot param de rodar).
+# DESLIGAR SÓ AGORA: cancele a execução do bot — o vigia reergue em até 30 minutos.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: bot-watchdog
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # batimento (commit que evita a suspensão por inatividade)
+  actions: write    # disparar o workflow do bot
+
+jobs:
+  vigia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Interruptor de desligar
+        id: modo
+        run: |
+          if [ -f .github/bot-disabled ]; then
+            echo "ativo=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=atlas vigia::.github/bot-disabled existe — não vou reerguer o bot."
+          else
+            echo "ativo=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Batimento (evita a suspensão de crons por 60 dias sem atividade)
+        if: steps.modo.outputs.ativo == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ULTIMO=$(git log -1 --format=%ct)
+          AGORA=$(date +%s)
+          DIAS=$(( (AGORA - ULTIMO) / 86400 ))
+          echo "Último commit no ramo ${GITHUB_REF_NAME} foi há ${DIAS} dia(s)."
+          if [ "$DIAS" -lt 45 ]; then
+            echo "::notice title=atlas vigia::repositório ativo (${DIAS} dia(s)) — sem batimento."
+            exit 0
+          fi
+          echo "Repositório parado há ${DIAS} dias; o GitHub suspende crons após 60. Registrando batimento..."
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/bot-heartbeat
+          git config user.name "atlas-vigia"
+          git config user.email "atlas-vigia@users.noreply.github.com"
+          git add .github/bot-heartbeat
+          git commit -m "chore(vigia): batimento para manter o agendador do bot ativo [skip ci]"
+          git push || echo "::warning::Não consegui empurrar o batimento (sem permissão de escrita?)."
+
+      - name: Reerguer o bot se estiver parado
+        if: steps.modo.outputs.ativo == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ATIVAS=$(gh run list --workflow bot.yml --status in_progress --status queued --limit 50 --json databaseId -q '.[]' | wc -l)
+          echo "Execuções do bot ativas/na fila: ${ATIVAS}"
+          if [ "${ATIVAS}" -gt 0 ]; then
+            echo "::notice title=atlas vigia::o bot já está rodando ou na fila (${ATIVAS}) — nada a fazer."
+            exit 0
+          fi
+          echo "::warning title=atlas vigia::nenhuma execução ativa — subindo o bot em ${GITHUB_REF_NAME}."
+          gh workflow run bot.yml --ref "${GITHUB_REF_NAME}" \
+            || echo "::error title=atlas vigia::não consegui disparar o bot (checar permissão actions: write)."
