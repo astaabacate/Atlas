@@ -66,19 +66,19 @@ class TestRelatorioDisfarcado(unittest.TestCase):
 
     def test_nome_e_id_do_servidor_saem(self) -> None:
         self.rep.record("tools", "servidor e autor", "PASS",
-                        "servidor de teste: Servidor do Cliente (1546763083005825084) · "
+                        "servidor de teste: Servidor do Cliente (987654321098765432) · "
                         "autor: dono-do-servidor")
         detalhe = self.rep.phases["tools"][0].detail
         self.assertNotIn("Servidor do Cliente", detalhe)
-        self.assertNotIn("1546763083005825084", detalhe)
+        self.assertNotIn("987654321098765432", detalhe)
         self.assertNotIn("dono-do-servidor", detalhe)
         self.assertIn("Servidor-1", detalhe)
 
     def test_canais_e_cargos_do_cliente_saem(self) -> None:
-        self.rep.record("tools", "estrutura", "PASS", "criei <#1550640448442212453> na "
+        self.rep.record("tools", "estrutura", "PASS", "criei <#987654321098765433> na "
                         "categoria de bate-papo, com os cargos Moderador e VIP")
         detalhe = self.rep.phases["tools"][0].detail
-        for proibido in ("bate-papo", "Moderador", "VIP", "1550640448442212453"):
+        for proibido in ("bate-papo", "Moderador", "VIP", "987654321098765433"):
             self.assertNotIn(proibido, detalhe)
         self.assertIn("<#canal>", detalhe)
 
@@ -88,27 +88,27 @@ class TestRelatorioDisfarcado(unittest.TestCase):
 
     def test_mencoes_e_links_saem(self) -> None:
         self.rep.record("tools", "mencoes", "PASS",
-                        "mandei para <@&153>, <@1521612392105250836> em "
-                        "https://discord.com/channels/1546763083005825084/1550640448442212453/1550651829866733669")
+                        "mandei para <@&153>, <@987654321098765435> em "
+                        "https://discord.com/channels/987654321098765432/987654321098765433/987654321098765434")
         detalhe = self.rep.phases["tools"][0].detail
         self.assertIn("<@&cargo>", detalhe)
         self.assertIn("<@pessoa>", detalhe)
-        self.assertNotIn("1546763083005825084/", detalhe)
+        self.assertNotIn("987654321098765432/", detalhe)
 
     def test_markdown_e_json_saem_disfarcados(self) -> None:
-        self.rep.record("tools", "checagem", "PASS", "servidor Servidor do Cliente, id 1546763083005825084")
+        self.rep.record("tools", "checagem", "PASS", "servidor Servidor do Cliente, id 987654321098765432")
         self.rep.note("conectado em Servidor do Cliente")
         md = self.rep.to_markdown()
         js = json.dumps(self.rep.to_dict(), ensure_ascii=False)
         for texto in (md, js):
             self.assertNotIn("Servidor do Cliente", texto)
-            self.assertNotIn("1546763083005825084", texto)
+            self.assertNotIn("987654321098765432", texto)
 
     def test_o_log_tambem_sai_disfarcado(self) -> None:
         """O log do Actions de repositório público é público."""
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
-            self.rep.record("tools", "log", "PASS", "servidor Servidor do Cliente (1546763083005825084)")
+            self.rep.record("tools", "log", "PASS", "servidor Servidor do Cliente (987654321098765432)")
         self.assertNotIn("Servidor do Cliente", buffer.getvalue())
 
     def test_merge_de_partes_nao_desfaz_o_disfarce(self) -> None:

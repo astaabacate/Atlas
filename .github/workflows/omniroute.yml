@@ -1,0 +1,71 @@
+name: OmniRoute — testar a API
+
+# Testa de verdade a API do OmniRoute do dono (gateway que junta vários provedores num endereço
+# só). Roda AQUI porque o sandbox de desenvolvimento não alcança a API (o TLS é cortado).
+#
+# Para funcionar, o dono configura (Settings → Secrets and variables → Actions):
+#   - variável  OMNIROUTE_BASE_URL  = o endereço do OmniRoute, terminando em /v1
+#   - segredo   OMNIROUTE_API_KEY   = a chave (a que foi colada no chat está queimada: gere outra)
+# Sem isso, a execução termina em "não configurado" e não publica nada alarmante.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["arena/01a0b13c-atlas"]
+    paths:
+      - "scripts/testar_omniroute.py"
+      - ".github/workflows/omniroute.yml"
+
+permissions:
+  contents: write   # publicar o relatório mascarado no branch
+
+concurrency:
+  group: omniroute-teste
+  cancel-in-progress: true
+
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OMNIROUTE_BASE_URL: ${{ vars.OMNIROUTE_BASE_URL || '' }}
+      OMNIROUTE_API_KEY: ${{ secrets.OMNIROUTE_API_KEY || '' }}
+      OMNIROUTE_MODEL: ${{ vars.OMNIROUTE_MODEL || 'auto' }}
+    steps:
+      - name: Baixar o repositório
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Preparar o Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Testar o OmniRoute (models, chat, function calling, rotação)
+        id: teste
+        run: |
+          set -uo pipefail
+          python scripts/testar_omniroute.py --outdir reports
+          echo "codigo=$?" >> "$GITHUB_OUTPUT" || true
+        continue-on-error: true
+
+      - name: Publicar o relatório mascarado no branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          [ -f reports/omniroute-latest.md ] || { echo "nada para publicar"; exit 0; }
+          conteudo=$(base64 -w0 reports/omniroute-latest.md)
+          sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/reports/omniroute-latest.md?ref=${GITHUB_REF_NAME}" --jq .sha 2>/dev/null || true)
+          if [ -n "$sha" ]; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/reports/omniroute-latest.md" \
+              -f message="chore(omniroute): resultado do teste ${GITHUB_RUN_ID} [skip ci]" \
+              -f content="$conteudo" -f sha="$sha" -f branch="${GITHUB_REF_NAME}" >/dev/null
+          else
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/reports/omniroute-latest.md" \
+              -f message="chore(omniroute): resultado do teste ${GITHUB_RUN_ID} [skip ci]" \
+              -f content="$conteudo" -f branch="${GITHUB_REF_NAME}" >/dev/null
+          fi
+          echo "::notice title=omniroute::relatório publicado em reports/omniroute-latest.md"

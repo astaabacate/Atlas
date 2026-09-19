@@ -60,7 +60,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-TEMP_MARK = "🧪"
+# Marca dos objetos de teste. Única por execução (id do run) para que uma rodada cancelada não
+# apague os canais da rodada nova — já deu 404 "Unknown Channel" na fase de import por isso.
+TEMP_MARK = "🧪" + (os.environ.get("E2E_RUN") or os.environ.get("GITHUB_RUN_ID") or "")
 PASS, FAIL, WARN, SKIP = "PASS", "FAIL", "WARN", "SKIP"
 
 PHASE_ORDER = ("static", "spy", "policy", "connect", "audit", "tools", "agent", "mutate", "caps",
@@ -2209,6 +2211,22 @@ class Harness:
                 return canal
         return None
 
+    async def _fetch_channel_retry(self, guild: Any, cid: int, tentativas: int = 4) -> Any:
+        """
+        Lê um canal recém-criado tolerando a consistência eventual do Discord (404 na hora).
+
+        Sem isso, uma criação que deu certo aparecia como "Unknown Channel" e o relatório dizia
+        que o bot falhou — acusação injusta, porque o canal estava lá.
+        """
+        for tentativa in range(tentativas):
+            try:
+                return await guild.fetch_channel(cid)
+            except Exception:  # noqa: BLE001 - 404/limite transitório
+                if tentativa == tentativas - 1:
+                    raise
+                await asyncio.sleep(0.7 * (tentativa + 1))
+        raise AssertionError("inacessível")  # pragma: no cover - o laço sempre retorna ou levanta
+
     async def _api_state(self, guild: Any) -> tuple[dict[int, Any], dict[int, Any]]:
         canais = {c.id: c for c in await guild.fetch_channels()}
         cargos = {r.id: r for r in await guild.fetch_roles()}
@@ -2529,6 +2547,92 @@ class Harness:
             return "2 canais reais apagados direto, sem perguntar, com o resultado na resposta"
 
         await self.check(phase, "exclusão em lote direta em canais reais", lote_direto_em_canais_reais)
+
+        async def exclusao_de_todos_confere_no_servidor() -> str:
+            """
+            O bug do dono (18/09): "apague todos os canais e deixe esse" deixou canais para trás
+            mesmo dizendo "13/13 concluídos".
+
+            Aqui o caminho real é exercitado de ponta a ponta: o pedido vai como `["todos"]`, o
+            código lê a lista NA HORA (por isso pega até um canal criado depois da conversa) e
+            CONFERE na API depois de apagar. A ferramenta recebe uma visão restrita, com só os
+            canais de teste 🧪 — o resto do servidor do dono nunca entra na lista.
+            """
+            from dataclasses import replace as _replace
+
+            class _VisaoRestrita:
+                """Igual ao servidor real, menos a lista de canais: só os de teste 🧪 entram."""
+
+                def __init__(self, guild_real: Any, permitidos: set[int]) -> None:
+                    self._guild = guild_real
+                    self._ids = permitidos
+
+                def __getattr__(self, nome: str) -> Any:
+                    return getattr(self._guild, nome)
+
+                async def fetch_channels(self) -> list[Any]:
+                    return [c for c in await self._guild.fetch_channels() if c.id in self._ids]
+
+                @property
+                def channels(self) -> list[Any]:
+                    return [c for c in getattr(self._guild, "channels", []) if c.id in self._ids]
+
+                @property
+                def categories(self) -> list[Any]:
+                    return []
+
+            antes_todos = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-todos-1", "type": "text", "category": str(categoria.id)},
+                {"name": f"{TEMP_MARK}-todos-2", "type": "text", "category": str(categoria.id)}]})
+            novos_todos = [c for c in await self._capture_new(guild, antes_todos)
+                           if c.type.name == "text"]
+            self.assert_true(len(novos_todos) == 2, "não criei os canais do teste de 'todos'")
+            ids_todos = [c.id for c in novos_todos]
+
+            # O canal que "nasceu depois da lista do modelo": exatamente o que sobrava no bug.
+            antes_tardio = await self._api_state(guild)
+            await ferramenta("create_channels", {"channels": [
+                {"name": f"{TEMP_MARK}-todos-3", "type": "text", "category": str(categoria.id)}]})
+            tardios = [c for c in await self._capture_new(guild, antes_tardio)
+                       if c.type.name == "text"]
+            self.assert_true(len(tardios) == 1, "não criei o canal tardio do teste")
+            ids_todos += [c.id for c in tardios]
+
+            total_antes = len(await guild.fetch_channels())
+            do_teste = [c for c in await guild.fetch_channels() if c.id in set(ids_todos)]
+            visao = _VisaoRestrita(guild, set(ids_todos))
+            ctx_todos = _replace(ctx, guild=visao)
+            _t_exclusao = time.perf_counter()
+            resposta = await execute_tool("delete_channels",
+                                          {"channels": ["todos"], "confirmed": True}, ctx_todos)
+            segundos_exclusao = time.perf_counter() - _t_exclusao
+            if segundos_exclusao > 10:
+                self.rep.record(phase, "exclusão de TODOS: tempo real", WARN,
+                                f"{segundos_exclusao:.1f}s para apagar {len(do_teste)} canais de "
+                                f"teste — o dono cobrou 'instantâneo' (a chamada é paralela; o "
+                                f"tempo é do Discord)")
+
+            self.assert_true("conferida na API" in resposta,
+                             f"a resposta não diz que conferiu: {resposta[:160]!r}")
+            self.assert_true("3/3" in resposta, f"a contagem não bateu: {resposta[:160]!r}")
+            sobrou = [c for c in await guild.fetch_channels() if c.id in set(ids_todos)]
+            self.assert_true(not sobrou,
+                             f"'todos' deixou canal de teste para trás: {[c.name for c in sobrou]}")
+            depois_total = len(await guild.fetch_channels())
+            self.assert_true(depois_total == total_antes - len(do_teste),
+                             f"a exclusão mexeu em canal fora dos de teste "
+                             f"({total_antes} → {depois_total}, esperado "
+                             f"{total_antes - len(do_teste)})")
+            for i in ids_todos:
+                self.owned_channels.discard(i)
+            return (f"pedido `['todos']` apagou os {len(do_teste)} canais de teste em "
+                    f"{segundos_exclusao:.1f}s — inclusive o "
+                    f"que nasceu DEPOIS da conversa — e conferiu o resultado na API "
+                    f"(o resto do servidor ficou intacto)")
+
+        await self.check(phase, "exclusão de TODOS confere no servidor (bug das sobras)",
+                         exclusao_de_todos_confere_no_servidor)
 
         async def apagar_mensagens_reais() -> str:
             """'exclua esse chat' tem que apagar MENSAGENS de verdade (com manage_messages)."""
@@ -3004,8 +3108,11 @@ class Harness:
 
             # hierarquia: cargo acima do bot precisa ser recusado com explicação
             pos_bot_api = await topo_do_bot()
+            # Cargo gerenciado (o do próprio bot, por exemplo) é recusado por outro motivo
+            # ("gerenciado por uma integração") — não serve para provar a RECUSA POR POSIÇÃO.
             acima = next((r for r in await guild.fetch_roles()
-                          if r.position >= pos_bot_api and not r.is_default()), None)
+                          if r.position >= pos_bot_api and not r.is_default()
+                          and not getattr(r, "managed", False)), None)
             if acima is None:
                 self.rep.record(phase, "cargos: recusa de cargo acima do bot", WARN,
                                 "não existe cargo no nível do meu topo para testar a recusa "
@@ -3451,10 +3558,10 @@ class Harness:
             v = next((c for c in novos if c.name == f"{TEMP_MARK}-caps-import-voz"), None)
             solto = next((c for c in novos if c.name == f"{TEMP_MARK}-caps-import-solto"), None)
             self.assert_true(t and v and solto, "faltou canal do import (categoria ou sem categoria)")
-            ft = await guild.fetch_channel(t.id)
+            ft = await self._fetch_channel_retry(guild, t.id)
             self.assert_true(ft.topic == "veio do import" and ft.nsfw and ft.slowmode_delay == 11,
                              f"texto do import: {ft.topic!r}/{ft.nsfw}/{ft.slowmode_delay}")
-            fv = await guild.fetch_channel(v.id)
+            fv = await self._fetch_channel_retry(guild, v.id)
             self.assert_true(fv.bitrate == 96000 and fv.user_limit == 5,
                              f"voz do import: {fv.bitrate}/{fv.user_limit}")
             pai = next((c for c in novos if c.type.name == "category"), None)

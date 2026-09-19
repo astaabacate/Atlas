@@ -21,7 +21,7 @@ class TestMascaraDeDados(unittest.TestCase):
         self.anon = Anonimizador()
 
     def test_id_de_servidor_some(self) -> None:
-        self.assertEqual(self.anon.mascarar("servidor 1546763083005825084 pronto"),
+        self.assertEqual(self.anon.mascarar("servidor 987654321098765432 pronto"),
                          "servidor <id> pronto")
 
     def test_numero_curto_nao_e_confundido_com_id(self) -> None:
@@ -29,14 +29,14 @@ class TestMascaraDeDados(unittest.TestCase):
         self.assertEqual(self.anon.mascarar(texto), texto)
 
     def test_mencoes_viram_rotulo(self) -> None:
-        self.assertEqual(self.anon.mascarar("mandei em <#1550640448442212453> e marquei <@&153>"),
+        self.assertEqual(self.anon.mascarar("mandei em <#987654321098765433> e marquei <@&153>"),
                          "mandei em <#canal> e marquei <@&cargo>")
-        self.assertEqual(self.anon.mascarar("o dono é <@1521612392105250836>"),
+        self.assertEqual(self.anon.mascarar("o dono é <@987654321098765435>"),
                          "o dono é <@pessoa>")
 
     def test_link_de_mensagem_some(self) -> None:
         self.assertEqual(
-            self.anon.mascarar("https://discord.com/channels/1546763083005825084/1550640448442212453/1550651829866733669"),
+            self.anon.mascarar("https://discord.com/channels/987654321098765432/987654321098765433/987654321098765434"),
             "https://discord.com/channels/<servidor>/<canal>/<mensagem>")
 
     def test_nome_de_servidor_ganha_apelido_estavel(self) -> None:
@@ -51,12 +51,12 @@ class TestMascaraDeDados(unittest.TestCase):
         self.assertEqual(self.anon.mascarar("Outro Servidor"), "Servidor-2")
 
     def test_nome_de_canal_e_de_cargo_somem(self) -> None:
-        self.anon.registrar_varios(["atlas-oi-da-ia"], "canal")
-        self.anon.registrar_varios(["Cupido", "iTinder"], "cargo")
-        saida = self.anon.mascarar("criei atlas-oi-da-ia com os cargos Cupido e iTinder")
-        self.assertNotIn("atlas-oi-da-ia", saida)
-        self.assertNotIn("Cupido", saida)
-        self.assertNotIn("iTinder", saida)
+        self.anon.registrar_varios(["canal-de-teste"], "canal")
+        self.anon.registrar_varios(["Cargo Um", "Cargo Dois"], "cargo")
+        saida = self.anon.mascarar("criei canal-de-teste com os cargos Cargo Um e Cargo Dois")
+        self.assertNotIn("canal-de-teste", saida)
+        self.assertNotIn("Cargo Um", saida)
+        self.assertNotIn("Cargo Dois", saida)
 
     def test_nome_curto_nao_e_mascarado(self) -> None:
         # Mascarar nome de 1-2 letras destruiria o texto inteiro.
@@ -80,7 +80,7 @@ class TestMascaraDeDados(unittest.TestCase):
     def test_mascara_estrutura_do_json(self) -> None:
         self.anon.registrar("Servidor do Cliente", "servidor")
         dados = {"meta": {"servidor": "Servidor do Cliente"}, "checks": [
-            {"detail": "1: Servidor do Cliente (1546763083005825084)", "ms": 12, "ok": True}]}
+            {"detail": "1: Servidor do Cliente (987654321098765432)", "ms": 12, "ok": True}]}
         saida = self.anon.mascarar_estrutura(dados)
         self.assertEqual(saida["meta"]["servidor"], "Servidor-1")
         self.assertEqual(saida["checks"][0]["detail"], "1: Servidor-1 (<id>)")

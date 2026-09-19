@@ -473,13 +473,13 @@ class TestRelatorioNaoExpoeOCliente(unittest.TestCase):
                 raise RuntimeError("disfarce fora do ar")
 
         with tempfile.TemporaryDirectory() as tmp:
-            sonda._gravar(pathlib.Path(tmp), ["## Servidor Servidor-Teste (`1546763083005825084`)"],
+            sonda._gravar(pathlib.Path(tmp), ["## Servidor Servidor-Teste (`987654321098765432`)"],
                           {"guilds": [{"nome": "Servidor-Teste"}]}, SemDisfarce())
             md = (pathlib.Path(tmp) / "sonda-hierarquia.md").read_text(encoding="utf-8")
             js = (pathlib.Path(tmp) / "sonda-hierarquia.json").read_text(encoding="utf-8")
         self.assertIn("retido", md)
         self.assertNotIn("Servidor-Teste", md + js)
-        self.assertNotIn("1546763083005825084", md + js)
+        self.assertNotIn("987654321098765432", md + js)
 
 
 if __name__ == "__main__":

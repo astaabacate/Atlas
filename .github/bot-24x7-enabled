@@ -211,3 +211,5 @@ cron de segurança levantou uma execução a partir da `main` (código velho `8c
 pendência entra na frente para o bot voltar com o código novo do ramo da sessão: Components V2
 com a cor medida do avatar, o canal da conversa nunca apagado ("menos esse"), a cor remedida
 quando a foto trocar e o conserto do `bot.yml` que ficou inválido às 19:59Z.
+
+Reinício 19/09 (madrugada): exclusão de canais conferida na API ("apague todos" lê o servidor na hora) + e2e com retry e marca única. O bot pega este código quando esta fatia terminar.

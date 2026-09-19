@@ -132,7 +132,11 @@ TOOLS: list[ToolDef] = [
                 "channels": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Lista de nomes, menções ou IDs dos canais/categorias a excluir.",
+                    "description": (
+                        "Lista de nomes, menções ou IDs dos canais/categorias a excluir. Para "
+                        "\"apague todos os canais\" use exatamente [\"todos\"]: o servidor é lido "
+                        "na hora da exclusão e a conferência é feita na API (não enumere nomes)."
+                    ),
                 },
                 "confirmed": {
                     "type": "boolean",

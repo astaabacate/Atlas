@@ -19,6 +19,14 @@ from core.bulk import run_bulk
 MAX_PURGE_MESSAGES = 500
 from brain.policy import require
 from brain.resolve import resolve_channel, resolve_member, resolve_role
+from brain.ops_delete import (  # noqa: E402 - helpers testáveis da exclusão
+    ainda_existem,
+    e_item_de_tudo,
+    e_pedido_de_todos,
+    expandir_tudo,
+    nomes,
+)
+
 from brain.tools import ToolContext, ToolError
 
 logger = logging.getLogger("atlas.brain.ops")
@@ -608,13 +616,25 @@ async def op_delete_channels(
     guild = ctx.guild
     resolved_channels = []
     category_channels_count = 0
+    mantido: Any = None
+    # "apague TODOS os canais" não pode depender da lista que o modelo tinha em mãos: o servidor
+    # muda enquanto a conversa acontece (foi assim que sobrou canal — bug ao vivo de 18/09).
+    # Aqui a lista de "todos" é montada NA HORA, direto da API.
+    if e_pedido_de_todos(channels):
+        expandidos = await expandir_tudo(guild, list(channels), fora=ctx.channel)
+        if expandidos:
+            # Os canais expandidos entram já resolvidos (são objetos frescos da API): passar por
+            # nome/id de novo só daria chance de errar por causa do cache velho.
+            channels = [*[c for c in channels if not e_item_de_tudo(c)], *expandidos]
+            logger.info("Exclusão de TODOS os canais: %d alvo(s) lido(s) agora da API",
+                        len(expandidos))
+            if getattr(ctx, "channel", None) is not None:
+                mantido = ctx.channel  # a nota "menos esse" vale também no caminho de "todos"
     # Bug do dono (18/09): "apague todos os canais menos esse" — o modelo mandou a lista com o
     # canal da conversa dentro e o bot apagou o canal onde estava falando (o pedido dizia o
     # contrário e a resposta nem teria onde aparecer). Canal da conversa NUNCA entra na lista.
-    mantido: Any = None
-
     for q in channels:
-        ch = resolve_channel(guild, q)
+        ch = q if not isinstance(q, str) else resolve_channel(guild, q)
         if _e_o_canal_da_conversa(ctx, ch):
             mantido = ch
             continue
@@ -666,13 +686,29 @@ async def op_delete_channels(
             return f"#{name}"
         raise ToolError(f"Canal '{name}' não pôde ser excluído.")
 
-    res = await run_bulk(resolved_channels, _delete_one, concurrency=3)
+    res = await run_bulk(resolved_channels, _delete_one, concurrency=6)
     if not res.succeeded and res.failed:
+        # Nada saiu: diz QUAIS falharam e por quê — "Falha ao excluir canais" sozinho não ajuda.
         err = res.failed[0][1]
-        raise ToolError(f"Falha ao excluir canais: {err}")
+        raise ToolError(f"Nenhum canal foi excluído. Falhas: {nomes([c for c, _ in res.failed])} "
+                        f"({err})")
+
+    # Conferência: o Discord pode ter recusado sem erro (canal já apagado, cache velho) e a
+    # resposta não pode dizer "concluído" com canal em pé. Relê a lista e tenta UMA vez mais.
+    restantes = await ainda_existem(guild, resolved_channels)
+    if restantes:
+        logger.info("Exclusão: %d canal(is) ainda em pé; tentando de novo", len(restantes))
+        await run_bulk(restantes, _delete_one, concurrency=6)
+        restantes = await ainda_existem(guild, resolved_channels)
 
     deleted_names = ", ".join(res.succeeded)
-    return f"🗑️ Exclusão concluída: {deleted_names} ({res.summary()}).{nota_do_canal_atual}"
+    if restantes:
+        # Honestidade acima de tudo: diz o que sobrou e por quê, em vez de "concluído".
+        return (f"🗑️ Apaguei {len(res.succeeded)} canal(is) ({res.summary()}). "
+                f"NÃO consegui apagar: {nomes(restantes)} — o Discord recusou; tente de novo "
+                f"ou apague pela interface.{nota_do_canal_atual}")
+    return (f"🗑️ Exclusão concluída e conferida na API: {deleted_names} "
+            f"({res.summary()}).{nota_do_canal_atual}")
 
 
 async def op_move_channel(

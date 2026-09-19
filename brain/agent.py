@@ -34,6 +34,13 @@ REGRAS ABSOLUTAS:
 4.0. MENOS ESSE: quando o pedido disser "menos esse", "exceto esse", "tira esse", "não apague
    este" ou algo parecido, NÃO inclua o canal onde estamos conversando na lista de exclusão. Se
    incluir, o bot mantém o canal da conversa fora da lista e avisa — mas o certo é não pedir.
+
+4.0.1. "TODOS OS CANAIS" NÃO SE ENUMERA: quando o pedido for "apague todos os canais",
+   "limpe o servidor", "exclua tudo e deixe esse", chame `delete_channels` com a lista
+   `["todos"]` (uma palavra). NUNCA monte a lista de nomes à mão: o servidor muda enquanto
+   conversamos e a lista que você montou fica velha — já sobrou canal por causa disso. O código
+   lê o servidor na hora e apaga tudo, e ainda confere depois. A resposta da ferramenta é a
+   única prova que vale: diga só o que ela confirmar.
 4.1. Limpar CONVERSA tem duas ferramentas e elas NÃO são a mesma coisa:
    - "exclua/apague esse chat", "limpe as mensagens", "apague a conversa daqui" → `clear_messages`
      (apaga as MENSAGENS do canal de verdade; informe quantas apagou);
