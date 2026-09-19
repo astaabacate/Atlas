@@ -54,8 +54,10 @@ jobs:
           # Um bot por token: enquanto o antigo estiver rodando, cada mensagem seria respondida
           # duas vezes. Aqui a fatia antiga é derrubada na hora em que o novo sobe (o arquivo
           # .github/bot-disabled impede que ela volte).
-          ids=$(gh run list --workflow=bot.yml --status=in_progress --status=queued \
-                  --json=databaseId --jq '.[].databaseId' 2>/dev/null || true)
+          # Filtra no jq, não no --status: "pending"/"waiting" escapam dos filtros da CLI e uma
+          # fatia antiga continuava no ar (cada mensagem respondida duas vezes).
+          ids=$(gh run list --workflow=bot.yml --limit 50 --json=databaseId,status \
+                  --jq '.[] | select(.status != "completed") | .databaseId' 2>/dev/null || true)
           if [ -z "${ids:-}" ]; then
             echo "::notice title=atlas2::nenhuma execução do bot antigo no ar."
             exit 0
