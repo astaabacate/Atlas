@@ -1,6 +1,6 @@
 # 🏮 Oi ao vivo — Atlas
 
-- Quando: 2026-09-19 00:46:10Z
+- Quando: 2026-09-19 00:54:08Z
 - Resultado: ✅ mensagem <id> entregue em #Canal-1
 - Servidor: Servidor-1 (<id>)
 - Canal: #Canal-1 (<id>)
@@ -9,5 +9,5 @@
 
 Notas:
 - servidores visíveis: Servidor-1 (<id>); escolhido: Servidor-1
-- canal #Canal-1 criado agora (<id>)
+- canal #Canal-1 já existia; reutilizado
 - envio em Components V2, cor 5865f2 (medida do avatar)
