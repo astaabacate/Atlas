@@ -47,7 +47,12 @@ jobs:
         run: |
           set -uo pipefail
           python scripts/testar_omniroute.py --outdir reports
-          echo "codigo=$?" >> "$GITHUB_OUTPUT" || true
+          codigo=$?
+          if [ "$codigo" -eq 3 ]; then
+            echo "::warning title=omniroute::ainda não configurado — cadastre a variável OMNIROUTE_BASE_URL e o segredo OMNIROUTE_API_KEY (Settings → Secrets and variables → Actions) e rode de novo"
+            exit 0
+          fi
+          exit "$codigo"
         continue-on-error: true
 
       - name: Publicar o relatório mascarado no branch
