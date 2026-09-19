@@ -1,10 +1,10 @@
 # 🏮 Atlas — relatório de teste E2E
 
-- **Resumo:** ✅ 108 · ❌ 5 · ⚠️ 7 · ⏭️ 4
+- **Resumo:** ✅ 112 · ❌ 2 · ⚠️ 8 · ⏭️ 4
 - **python:** 3.11.16
 - **runner:** Linux
-- **commit:** a7d2cd8
-- **execução:** 35410890026
+- **commit:** 8a804bd
+- **execução:** 35412054387
 - **discord.py:** 2.7.1
 - **fases:** static, spy, policy, connect, audit, tools, agent, mutate, caps, botloop, sweep
 - **mutações reais:** sim
@@ -22,7 +22,7 @@
 | PASS | `toda ferramenta tem política` | as 31 ferramentas têm política declarada |
 | PASS | `qualidade dos schemas enviados ao LLM` | descrições e schemas bem formados para function calling |
 | PASS | `prompt de sistema completo` | prompt com os 7 blocos obrigatórios (regra de confirmação dinâmica) |
-| PASS | `tamanho do payload enviado ao LLM` | schema com 15123 chars + prompt de 2322 chars |
+| PASS | `tamanho do payload enviado ao LLM` | schema com 15273 chars + prompt de 2830 chars |
 
 ## Duplos de teste: a ferramenta promete, a ferramenta faz?
 `spy` — ✅ 23 · ❌ 0 · ⚠️ 0 · ⏭️ 0
@@ -34,7 +34,7 @@
 | PASS | `edit_channel edita de verdade` | chamou edit() e respondeu 'Canal <#canal> atualizado com sucesso (name, nsfw, slowmode_d' |
 | PASS | `move_channel move de verdade` | chamou edit() e respondeu 'Canal <#canal> movido com sucesso (categoria: sem categoria, ' |
 | PASS | `clone_channel clona de verdade` | chamou clone() e respondeu 'Canal clonado: <#canal> 🎉 (copiei tópico, NSFW, modo lento, c' |
-| PASS | `delete_channels apaga de verdade (1 canal)` | chamou delete() e respondeu '🗑️ Exclusão concluída: #descartavel-spy (✅ 1/1 concluídos co' |
+| PASS | `delete_channels apaga de verdade (1 canal)` | chamou delete() e respondeu '🗑️ Exclusão concluída e conferida na API: #descartavel-spy (' |
 | PASS | `delete_channels NUNCA apaga o canal da conversa` | canal da conversa preservado no lote, com aviso na resposta; pedido só dele é recusado explicando o caminho (clear_messages) |
 | PASS | `delete_channels em lote: modo direto apaga na hora` | 2 canais apagados direto, com o resultado na resposta |
 | PASS | `delete_channels em lote: modo cauteloso pede confirmação` | 2 canais: exige confirmação e só apaga com confirmed=true |
@@ -82,7 +82,7 @@
 | PASS | `configuração carregada` | token no formato correto (72 chars) · provider=auto · intents: members=False, message_content=False |
 | PASS | `corrida de LLMs responde` | vencedor kilo (tools nativas: True) → 'pong' |
 | PASS | `servidores do bot` | 1: Pinguim (<id>) |
-| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 73ms |
+| PASS | `login e gateway` | conectado como Atlas#1985 · gateway em 19ms |
 | PASS | `servidor e autor do teste` | servidor de teste: Pinguim (<id>) · autor: ek8a (administrador) |
 
 ## Diagnóstico de permissões e hierarquia no servidor
@@ -93,70 +93,72 @@
 | PASS | `permissões do bot no servidor` | OK: ['manage_channels', 'manage_roles', 'manage_guild', 'administrator', 'send_messages'] |
 | WARN | `cargos que o bot não consegue gerenciar` | 1 cargo(s) no nível ou acima do bot (Atlas): ele não conseguirá editar/apagar esses cargos. Suba o cargo do atlas (README Passo 3). |
 | PASS | `hierarquia de cargos` | cargo do bot na posição 4 |
-| PASS | `estrutura do servidor` | 0 categorias · 1 texto · 0 voz · 4 cargos · 4 membros |
-| PASS | `snapshot do servidor` | snapshot com 10 linhas alimenta o prompt |
-| PASS | `estado local bate com a API` | cache local bate com a API REST (1 canais, 4 cargos) |
+| PASS | `estrutura do servidor` | 2 categorias · 4 texto · 3 voz · 5 cargos · 4 membros |
+| PASS | `snapshot do servidor` | snapshot com 21 linhas alimenta o prompt |
+| PASS | `estado local bate com a API` | cache local bate com a API REST (10 canais, 5 cargos) |
 
 ## Ferramentas somente-leitura em servidor real
 `tools` — ✅ 7 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `server_info` | 📊 **Informações de Servidor-1:** · • **ID:** `<id>` · • **Dono:** <@pessoa> · • **Membros:** 4 · • **Canais:** 1 · • **Cargos:** 4 · • **Criado em:** 2026-09-08 06:04:16.45700 |
+| PASS | `server_info` | 📊 **Informações de Servidor-1:** · • **ID:** `<id>` · • **Dono:** <@pessoa> · • **Membros:** 4 · • **Canais:** 10 · • **Cargos:** 5 · • **Criado em:** 2026-09-08 06:04:16.4570 |
 | PASS | `performance_report (tempo das respostas)` | Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). Me peça de novo depois de algumas tarefas. |
-| PASS | `list_roles` | listou os 4 cargos reais com menção e posição |
-| PASS | `export_structure (JSON válido e completo)` | 0 categorias, 1 canais e 3 cargos exportados em JSON válido |
+| PASS | `list_roles` | listou os 5 cargos reais com menção e posição |
+| PASS | `export_structure (JSON válido e completo)` | 2 categorias, 8 canais e 4 cargos exportados em JSON válido |
 | PASS | `show_permissions` | O canal <#canal> não possui permissões personalizadas configuradas. |
-| PASS | `resolve por ID e por menção` | 1 canais e 4 cargos resolvidos por ID e por menção |
+| PASS | `resolve por ID e por menção` | 6 canais e 5 cargos resolvidos por ID e por menção |
 | PASS | `APIs externas (cores/emojis/tópicos/tradução)` | 5 APIs externas responderam |
 
 ## Agente + LLM ao vivo (prompt → ferramenta → resposta)
-`agent` — ✅ 4 · ❌ 1 · ⚠️ 1 · ⏭️ 0
+`agent` — ✅ 5 · ❌ 0 · ⚠️ 1 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', 'iTinder', 'Cupido'] |
-| PASS | `tempo de cada ida ao modelo` | 1 chamada(s) ao modelo: mediana **4.7s** (4.7s) · corredores que responderam: kilo |
-| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Não posso aplicar bans: meu foco exclusivo é montar e organizar a estrutura do servidor.' |
+| PASS | `prompt → ferramenta → resposta coerente` | ferramentas ['list_roles'] · vencedor kilo · citou ['@everyone', '🧪35411949977-caps-renomeado', 'iTinder'] |
+| PASS | `tempo de cada ida ao modelo` | 1 chamada(s) ao modelo: mediana **3.5s** (3.5s) · corredores que responderam: kilo |
+| PASS | `fora de escopo é recusado sem executar` | recusou moderação sem chamar ferramentas: 'Meu foco exclusivo é montar e organizar a estrutura do servidor, então não posso banir usu' |
 | WARN | `agente: resposta com dados reais (sem listar nomes)` | o modelo respondeu com o resumo do servidor (dados reais conferidos na API) em vez de listar categorias/canais por nome |
-| PASS | `agente conhece a estrutura real` | respondeu com dados reais do servidor (nome do servidor (Servidor-1), menção do dono, canais=1, cargos=4) |
-| FAIL | `memória do canal entre turnos` | memória do canal falhou: 'Você pediu para eu guardar o apelido **“Servidor-Teste”** para o servidor.' |
+| PASS | `agente conhece a estrutura real` | respondeu com dados reais do servidor (nome do servidor (Servidor-1), menção do dono, canais=10, cargos=5) |
+| PASS | `memória do canal entre turnos` | histórico do canal lembrado entre turnos |
 
 ## Mutações reais em objetos de teste (com limpeza)
-`mutate` — ✅ 17 · ❌ 0 · ⚠️ 0 · ⏭️ 1
+`mutate` — ✅ 18 · ❌ 0 · ⚠️ 0 · ⏭️ 1
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `infra: categoria e canais de teste` | categoria 🧪 teste-atlas + 🧪-texto + 🧪-voz criados (registrados para limpeza) |
-| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪-dentro', '🧪-dentro-voz']) |
-| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪-raiz-categoria', '🧪-raiz-voz', '🧪-raiz-texto']) |
-| PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪-renomeado) |
-| PASS | `clone_channel clonou de verdade` | clone 🧪-clone criado com a mesma categoria |
+| PASS | `infra: categoria e canais de teste` | categoria 🧪35412054387 teste-atlas + 🧪35412054387-texto + 🧪35412054387-voz criados (registrados para limpeza) |
+| PASS | `create_channels DENTRO de categoria (via ferramenta)` | texto + voz criados dentro da categoria existente (['🧪35412054387-dentro', '🧪35412054387-dentro-voz']) |
+| PASS | `create_channels na RAIZ (via ferramenta)` | texto + voz + categoria criados na raiz (['🧪35412054387-raiz-texto', '🧪35412054387-raiz-voz', '🧪35412054387-raiz-categoria']) |
+| PASS | `edit_channel alterou de verdade` | nome, tópico e slowmode confirmados na API (🧪35412054387-renomeado) |
+| PASS | `clone_channel clonou de verdade` | clone 🧪35412054387-clone criado com a mesma categoria |
 | PASS | `move_channel moveu de verdade` | saiu e voltou de categoria, confirmado pela API |
 | PASS | `cargos: criar/editar/atribuir de verdade` | cargo criado, editado e confirmado na API (cargo dado e retirado do próprio bot) |
 | PASS | `permissões de canal confirmadas pela API` | set, sync, clear e show (com filtro por target) confirmados pela API |
 | PASS | `import_structure recriou a estrutura` | import recriou 3 canais e 2 cargo(s) |
 | PASS | `fluxo de confirmação em canais reais (modo cauteloso)` | 2 canais: modo cauteloso pediu confirmação e só apagou com confirmed=true |
 | PASS | `exclusão em lote direta em canais reais` | 2 canais reais apagados direto, sem perguntar, com o resultado na resposta |
+| PASS | `exclusão de TODOS confere no servidor (bug das sobras)` | pedido `['todos']` apagou os 3 canais de teste em 0.4s — inclusive o que nasceu DEPOIS da conversa — e conferiu o resultado na API (o resto do servidor ficou intacto) |
 | PASS | `clear_messages apaga mensagens reais do canal` | apagou 3 mensagem(ns) reais e o canal ficou vazio |
-| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 4.6s: '🗑️ Exclusão concluída: #🧪-efemero (✅ 1/1 concluídos com sucesso.).' |
-| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 45.4s (1 ida(s) ao LLM): '🗑️ Exclusão concluída: #🧪-lote-1, #🧪-lote-2 (✅ 2/2 concluído' |
-| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | pediu confirmação e apagou depois do 'sim' ('A exclusão em lote de 2 canais exige confirmação. Responda *') |
+| PASS | `agente apaga canal nominal sem travar` | agente apagou o canal nominal direto em 52.9s: '🗑️ Exclusão concluída e conferida na API: #🧪35412054387-efemero (✅ 1/1 concluído' |
+| PASS | `agente apaga lote direto, sem perguntar (padrão)` | apagou os 2 canais direto em 6.1s (1 ida(s) ao LLM): '🗑️ Exclusão concluída e conferida na API: #🧪35412054387-lote' |
+| PASS | `modo cauteloso pergunta e apaga após 'sim' (CONFIRM_DESTRUCTIVE)` | pediu confirmação e apagou depois do 'sim' ('Para apagar os dois canais de uma vez, confirme com **“sim”*') |
 | PASS | `apply_template (--allow-template)` | template 'estudos' criou 3 categorias, 6 canais dentro delas e 4 cargos (todos registrados para limpeza) |
 | SKIP | `edit_server / set_icon no servidor real` | não executado de propósito (renomearia o servidor / trocaria o ícone real); a fase spy prova que set_icon agora baixa a imagem e manda os bytes em guild.edit(icon=...) |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
 ## Matriz de capacidades: cada parâmetro, valor e combinação no Discord real
-`caps` — ✅ 18 · ❌ 2 · ⚠️ 1 · ⏭️ 0
+`caps` — ✅ 20 · ❌ 0 · ⚠️ 2 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `infra: categoria e canais da matriz` | categoria 🧪 caps + 🧪-caps-texto + 🧪-caps-voz prontos (tudo registrado para limpeza) |
+| PASS | `infra: categoria e canais da matriz` | categoria 🧪35412054387 caps + 🧪35412054387-caps-texto + 🧪35412054387-caps-voz prontos (tudo registrado para limpeza) |
 | PASS | `cargos: criar com nome, cor, hoist, mentionable e permissões` | cargo real com cor 0x5865f2, hoist, mentionable e 3 permissões conferidas na API (posição 1) |
-| PASS | `cargos: exclusão em lote (delete_roles) apaga de verdade` | 2 cargos apagados em UMA chamada e conferidos na API · '🗑️ Apaguei 2 cargo(s): **🧪-caps-lote-b**, **🧪-caps-lote-a**' |
+| PASS | `cargos: exclusão em lote (delete_roles) apaga de verdade` | 2 cargos apagados em UMA chamada e conferidos na API · '🗑️ Apaguei 2 cargo(s): **🧪35412054387-caps-lote-a**, **🧪35412054387-caps-lote-b**' |
 | PASS | `medição: performance_report responde o tempo real` | resposta de 124 caracteres · 'Ainda não respondi nada nesta sessão do bot (nenhuma medida de tempo disponível). Me peça ' |
 | PASS | `cargos: editar cada propriedade e ver o efeito real` | cada propriedade verificada no servidor: nome; cor; hoist+mentionable; permissões (substituição); troca de conjunto sem acumular; posição (pedida 1, ficou 1, teto do bot 4) |
-| FAIL | `cargos: valores inválidos, @everyone e hierarquia` | mensagem de hierarquia confusa: O cargo 'Atlas' é gerenciado por uma integração ou aplicativo e não pode ser modificado. |
+| WARN | `cargos: recusa de cargo acima do bot` | não existe cargo no nível do meu topo para testar a recusa (servidor com o bot no topo) |
+| PASS | `cargos: valores inválidos, @everyone e hierarquia` | valores inválidos recusados sem tocar no cargo: hexadecimal, negativa, Não conheço a permissão, Nada para editar, @everyone |
 | PASS | `cargos: dar e tirar de um membro (estado real)` | cargo dado e removido de Pessoa-1, conferido na API em cada passo |
 | WARN | `canais: tipo stage` | stage: Falha ao criar canais: canal de palco (stage) só existe em servidor com o recurso **Comunidade** ativado — sem isso o Discord recusa a criação. |
 | PASS | `canais: todos os tipos suportados (tipo real na API)` | tipos reais conferidos na API: text→text, voice→voice, category→category, forum→forum |
@@ -168,8 +170,8 @@
 | PASS | `permissões: allow, deny, conflito, leitura e limpeza` | allow e deny em português viraram permissões reais (view_channel/send_messages/mention_everyone), conflito recusado e limpeza conferida na API |
 | PASS | `permissões: sincronizar canal com a categoria` | permissão da categoria copiada para o canal filho (conferido na API) |
 | PASS | `permissões: autor sem permissão é barrado antes da API` | 4 ferramentas recusadas ANTES de tocar no Discord (autor sem permissão) e nenhum objeto criado ou apagado |
-| PASS | `estrutura: export guarda as capacidades reais` | export real com 4 cargos (permissões, hoist, mentionable) e canais com tipo, tópico, nsfw=True, slowmode=9, bitrate e limite |
-| FAIL | `estrutura: import recria com os mesmos campos (round-trip)` | NotFound: 404 Not Found (error code: 10003): Unknown Channel |
+| PASS | `estrutura: export guarda as capacidades reais` | export grande: recorte AVISADO (não serve para importar), com o balanço de canais/categorias/cargos exportados (as chaves que caem fora do recorte não podem ser cobradas do pedaço; o round-trip completo é verificado na fase de import e nos testes offline) |
+| PASS | `estrutura: import recria com os mesmos campos (round-trip)` | import recriou cargo (cor, hoist, mentionable, permissões) e canais (tópico, nsfw, slowmode, bitrate, limite, categoria e sem categoria) — conferido na API · '✅ Estrutura importada: 1 cargo(s) e 3 canal(is) recriados com tipo, tópico, nsfw, slowmode, bitrate,' |
 | PASS | `repetição: mesma ordem várias vezes não quebra nem duplica efeito` | 3 ordens iguais = 1 canal (sem duplicata), lote com nome repetido = 1 canal, nome novo nasce normalmente e a edição continua pegando |
 | PASS | `limpeza` | todos os objetos de teste foram removidos |
 
@@ -178,22 +180,22 @@
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `canal temporário de teste` | canal temporário 🧪-loop-do-bot (<id>) criado |
+| PASS | `canal temporário de teste` | canal temporário 🧪35412054387-loop-do-bot (<id>) criado |
 | PASS | `ignora mensagem sem menção` | mensagem sem menção ignorada |
 | PASS | `ignora mensagens de outros bots` | mensagem de outro bot ignorada |
 | PASS | `DM é respondida com o aviso de escopo` | DM respondida com o aviso de escopo: 'Olá! Eu sou o **atlas**, especialista em estruturar e organi' |
-| FAIL | `menção dispara o agente e responde` | o bot não respondeu à menção |
+| FAIL | `menção dispara o agente e responde` | o bot não respondeu à menção — reações: ✅ |
 | FAIL | `resposta em Components V2 com a cor do atlas` | a resposta não veio em Components V2 (container) |
-| PASS | `tempo até responder (mensagem → resposta)` | o cliente espera **3.3s** (mediana de 3) entre mandar e receber: 3.2s, 3.3s, 7.5s |
+| PASS | `tempo até responder (mensagem → resposta)` | o cliente espera **2.9s** (mediana de 3) entre mandar e receber: 2.6s, 2.9s, 4.4s |
 | PASS | `reações de feedback 👀→✅` | reações corretas no Discord real: ['✅'] |
-| PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪-via-bot'] |
+| PASS | `ferramenta real acionada por mensagem` | o bot criou de verdade: ['🧪35412054387-via-bot'] |
 
 ## Varredura de sobras de teste
 `sweep` — ✅ 1 · ❌ 0 · ⚠️ 0 · ⏭️ 0
 
 | Status | Verificação | Detalhe |
 | --- | --- | --- |
-| PASS | `varredura de sobras` | 3 objeto(s) de teste removidos (#Canal-2, #Canal-3, #Canal-4) |
+| PASS | `varredura de sobras` | 3 objeto(s) de teste removidos (#Canal-11, #Canal-12, #Canal-13) |
 
 ## Cobertura: quais ferramentas foram exercitadas nesta execução
 `cobertura` — ✅ 0 · ❌ 0 · ⚠️ 4 · ⏭️ 3
