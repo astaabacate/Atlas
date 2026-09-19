@@ -620,16 +620,23 @@ async def op_delete_channels(
     # "apague TODOS os canais" não pode depender da lista que o modelo tinha em mãos: o servidor
     # muda enquanto a conversa acontece (foi assim que sobrou canal — bug ao vivo de 18/09).
     # Aqui a lista de "todos" é montada NA HORA, direto da API.
-    if e_pedido_de_todos(channels):
+    pedido_de_todos = e_pedido_de_todos(channels)
+    if pedido_de_todos:
         expandidos = await expandir_tudo(guild, list(channels), fora=ctx.channel)
-        if expandidos:
-            # Os canais expandidos entram já resolvidos (são objetos frescos da API): passar por
-            # nome/id de novo só daria chance de errar por causa do cache velho.
-            channels = [*[c for c in channels if not e_item_de_tudo(c)], *expandidos]
-            logger.info("Exclusão de TODOS os canais: %d alvo(s) lido(s) agora da API",
-                        len(expandidos))
-            if getattr(ctx, "channel", None) is not None:
-                mantido = ctx.channel  # a nota "menos esse" vale também no caminho de "todos"
+        if not expandidos:
+            # Sem lista lida agora não se apaga "todos": seria adivinhar. Melhor dizer que não
+            # deu e deixar o dono tentar de novo do que apagar um subconjunto e chamar de tudo.
+            raise ToolError(
+                "Não consegui ler a lista de canais do servidor agora (o Discord não respondeu). "
+                "Tente de novo em alguns segundos — não vou apagar 'todos' no escuro."
+            )
+        # Os canais expandidos entram já resolvidos (são objetos frescos da API): passar por
+        # nome/id de novo só daria chance de errar por causa do cache velho.
+        channels = [*[c for c in channels if not e_item_de_tudo(c)], *expandidos]
+        logger.info("Exclusão de TODOS os canais: %d alvo(s) lido(s) agora da API",
+                    len(expandidos))
+        if getattr(ctx, "channel", None) is not None:
+            mantido = ctx.channel  # a nota "menos esse" vale também no caminho de "todos"
     # Bug do dono (18/09): "apague todos os canais menos esse" — o modelo mandou a lista com o
     # canal da conversa dentro e o bot apagou o canal onde estava falando (o pedido dizia o
     # contrário e a resposta nem teria onde aparecer). Canal da conversa NUNCA entra na lista.

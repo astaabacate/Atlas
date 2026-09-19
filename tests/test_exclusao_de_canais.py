@@ -220,3 +220,32 @@ class TestFluxoCompletoDaExclusao(unittest.TestCase):
         texto = str(erro.exception)
         self.assertIn("Missing Permissions", texto)
         self.assertIn("#teimoso", texto, "o erro tem que dizer QUAL canal falhou")
+
+
+class TestNaoApagaNoEscuro(unittest.TestCase):
+    """Sem a lista lida da API, 'todos' NÃO pode virar um chute (apagar parte e chamar de tudo)."""
+
+    def test_api_fora_do_ar_recusa_com_motivo(self) -> None:
+        from types import SimpleNamespace
+
+        from brain.ops import op_delete_channels
+        from brain.tools import ToolContext, ToolError
+
+        class ServidorMudo:
+            channels: list[Any] = []
+            categories: list[Any] = []
+            owner_id = 1
+
+            async def fetch_channels(self) -> list[Any]:
+                raise TimeoutError("o Discord não respondeu")
+
+        perms = SimpleNamespace(administrator=True, manage_channels=True)
+        guild = ServidorMudo()
+        guild.me = SimpleNamespace(id=9, guild_permissions=perms)  # type: ignore[attr-defined]
+        ctx = ToolContext(guild=guild, channel=SimpleNamespace(id=5, name="aqui"),
+                          actor=SimpleNamespace(id=1, guild_permissions=perms),
+                          confirm_destructive=False)
+
+        with self.assertRaises(ToolError) as erro:
+            asyncio.run(op_delete_channels(ctx, ["todos"], confirmed=True))
+        self.assertIn("no escuro", str(erro.exception))
